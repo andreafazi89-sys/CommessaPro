@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0F0D0A">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="logo.svg">
+<title>Contabilità</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Epilogue:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0F0D0A;--surface:#1A1714;--surface2:#242018;--brick:#D4511E;--brick-dim:rgba(212,81,30,0.15);--sand:#C8B89A;--sand-dim:rgba(200,184,154,0.12);--white:#F5F0E8;--muted:#6B6258;--border:rgba(200,184,154,0.12);--green:#4A8C5C;--green-dim:rgba(74,140,92,0.15);--r:14px;--r-sm:10px;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--white);min-height:100vh;}
+.topbar{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;gap:10px;}
+.topbar-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;}
+.content{padding:16px 16px 40px;}
+
+/* TOTALI */
+.totali-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px;}
+.stat-box{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:14px;}
+.stat-val{font-family:'Syne',sans-serif;font-size:21px;font-weight:700;margin-bottom:3px;}
+.stat-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+.stat-val.pos{color:var(--green);}
+.stat-val.neg{color:#E05252;}
+
+/* SEZIONE */
+.section{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px;margin-bottom:14px;}
+.sec-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--sand);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.sec-icon{width:28px;height:28px;background:var(--brick-dim);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+
+/* CANTIERE CARD */
+.cant-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:12px;overflow:hidden;}
+.cant-header{padding:14px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;}
+.cant-header:active{background:var(--surface2);}
+.cant-nome{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;}
+.cant-sub{font-size:12px;color:var(--muted);margin-top:2px;}
+.badge{font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;flex-shrink:0;}
+.badge.pos{background:var(--green-dim);color:var(--green);}
+.badge.neg{background:var(--brick-dim);color:var(--brick);}
+.badge.nd{background:var(--sand-dim);color:var(--muted);}
+
+.cant-body{border-top:1px solid var(--border);padding:16px;}
+
+/* FORM */
+.fg{margin-bottom:12px;}.fg:last-child{margin-bottom:0;}
+label{display:block;font-size:11px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+input{width:100%;padding:13px 14px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r-sm);color:var(--white);font-family:'Epilogue',sans-serif;font-size:16px;outline:none;-webkit-appearance:none;}
+input:focus{border-color:var(--brick);}
+input::placeholder{color:var(--muted);}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+
+/* MATERIALI */
+.mat-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+.mat-row input{flex:1;}
+.mat-row input.eur{width:100px;flex:none;text-align:right;}
+.mat-del{background:var(--brick-dim);color:var(--brick);border:none;border-radius:8px;width:36px;height:48px;font-size:15px;cursor:pointer;flex-shrink:0;}
+.add-mat-btn{width:100%;padding:11px;background:var(--surface2);border:1.5px dashed var(--border);border-radius:var(--r-sm);color:var(--muted);font-family:Epilogue,sans-serif;font-size:13px;cursor:pointer;margin-top:4px;}
+
+/* RIEPILOGO */
+.divider{height:1px;background:var(--border);margin:14px 0;}
+.rig{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.rig:last-child{border-bottom:none;}
+.rig-lbl{color:var(--muted);}
+.rig-val{font-weight:500;}
+.rig-val.pos{color:var(--green);}
+.rig-val.neg{color:#E05252;}
+.margine-box{margin-top:10px;padding:14px;background:var(--surface2);border-radius:var(--r-sm);display:flex;justify-content:space-between;align-items:center;}
+.margine-lbl{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;}
+.margine-num{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;}
+.margine-num.pos{color:var(--green);}
+.margine-num.neg{color:#E05252;}
+.perc{font-size:12px;font-weight:700;padding:3px 8px;border-radius:20px;margin-top:4px;display:inline-block;}
+.perc.pos{background:var(--green-dim);color:var(--green);}
+.perc.neg{background:var(--brick-dim);color:var(--brick);}
+
+.empty-state{text-align:center;padding:60px 20px;color:var(--muted);}
+.empty-icon{font-size:52px;margin-bottom:14px;}
+.empty-txt{font-size:15px;font-weight:500;color:var(--sand);margin-bottom:6px;}
+.toast{position:fixed;top:70px;left:16px;right:16px;padding:14px 16px;border-radius:var(--r-sm);font-size:14px;font-weight:500;text-align:center;z-index:999;opacity:0;transform:translateY(-8px);transition:all .3s;pointer-events:none;}
+.toast.show{opacity:1;transform:translateY(0);}
+.toast.ok{background:var(--green);color:#fff;}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="index.html" style="color:var(--muted);text-decoration:none;font-size:22px">←</a>
+  <div class="topbar-title">📊 Contabilità</div>
+  <button style="background:var(--sand-dim);color:var(--sand);border:none;border-radius:8px;padding:7px 10px;font-size:14px;cursor:pointer" onclick="forcSync()" title="Sincronizza">🔄</button>
+</div>
+
+<div class="content">
+
+  <!-- TOTALI GENERALI -->
+  <div class="section">
+    <div class="sec-title"><div class="sec-icon">💼</div>Riepilogo generale</div>
+    <div class="totali-grid" id="totali-grid">
+      <div class="stat-box"><div class="stat-val">€ 0</div><div class="stat-lbl">Fatturato</div></div>
+      <div class="stat-box"><div class="stat-val">€ 0</div><div class="stat-lbl">Costi</div></div>
+      <div class="stat-box"><div class="stat-val">€ 0</div><div class="stat-lbl">Margine</div></div>
+      <div class="stat-box"><div class="stat-val">0%</div><div class="stat-lbl">Redditività</div></div>
+    </div>
+    <div id="totali-sub" style="font-size:12px;color:var(--muted);margin-top:8px;text-align:center"></div>
+  </div>
+
+  <!-- CANTIERI -->
+  <div id="cantieri-container"></div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+
+// ── SUPABASE ──
+const SUPA_URL='https://iradzlocobsipjazracw.supabase.co';
+const SUPA_KEY='sb_publishable_zFgRrNrmYSORug8N06heow_6vjl0fhH';
+const CANT_KEY='cantieri_v1';
+let db=null;
+function initDB(){if(window.supabase)db=window.supabase.createClient(SUPA_URL,SUPA_KEY);}
+async function dbSalva(k,v){if(!db)return;try{await db.from('dati').upsert({chiave:k,valore:v,ts:new Date().toISOString()},{onConflict:'chiave'});}catch(e){}}
+async function forcSync(){
+  if(!db){ render(); return; }
+  try{
+    const {data}=await db.from('dati').select('valore').eq('chiave',CANT_KEY).maybeSingle();
+    if(data&&data.valore&&data.valore.length>0){
+      const loc=getCantieri(),ids=new Set(data.valore.map(x=>x.id)),ex=loc.filter(x=>!ids.has(x.id));
+      localStorage.setItem(CANT_KEY, JSON.stringify([...data.valore,...ex]));
+    }
+  }catch(e){}
+  render();
+}
+
+const CANT_KEY = 'cantieri_v1';
+const fmt = n => parseFloat(n||0).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2});
+const g = id => document.getElementById(id);
+
+function getCantieri(){try{return JSON.parse(localStorage.getItem(CANT_KEY))||[];}catch{return[];}}
+function salvaCantieri(l){localStorage.setItem(CANT_KEY,JSON.stringify(l));dbSalva(CANT_KEY,l);}
+
+// Calcola ore totali dalle giornate
+function calcolaOre(c){
+  let totOre=0;
+  (c.giornate||[]).forEach(g2=>{
+    totOre += g2.ore * (g2.operai||[]).length;
+  });
+  return totOre;
+}
+
+// Salva un campo specifico del cantiere
+function salvaCampo(id, campo, valore){
+  const lista=getCantieri();
+  const idx=lista.findIndex(c=>c.id===id);
+  if(idx<0) return;
+  lista[idx][campo]=valore;
+  salvaCantieri(lista);
+  renderTotali(lista);
+}
+
+// Salva materiali
+function salvaMatRiga(id, i, campo, valore){
+  const lista=getCantieri();
+  const idx=lista.findIndex(c=>c.id===id);
+  if(idx<0) return;
+  if(!lista[idx].costiMateriali) lista[idx].costiMateriali=[];
+  lista[idx].costiMateriali[i][campo]=valore;
+  salvaCantieri(lista);
+  renderTotali(lista);
+  aggiornaRiepilogo(lista[idx]);
+}
+
+function aggiungiMat(id){
+  const lista=getCantieri();
+  const idx=lista.findIndex(c=>c.id===id);
+  if(idx<0) return;
+  if(!lista[idx].costiMateriali) lista[idx].costiMateriali=[];
+  lista[idx].costiMateriali.push({desc:'',importo:0});
+  salvaCantieri(lista);
+  renderCantiere(lista[idx]);
+  renderTotali(lista);
+}
+
+function delMat(id, i){
+  const lista=getCantieri();
+  const idx=lista.findIndex(c=>c.id===id);
+  if(idx<0) return;
+  lista[idx].costiMateriali.splice(i,1);
+  salvaCantieri(lista);
+  renderCantiere(lista[idx]);
+  renderTotali(lista);
+}
+
+function toggleBody(id){
+  const el=g('body-'+id);
+  el.style.display=el.style.display==='none'?'block':'none';
+}
+
+// Riepilogo finanziario di un cantiere
+function aggiornaRiepilogo(c){
+  const tariffa=parseFloat(c.tariffa)||22;
+  const ore=calcolaOre(c);
+  const costoOp=ore*tariffa;
+  const costoMat=(c.costiMateriali||[]).reduce((s,m)=>s+(parseFloat(m.importo)||0),0);
+  const totCosti=costoOp+costoMat;
+  const prev=parseFloat(c.preventivo)||0;
+  const el=g('riep-'+c.id);
+  if(!el) return;
+
+  el.innerHTML=`
+    <div class="rig"><span class="rig-lbl">Ore lavorate (${ore}h × €${tariffa}/h)</span><span class="rig-val">€ ${fmt(costoOp)}</span></div>
+    <div class="rig"><span class="rig-lbl">Costo materiali</span><span class="rig-val">€ ${fmt(costoMat)}</span></div>
+    <div class="rig" style="font-weight:600"><span class="rig-lbl">Totale costi</span><span class="rig-val">€ ${fmt(totCosti)}</span></div>
+    ${prev>0?`
+    <div class="margine-box">
+      <div class="margine-lbl">Margine</div>
+      <div style="text-align:right">
+        <div class="margine-num ${prev>=totCosti?'pos':'neg'}">${prev>=totCosti?'+':''}€ ${fmt(prev-totCosti)}</div>
+        <span class="perc ${prev>=totCosti?'pos':'neg'}">${prev>=totCosti?'+':''}${prev>0?((prev-totCosti)/prev*100).toFixed(1):0}%</span>
+      </div>
+    </div>`
+    :'<div style="font-size:12px;color:var(--muted);padding:8px 0;text-align:center">Inserisci il preventivo approvato per vedere il margine</div>'}`;
+}
+
+// Render singolo cantiere (materiali + riepilogo)
+function renderCantiere(c){
+  const mat=c.costiMateriali||[];
+  const matHtml=mat.map((m,i)=>`
+    <div class="mat-row">
+      <input type="text" value="${m.desc||''}" placeholder="Es. Piastrelle, Tubi..." oninput="salvaMatRiga('${c.id}',${i},'desc',this.value)">
+      <input type="number" class="eur" value="${m.importo||''}" placeholder="€" oninput="salvaMatRiga('${c.id}',${i},'importo',parseFloat(this.value)||0)">
+      <button class="mat-del" onclick="delMat('${c.id}',${i})">✕</button>
+    </div>`).join('');
+
+  const matEl=g('mat-'+c.id);
+  if(matEl) matEl.innerHTML=matHtml;
+  aggiornaRiepilogo(c);
+}
+
+// Render totali generali
+function renderTotali(lista){
+  let totPrev=0, totCosti=0, totOreAll=0;
+  lista.forEach(c=>{
+    const tariffa=parseFloat(c.tariffa)||22;
+    const ore=calcolaOre(c);
+    const costoOp=ore*tariffa;
+    const costoMat=(c.costiMateriali||[]).reduce((s,m)=>s+(parseFloat(m.importo)||0),0);
+    totPrev+=parseFloat(c.preventivo)||0;
+    totCosti+=costoOp+costoMat;
+    totOreAll+=ore;
+  });
+  const margine=totPrev-totCosti;
+  const perc=totPrev>0?(margine/totPrev*100):0;
+  const isPos=margine>=0;
+
+  g('totali-grid').innerHTML=`
+    <div class="stat-box"><div class="stat-val">€ ${fmt(totPrev)}</div><div class="stat-lbl">Fatturato</div></div>
+    <div class="stat-box"><div class="stat-val">€ ${fmt(totCosti)}</div><div class="stat-lbl">Costi totali</div></div>
+    <div class="stat-box"><div class="stat-val ${isPos?'pos':'neg'}">${isPos?'+':''}€ ${fmt(margine)}</div><div class="stat-lbl">Margine totale</div></div>
+    <div class="stat-box"><div class="stat-val ${isPos?'pos':'neg'}">${isPos?'+':''}${perc.toFixed(1)}%</div><div class="stat-lbl">Redditività</div></div>`;
+  g('totali-sub').textContent=`${totOreAll} ore totali · ${lista.length} cantier${lista.length===1?'e':'i'}`;
+}
+
+// Render principale
+function render(){
+  const lista=getCantieri();
+
+  if(!lista.length){
+    g('cantieri-container').innerHTML=`<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-txt">Nessun cantiere attivo</div><div style="font-size:13px;color:var(--muted)">Avvia un cantiere dalla scheda Sopralluogo per vedere qui la contabilità</div></div>`;
+    return;
+  }
+
+  renderTotali(lista);
+
+  g('cantieri-container').innerHTML=lista.map(c=>{
+    const tariffa=parseFloat(c.tariffa)||22;
+    const ore=calcolaOre(c);
+    const costoOp=ore*tariffa;
+    const costoMat=(c.costiMateriali||[]).reduce((s,m)=>s+(parseFloat(m.importo)||0),0);
+    const totCosti=costoOp+costoMat;
+    const prev=parseFloat(c.preventivo)||0;
+    const delta=prev-totCosti;
+    const perc=prev>0?(delta/prev*100):null;
+    const isP=delta>=0;
+    const badgeClass=prev===0?'nd':(isP?'pos':'neg');
+    const badgeTxt=prev===0?'N/D':(isP?`+${perc.toFixed(1)}%`:`${perc.toFixed(1)}%`);
+
+    return `<div class="cant-card">
+      <div class="cant-header" onclick="toggleBody('${c.id}')">
+        <div>
+          <div class="cant-nome">${c.cliente||'—'}</div>
+          <div class="cant-sub">${c.indirizzo||'—'} · ${c.stato||'In corso'}</div>
+        </div>
+        <span class="badge ${badgeClass}">${badgeTxt}</span>
+      </div>
+      <div class="cant-body" id="body-${c.id}" style="display:none">
+
+        <!-- IMPOSTAZIONI -->
+        <div class="row2" style="margin-bottom:14px">
+          <div class="fg">
+            <label>Preventivo approvato (€)</label>
+            <input type="number" placeholder="Es. 8500" value="${prev||''}"
+              oninput="salvaCampo('${c.id}','preventivo',parseFloat(this.value)||0)">
+          </div>
+          <div class="fg">
+            <label>Tariffa oraria (€/h)</label>
+            <input type="number" value="${tariffa||22}"
+              oninput="salvaCampo('${c.id}','tariffa',parseFloat(this.value)||25)">
+          </div>
+        </div>
+
+        <!-- MATERIALI -->
+        <label style="margin-bottom:8px;display:block">Costi materiali</label>
+        <div id="mat-${c.id}"></div>
+        <button class="add-mat-btn" onclick="aggiungiMat('${c.id}')">+ Aggiungi materiale</button>
+
+        <!-- RIEPILOGO -->
+        <div class="divider"></div>
+        <div id="riep-${c.id}"></div>
+
+      </div>
+    </div>`;
+  }).join('');
+
+  // Popola materiali e riepilogo per ogni cantiere
+  lista.forEach(c=>renderCantiere(c));
+}
+
+initDB();
+render();
+setTimeout(()=>forcSync().catch(e=>render()),300);
+</script>
+</body>
+</html>

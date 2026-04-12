@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="CommessaPro">
+<meta name="theme-color" content="#0F0D0A">
+<link rel="icon" href="logo-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Note</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Epilogue:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root{--bg:#0F0D0A;--surface:#1A1714;--surface2:#242018;--brick:#D4511E;--brick-dim:rgba(212,81,30,0.15);--sand:#C8B89A;--sand-dim:rgba(200,184,154,0.12);--white:#F5F0E8;--muted:#6B6258;--border:rgba(200,184,154,0.12);--green:#4A8C5C;--green-dim:rgba(74,140,92,0.15);--r:14px;--r-sm:10px;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--white);min-height:100vh;}
+.topbar{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;}
+.topbar-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;}
+.btn-add{background:var(--brick);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
+.btn-top{background:var(--sand-dim);color:var(--sand);border:none;border-radius:8px;padding:7px 10px;font-size:14px;cursor:pointer;}
+.oggi-btn{font-size:11px;font-weight:700;color:var(--brick);background:var(--brick-dim);border:none;border-radius:8px;padding:5px 10px;cursor:pointer;}
+.content{padding:0 0 120px;}
+.mese-nav{display:flex;align-items:center;justify-content:space-between;padding:14px 20px 10px;}
+.mese-btn{width:38px;height:38px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--sand);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-user-select:none;}
+.mese-label{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--white);text-align:center;cursor:pointer;}
+.mese-label span{display:block;font-family:'Epilogue',sans-serif;font-size:11px;font-weight:400;color:var(--muted);margin-top:2px;}
+.giorno-row{border-bottom:1px solid var(--border);}
+.giorno-header{display:flex;align-items:center;gap:0;padding:10px 16px 6px;}
+.giorno-num{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;color:var(--white);min-width:36px;}
+.giorno-num.oggi{color:var(--brick);}
+.giorno-num.passato{color:var(--muted);}
+.giorno-nome{font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);flex:1;padding-left:8px;}
+.giorno-nome.oggi{color:var(--brick);}
+.giorno-nome.weekend{color:rgba(200,184,154,.5);}
+.giorno-festivo{font-size:11px;color:#D4A017;font-weight:600;padding-left:8px;}
+.add-giorno-btn{width:30px;height:30px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.add-giorno-btn:active{background:var(--brick-dim);color:var(--brick);border-color:var(--brick);}
+.task-list{padding:2px 16px 10px 60px;}
+.task-item{display:flex;align-items:flex-start;gap:8px;padding:5px 0;border-bottom:1px solid rgba(200,184,154,.04);}
+.task-item:last-child{border-bottom:none;}
+.task-check{width:18px;height:18px;border-radius:50%;border:2px solid var(--muted);display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;margin-top:1px;transition:all .15s;}
+.task-check.done{background:var(--green);border-color:var(--green);}
+.task-txt{flex:1;font-size:13px;line-height:1.5;cursor:pointer;}
+.task-txt.done{text-decoration:line-through;color:var(--muted);}
+.task-txt.imp{font-weight:600;}
+.task-star{background:none;border:none;font-size:12px;color:var(--muted);cursor:pointer;padding:1px 3px;flex-shrink:0;}
+.task-star.on{color:#D4A017;}
+.task-del{background:none;border:none;font-size:12px;color:var(--muted);cursor:pointer;padding:1px 3px;flex-shrink:0;}
+.add-panel{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);padding:14px 16px;z-index:200;transform:translateY(100%);transition:transform .25s ease;padding-bottom:max(14px,env(safe-area-inset-bottom));}
+.add-panel.show{transform:translateY(0);}
+.add-header{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--sand);margin-bottom:10px;}
+.add-inp{width:100%;padding:12px 14px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r-sm);color:var(--white);font-family:'Epilogue',sans-serif;font-size:16px;outline:none;margin-bottom:10px;-webkit-appearance:none;}
+.add-inp:focus{border-color:var(--brick);}
+.add-inp::placeholder{color:var(--muted);}
+.add-footer{display:flex;gap:8px;align-items:center;}
+.add-star-toggle{width:44px;height:44px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.add-star-toggle.on{background:rgba(212,160,23,.15);border-color:#D4A017;}
+.add-cancel{padding:12px 14px;background:var(--surface2);color:var(--muted);border:1px solid var(--border);border-radius:var(--r-sm);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
+.add-ok{flex:1;padding:12px;background:var(--brick);color:#fff;border:none;border-radius:var(--r-sm);font-family:'Syne',sans-serif;font-size:14px;font-weight:700;cursor:pointer;}
+.toast{position:fixed;top:70px;left:16px;right:16px;padding:12px 16px;border-radius:var(--r-sm);font-size:14px;font-weight:500;text-align:center;z-index:999;opacity:0;transform:translateY(-8px);transition:all .3s;pointer-events:none;}
+.toast.show{opacity:1;transform:translateY(0);}
+.toast.ok{background:var(--green);color:#fff;}
+.toast.inf{background:var(--surface2);color:var(--white);border:1px solid var(--border);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:10px">
+    <a href="index.html" style="color:var(--muted);text-decoration:none;font-size:22px">←</a>
+    <div class="topbar-title">📝 Note & Agenda</div>
+  </div>
+  <div style="display:flex;gap:6px;align-items:center">
+    <button class="btn-top" onclick="forcSync()" title="Sincronizza">🔄</button>
+    <button class="oggi-btn" onclick="tornaOggi()">Oggi</button>
+    <button class="btn-add" onclick="apriPanel(null)">+ Aggiungi</button>
+  </div>
+</div>
+
+<div class="mese-nav">
+  <button class="mese-btn" onclick="cambiaMese(-1)">‹</button>
+  <div><div class="mese-label" id="mese-label">Aprile 2026<span id="mese-sub">0 note</span></div></div>
+  <button class="mese-btn" onclick="cambiaMese(+1)">›</button>
+</div>
+
+<div class="content" id="content"></div>
+
+<div class="add-panel" id="add-panel">
+  <div class="add-header" id="add-panel-title">Aggiungi nota</div>
+  <input type="text" class="add-inp" id="add-inp" placeholder="Scrivi una nota o attività..." onkeydown="if(event.key==='Enter')salva()">
+  <div class="add-footer">
+    <button class="add-star-toggle" id="add-star" onclick="toggleStar()">★</button>
+    <button class="add-cancel" onclick="chiudiPanel()">Annulla</button>
+    <button class="add-ok" onclick="salva()">✓ Aggiungi</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── SUPABASE ──
+const SUPA_URL='https://iradzlocobsipjazracw.supabase.co';
+const SUPA_KEY='sb_publishable_zFgRrNrmYSORug8N06heow_6vjl0fhH';
+const NOTE_KEY='note_v1';
+let db=null;
+function initDB(){if(window.supabase)db=window.supabase.createClient(SUPA_URL,SUPA_KEY);}
+async function dbSalva(k,v){if(!db)return;try{await db.from('dati').upsert({chiave:k,valore:v,ts:new Date().toISOString()},{onConflict:'chiave'});}catch(e){}}
+async function forcSync(){
+  toast('🔄 Sincronizzazione...','inf');
+  if(!db){toast('Nessuna connessione','inf');return;}
+  try{
+    const {data}=await db.from('dati').select('valore').eq('chiave',NOTE_KEY).maybeSingle();
+    if(data&&data.valore&&data.valore.length>0){
+      const loc=getDati(),ids=new Set(data.valore.map(x=>x.id)),ex=loc.filter(x=>!ids.has(x.id));
+      salvaDati([...data.valore,...ex]); render();
+    }
+    toast('✓ Sincronizzato','ok');
+  }catch(e){toast('Sync ok (offline)','inf');}
+}
+
+const GIORNI_IT=['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
+const MESI_IT=['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+const FESTIVITA={'01-01':'Capodanno','01-06':'Epifania','04-25':'Festa della Liberazione','05-01':'Festa dei Lavoratori','06-02':'Festa della Repubblica','08-15':'Ferragosto','11-01':'Ognissanti','12-08':'Immacolata Concezione','12-25':'Natale','12-26':'Santo Stefano'};
+const FESTIVITA_2026={'04-05':'Pasqua','04-06':'Pasquetta'};
+
+let meseVis=new Date().getMonth(),annoVis=new Date().getFullYear();
+let addGiorno=null,addStar=false;
+
+const g=id=>document.getElementById(id);
+
+function toast(msg,tipo='ok'){const t=g('toast');t.textContent=msg;t.className='toast '+tipo+' show';clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2500);}
+
+function getDati(){try{return JSON.parse(localStorage.getItem(NOTE_KEY))||[];}catch{return[];}}
+function salvaDati(d){localStorage.setItem(NOTE_KEY,JSON.stringify(d));dbSalva(NOTE_KEY,d);}
+
+function cambiaMese(delta){
+  meseVis+=delta;
+  if(meseVis>11){meseVis=0;annoVis++;}
+  if(meseVis<0){meseVis=11;annoVis--;}
+  render();
+}
+
+function tornaOggi(){
+  const oggi=new Date();meseVis=oggi.getMonth();annoVis=oggi.getFullYear();render();
+  setTimeout(()=>{const el=document.getElementById('day-'+oggi.getDate());if(el)el.scrollIntoView({behavior:'smooth',block:'start'});},100);
+}
+
+function render(){
+  const dati=getDati();const oggi=new Date();
+  const isOggiMese=meseVis===oggi.getMonth()&&annoVis===oggi.getFullYear();
+  g('mese-label').childNodes[0].textContent=MESI_IT[meseVis]+' '+annoVis;
+  const nNote=dati.filter(t=>{const d=new Date(t.data+'T12:00:00');return d.getMonth()===meseVis&&d.getFullYear()===annoVis;}).length;
+  g('mese-sub').textContent=nNote+(nNote===1?' nota':' note');
+  const numGiorni=new Date(annoVis,meseVis+1,0).getDate();
+  let html='';
+  for(let giorno=1;giorno<=numGiorni;giorno++){
+    const d=new Date(annoVis,meseVis,giorno);const dow=d.getDay();
+    const isOggi=isOggiMese&&giorno===oggi.getDate();
+    const isPassato=d<new Date(oggi.getFullYear(),oggi.getMonth(),oggi.getDate());
+    const isWeekend=dow===0||dow===6;
+    const dataStr=`${annoVis}-${String(meseVis+1).padStart(2,'0')}-${String(giorno).padStart(2,'0')}`;
+    const mmd=`${String(meseVis+1).padStart(2,'0')}-${String(giorno).padStart(2,'0')}`;
+    const festivo=FESTIVITA[mmd]||(annoVis===2026?FESTIVITA_2026[mmd]:null);
+    const tasks=dati.filter(t=>t.data===dataStr);
+    const tasksHtml=tasks.length?`<div class="task-list">${tasks.map(t=>`
+      <div class="task-item">
+        <div class="task-check ${t.done?'done':''}" onclick="toggleDone('${t.id}')">
+          ${t.done?`<svg width="9" height="9" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,7 7.5,2" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>`:''}
+        </div>
+        <span class="task-txt ${t.done?'done':''} ${t.imp?'imp':''}" onclick="toggleDone('${t.id}')">${t.testo}</span>
+        <button class="task-star ${t.imp?'on':''}" onclick="toggleImp('${t.id}')">★</button>
+        <button class="task-del" onclick="delTask('${t.id}')">✕</button>
+      </div>`).join('')}</div>`:'';
+    html+=`<div class="giorno-row" id="day-${giorno}">
+      <div class="giorno-header">
+        <div class="giorno-num ${isOggi?'oggi':isPassato?'passato':''}">${giorno}</div>
+        <div class="giorno-nome ${isOggi?'oggi':isWeekend?'weekend':''}">${GIORNI_IT[dow]}${festivo?`<span class="giorno-festivo"> · ${festivo}</span>`:''}</div>
+        <button class="add-giorno-btn" onclick="apriPanel('${dataStr}','${GIORNI_IT[dow]} ${giorno} ${MESI_IT[meseVis]}')">+</button>
+      </div>${tasksHtml}</div>`;
+  }
+  g('content').innerHTML=html;
+  if(isOggiMese){setTimeout(()=>{const el=document.getElementById('day-'+oggi.getDate());if(el)el.scrollIntoView({behavior:'smooth',block:'start'});},50);}
+}
+
+function toggleDone(id){const d=getDati();const t=d.find(x=>x.id===id);if(t){t.done=!t.done;salvaDati(d);render();}}
+function toggleImp(id){const d=getDati();const t=d.find(x=>x.id===id);if(t){t.imp=!t.imp;salvaDati(d);render();}}
+function delTask(id){salvaDati(getDati().filter(x=>x.id!==id));render();}
+
+function apriPanel(data,label){
+  addGiorno=data;addStar=false;
+  g('add-panel-title').textContent=label||'Aggiungi nota';
+  g('add-star').classList.remove('on');g('add-inp').value='';
+  g('add-panel').classList.add('show');
+  setTimeout(()=>g('add-inp').focus(),300);
+}
+function chiudiPanel(){g('add-panel').classList.remove('show');}
+function toggleStar(){addStar=!addStar;g('add-star').classList.toggle('on',addStar);}
+
+function salva(){
+  const testo=g('add-inp').value.trim();if(!testo)return;
+  const data=addGiorno||new Date().toISOString().split('T')[0];
+  const dati=getDati();
+  dati.push({id:'n_'+Date.now(),data,testo,imp:addStar,done:false});
+  salvaDati(dati);chiudiPanel();
+  const m=new Date(data+'T12:00:00').getMonth();
+  if(m!==meseVis){meseVis=m;annoVis=new Date(data+'T12:00:00').getFullYear();}
+  render();toast('✓ Aggiunto');
+}
+
+// ── INIT ──
+initDB();render();
+setTimeout(()=>forcSync().catch(()=>{}),500);
+</script>
+</body>
+</html>
