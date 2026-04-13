@@ -503,8 +503,21 @@ function delFoto(i){foto.splice(i,1);renderFoto();}
 // ── AVVIA CANTIERE ──
 function aggiornaBottoneAvvia(cantiereId){
   const btn=g('btn-avvia');
-  if(cantiereId){btn.textContent='🏗️ Vai al Cantiere';btn.onclick=()=>{window.location.href='cantiere.html?id='+cantiereId;};}
-  else{btn.textContent='🏗️ Avvia Cantiere';btn.onclick=avviaCantiere;}
+  // Verifica che il cantiere esista ancora
+  const cantieri = getCantieri();
+  const esiste = cantiereId && cantieri.some(c=>c.id===cantiereId);
+  if(esiste){
+    btn.textContent='🏗️ Vai al Cantiere';
+    btn.onclick=()=>{window.location.href='cantiere.html?id='+cantiereId;};
+  } else {
+    // Cantiere non esiste - pulisci il cantiereId dal sopralluogo
+    if(cantiereId && !esiste){
+      const lista=getLista(); const idx=lista.findIndex(s=>s.id===currentId);
+      if(idx>=0){lista[idx].cantiereId=null; salveLista(lista);}
+    }
+    btn.textContent='🏗️ Avvia Cantiere';
+    btn.onclick=avviaCantiere;
+  }
 }
 
 function avviaCantiere(){

@@ -167,6 +167,13 @@ function showView(n){document.querySelectorAll('.view').forEach(v=>v.classList.r
 
 function eliminaCantiere(id){
   if(!confirm('Eliminare questo cantiere?')) return;
+  // Rimuovi il cantiereId dal sopralluogo collegato
+  const cant = getCantieri().find(c=>c.id===id);
+  if(cant&&cant.sopralluogoId){
+    const sops = JSON.parse(localStorage.getItem('sopralluoghi_v3')||'[]');
+    const sopIdx = sops.findIndex(s=>s.id===cant.sopralluogoId);
+    if(sopIdx>=0){ sops[sopIdx].cantiereId=null; localStorage.setItem('sopralluoghi_v3',JSON.stringify(sops)); dbSalva('sopralluoghi_v3',sops); }
+  }
   salvaCantieri(getCantieri().filter(c=>c.id!==id)); renderLista(); toast('Eliminato','inf');
 }
 
@@ -250,6 +257,19 @@ function salvaTariffa(){
 
 // ── INIT ──
 initDB();
+// Migrazione: popola titolo dai sopralluoghi collegati
+(function migraTitoli(){
+  const cantieri = getCantieri();
+  const sops = JSON.parse(localStorage.getItem('sopralluoghi_v3')||'[]');
+  let changed = false;
+  cantieri.forEach(cant=>{
+    if(!cant.titolo && cant.sopralluogoId){
+      const sop = sops.find(s=>s.id===cant.sopralluogoId);
+      if(sop&&sop.titolo){ cant.titolo=sop.titolo; changed=true; }
+    }
+  });
+  if(changed){ localStorage.setItem('cantieri_v1',JSON.stringify(cantieri)); dbSalva('cantieri_v1',cantieri); }
+})();
 const params=new URLSearchParams(window.location.search);
 const idParam=params.get('id');
 if(idParam){const c=getCantieri().find(x=>x.id===idParam);if(c)apriCantiere(idParam);else renderLista();}
