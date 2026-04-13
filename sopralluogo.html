@@ -556,7 +556,7 @@ ${gv('fn')?`<div class="sec"><div class="stitle">📝 Note aggiuntive</div><div 
 ${audioHtml?`<div class="sec"><div class="stitle">🎙️ Note vocali (${noteVocali.length})</div>${audioHtml}</div>`:''}
 ${foto.length?`<div class="sec"><div class="stitle">📷 Foto (${foto.length})</div>${fotoRows}</div>`:''}
 <div class="firma-box"><div class="fl"><strong>${resp}</strong><div>Responsabile sopralluogo</div><div class="fline"></div><div style="margin-top:3px">Firma</div></div><div class="fl"><strong>${cliente}</strong><div>Cliente — presa visione</div><div class="fline"></div><div style="margin-top:3px">Firma</div></div></div>
-</body></html>`;
+</body></html>;
 
   const frame=g('report-frame'); const overlay=g('report-overlay'); overlay.classList.add('show');
   const doc=frame.contentDocument||frame.contentWindow.document;
@@ -617,16 +617,16 @@ function apriRubrica(){
   if(!clienti.length){
     el.innerHTML='<div style="text-align:center;padding:24px;color:var(--muted)">Nessun cliente in rubrica.<br><a href="rubrica.html" style="color:var(--brick)">Vai alla Rubrica →</a></div>';
   } else {
-    el.innerHTML = clienti.sort((a,b)=>a.nome.localeCompare(b.nome)).map(c=>`
-      <div onclick="selezionaCliente('${c.id}')" style="padding:14px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:12px">
+    el.innerHTML = clienti.sort((a,b)=>a.nome.localeCompare(b.nome)).map(cli=>`
+      <div onclick="selezionaCliente('${cli.id}')" style="padding:14px 16px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:12px;-webkit-tap-highlight-color:rgba(212,81,30,0.1)">
         <div style="width:38px;height:38px;background:var(--brick-dim);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🏢</div>
         <div>
-          <div style="font-weight:600;font-size:14px">${c.nome}</div>
-          <div style="font-size:12px;color:var(--muted)">${c.ref||''} ${c.tel?'· '+c.tel:''}</div>
+          <div style="font-weight:600;font-size:14px;color:var(--white)">${cli.nome}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">${cli.ref||''} ${cli.tel?'· '+cli.tel:''}</div>
         </div>
       </div>`).join('');
   }
-  g('rubrica-modal').style.display='block';
+  g('rubrica-modal').style.display='flex';
 }
 
 function selezionaCliente(id){
@@ -647,5 +647,28 @@ renderLista();
 // Sync da Supabase in background
 setTimeout(()=>forcSync().catch(()=>{}), 500);
 </script>
+
+<!-- RUBRICA MODAL -->
+<div id="rubrica-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.75);z-index:500;padding:16px;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border-radius:var(--r);overflow:hidden;max-height:85vh;display:flex;flex-direction:column;width:100%;max-width:420px;margin:0 auto;">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+      <span style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px;color:var(--white)">👥 Scegli cliente</span>
+      <button onclick="chiudiRubrica()" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0;line-height:1">✕</button>
+    </div>
+    <div id="rubrica-lista" style="overflow-y:auto;"></div>
+  </div>
+</div>
+
+
+<!-- RUBRICA MODAL -->
+<div id="rubrica-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.75);z-index:500;padding:20px;box-sizing:border-box">
+  <div style="background:var(--surface);border-radius:var(--r);overflow:hidden;max-height:80vh;display:flex;flex-direction:column;width:100%;max-width:420px;margin:40px auto 0">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <span style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px;color:var(--white)">👥 Scegli cliente</span>
+      <button onclick="chiudiRubrica()" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0;line-height:1">✕</button>
+    </div>
+    <div id="rubrica-lista" style="overflow-y:auto;max-height:60vh"></div>
+  </div>
+</div>
 </body>
 </html>
