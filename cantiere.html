@@ -97,6 +97,18 @@ textarea{resize:none;min-height:80px;line-height:1.6;}
       <div class="sec-title"><div class="sec-icon">📍</div>Dati cantiere</div>
       <div id="det-info"></div>
     </div>
+    <div class="section" style="padding:14px 18px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:13px;color:var(--muted)">Tariffa oraria operai</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <input type="number" id="tariffa" value="22" min="1" max="999" step="0.5"
+            style="width:80px;padding:8px 10px;text-align:right;font-size:15px;font-weight:600"
+            oninput="salvaTariffa()">
+          <span style="font-size:13px;color:var(--muted)">€/h</span>
+        </div>
+      </div>
+    </div>
+
     <div class="section">
       <div class="sec-title"><div class="sec-icon">📅</div>Registra giornata</div>
       <div class="row2" style="margin-bottom:10px">
@@ -176,6 +188,7 @@ function apriCantiere(id){
   g('det-stato').textContent=stato;g('det-stato').style.background=stato==='Completato'?'rgba(200,184,154,.1)':'var(--green-dim)';g('det-stato').style.color=stato==='Completato'?'var(--muted)':'var(--green)';
   g('det-info').innerHTML=`<div class="info-row"><span class="info-lbl">Cliente</span><span class="info-val">${c.cliente||'—'}</span></div><div class="info-row"><span class="info-lbl">Indirizzo</span><span class="info-val">${c.indirizzo||'—'}</span></div><div class="info-row"><span class="info-lbl">Responsabile</span><span class="info-val">${c.resp||'—'}</span></div><div class="info-row"><span class="info-lbl">Data inizio</span><span class="info-val">${c.dataInizio||'—'}</span></div><div class="info-row"><span class="info-lbl">Superficie</span><span class="info-val">${c.mq?c.mq+' mq':'—'}</span></div>`;
   g('g-data').value=new Date().toISOString().split('T')[0];g('g-ore').value='8';g('g-note').value='';
+  const tarEl=document.getElementById('tariffa');if(tarEl)tarEl.value=c.tariffa||22;
   operaiSel=[];renderChips();renderDiario();showView('dettaglio');
 }
 
@@ -225,6 +238,14 @@ function importaCantieri(input){
     }catch(e){toast('Errore: '+e.message,'err');}
   };
   reader.readAsText(file);input.value='';
+}
+
+// ── TARIFFA ──
+function salvaTariffa(){
+  const val = parseFloat(document.getElementById('tariffa')?.value)||22;
+  currentCant.tariffa = val;
+  salvaCantiere();
+  dbSalva('cantieri_v1', getCantieri());
 }
 
 // ── INIT ──
