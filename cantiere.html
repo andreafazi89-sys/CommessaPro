@@ -176,14 +176,14 @@ function renderLista(){
   el.innerHTML=lista.map(c=>`
     <div class="cant-card" onclick="apriCantiere('${c.id}')">
       <div class="cant-icon">🏗️</div>
-      <div class="cant-info"><div class="cant-nome">${c.cliente||'—'}</div><div class="cant-meta">${c.indirizzo||'—'} · ${c.stato||'In corso'} · Dal ${c.dataInizio||'—'}</div></div>
+      <div class="cant-info"><div class="cant-nome">${c.titolo||c.cliente||'—'}</div><div class="cant-meta">${c.cliente||'—'} · ${c.stato||'In corso'} · Dal ${c.dataInizio||'—'}</div></div>
       <button style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:4px;" onclick="event.stopPropagation();eliminaCantiere('${c.id}')">🗑</button>
     </div>`).join('');
 }
 
 function apriCantiere(id){
   const c=getCantieri().find(x=>x.id===id);if(!c)return;
-  currentCant=c;g('det-title').textContent=c.cliente||'Cantiere';
+  currentCant=c;g('det-title').textContent=c.titolo||c.cliente||'Cantiere';
   const stato=c.stato||'In corso';
   g('det-stato').textContent=stato;g('det-stato').style.background=stato==='Completato'?'rgba(200,184,154,.1)':'var(--green-dim)';g('det-stato').style.color=stato==='Completato'?'var(--muted)':'var(--green)';
   g('det-info').innerHTML=`${c.titolo?`<div class="info-row"><span class="info-lbl">Lavoro</span><span class="info-val" style="color:var(--sand);font-weight:600">${c.titolo}</span></div>`:''}<div class="info-row"><span class="info-lbl">Cliente</span><span class="info-val">${c.cliente||'—'}</span></div><div class="info-row"><span class="info-lbl">Indirizzo</span><span class="info-val">${c.indirizzo||'—'}</span></div><div class="info-row"><span class="info-lbl">Responsabile</span><span class="info-val">${c.resp||'—'}</span></div><div class="info-row"><span class="info-lbl">Data inizio</span><span class="info-val">${c.dataInizio||'—'}</span></div><div class="info-row"><span class="info-lbl">Superficie</span><span class="info-val">${c.mq?c.mq+' mq':'—'}</span></div>`;
