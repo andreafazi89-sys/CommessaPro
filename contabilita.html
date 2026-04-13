@@ -289,8 +289,8 @@ function render(){
     return `<div class="cant-card">
       <div class="cant-header" onclick="toggleBody('${c.id}')">
         <div>
-          <div class="cant-nome">${c.cliente||'—'}</div>
-          <div class="cant-sub">${c.indirizzo||'—'} · ${c.stato||'In corso'}</div>
+          <div class="cant-nome">${c.titolo||c.cliente||'—'}</div>
+          <div class="cant-sub">${c.cliente||'—'} · ${c.indirizzo||'—'} · ${c.stato||'In corso'}</div>
         </div>
         <span class="badge ${badgeClass}">${badgeTxt}</span>
       </div>

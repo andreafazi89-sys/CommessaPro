@@ -56,6 +56,7 @@ input::placeholder{color:var(--muted);}
     <a href="index.html" style="color:var(--muted);text-decoration:none;font-size:22px">←</a>
     <div class="topbar-title">👥 Rubrica Clienti</div>
   </div>
+  <button onclick="forcSync()" style="background:var(--sand-dim);color:var(--sand);border:none;border-radius:8px;padding:7px 10px;font-size:14px;cursor:pointer" title="Sincronizza">🔄</button>
 </div>
 
 <div class="content">
@@ -88,6 +89,16 @@ const CLI_KEY='rubrica_v1';
 let db=null;
 function initDB(){if(window.supabase)db=window.supabase.createClient(SUPA_URL,SUPA_KEY);}
 async function dbSalva(k,v){if(!db)return;try{await db.from('dati').upsert({chiave:k,valore:v,ts:new Date().toISOString()},{onConflict:'chiave'});}catch(e){}}
+async function forcSync(){
+  if(!db)return;
+  try{
+    const {data}=await db.from('dati').select('valore').eq('chiave',CLI_KEY).maybeSingle();
+    if(data&&data.valore&&data.valore.length>0){
+      const loc=getClienti(),ids=new Set(data.valore.map(x=>x.id)),ex=loc.filter(x=>!ids.has(x.id));
+      salvaClienti([...data.valore,...ex]); renderLista();
+    }
+  }catch(e){}
+}
 
 const g=id=>document.getElementById(id);
 const gv=id=>g(id)?.value?.trim()||'';
@@ -160,6 +171,7 @@ function eliminaCliente(id){
 
 // ── INIT ──
 initDB();renderLista();
+setTimeout(()=>forcSync().catch(()=>{}),500);
 </script>
 </body>
 </html>
