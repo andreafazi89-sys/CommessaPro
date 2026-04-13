@@ -10,7 +10,7 @@
 <title>Contabilità</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Epilogue:wght@400;500&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0F0D0A;--surface:#1A1714;--surface2:#242018;--brick:#D4511E;--brick-dim:rgba(212,81,30,0.15);--sand:#C8B89A;--sand-dim:rgba(200,184,154,0.12);--white:#F5F0E8;--muted:#6B6258;--border:rgba(200,184,154,0.12);--green:#4A8C5C;--green-dim:rgba(74,140,92,0.15);--r:14px;--r-sm:10px;}
+:root{--bg:#FFFFFF;--surface:#F5F5F5;--surface2:#EBEBEB;--brick:#D4511E;--brick-dim:rgba(212,81,30,0.12);--sand:#8A6A50;--sand-dim:rgba(138,106,80,0.12);--white:#1A1612;--muted:#888280;--border:rgba(0,0,0,0.1);--green:#3A7A4C;--green-dim:rgba(58,122,76,0.12);--r:14px;--r-sm:10px;}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html,body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--white);min-height:100vh;}
 .topbar{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;gap:10px;}
@@ -89,7 +89,7 @@ input::placeholder{color:var(--muted);}
 <div class="topbar">
   <a href="index.html" style="color:var(--muted);text-decoration:none;font-size:22px">←</a>
   <div class="topbar-title">📊 Contabilità</div>
-  <button style="background:var(--sand-dim);color:var(--sand);border:none;border-radius:8px;padding:7px 10px;font-size:14px;cursor:pointer" onclick="forcSync()" title="Sincronizza">🔄</button>
+  <div style="display:flex;gap:6px"><button style="background:var(--sand-dim);color:var(--sand);border:none;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:500;cursor:pointer;font-family:Epilogue,sans-serif" onclick="esportaContabilita()">📤 Esporta</button><button style="background:var(--sand-dim);color:var(--sand);border:none;border-radius:8px;padding:7px 10px;font-size:14px;cursor:pointer" onclick="forcSync()" title="Sincronizza">🔄</button></div>
 </div>
 
 <div class="content">
@@ -263,6 +263,86 @@ function renderTotali(lista){
 }
 
 // Render principale
+
+// ── ESPORTA CONTABILITÀ ──
+function esportaContabilita(){
+  const lista = getCantieri();
+  if(!lista.length){ return; }
+  const fmt = n => parseFloat(n||0).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const oggi = new Date().toLocaleDateString('it-IT');
+
+  let totPrev=0, totCosti=0;
+  const righe = lista.map(c=>{
+    const tariffa=parseFloat(c.tariffa)||22;
+    const ore=calcolaOre(c);
+    const costoOp=ore*tariffa;
+    const costoMat=(c.costiMateriali||[]).reduce((s,m)=>s+(parseFloat(m.importo)||0),0);
+    const totale=costoOp+costoMat;
+    const prev=parseFloat(c.preventivo)||0;
+    const delta=prev-totale;
+    const perc=prev>0?(delta/prev*100):null;
+    totPrev+=prev; totCosti+=totale;
+
+    const matRighe=(c.costiMateriali||[]).filter(m=>m.importo).map(m=>`
+      <tr><td style="padding:5px 10px;color:#666;font-size:12px;padding-left:24px">↳ ${m.desc||'Materiale'}</td><td style="padding:5px 10px;text-align:right;font-size:12px">€ ${fmt(m.importo)}</td><td></td><td></td></tr>`).join('');
+
+    return `
+      <tr style="background:#F9F7F5">
+        <td style="padding:10px;font-weight:700;border-top:2px solid #E8E2D9">${c.titolo||c.cliente||'—'}<div style="font-size:11px;font-weight:400;color:#888;margin-top:2px">${c.cliente||''} · ${c.stato||'In corso'}</div></td>
+        <td style="padding:10px;text-align:right;border-top:2px solid #E8E2D9">${prev>0?'€ '+fmt(prev):'—'}</td>
+        <td style="padding:10px;text-align:right;border-top:2px solid #E8E2D9">€ ${fmt(totale)}<div style="font-size:11px;color:#888;margin-top:2px">${ore}h × €${tariffa}/h + mat.</div></td>
+        <td style="padding:10px;text-align:right;border-top:2px solid #E8E2D9;font-weight:700;color:${delta>=0?'#3A7A4C':'#C84040'}">${prev>0?(delta>=0?'+':'')+' € '+fmt(delta)+'<div style="font-size:11px;margin-top:2px">'+(perc?perc.toFixed(1)+'%':'')+'</div>':'—'}</td>
+      </tr>${matRighe}`;
+  }).join('');
+
+  const margTot=totPrev-totCosti;
+  const html=`<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
+<title>Contabilità CommessaPro</title>
+<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:#fff;color:#1A1612;padding:24px;max-width:800px;margin:0 auto;}
+.hdr{border-bottom:3px solid #D4511E;padding-bottom:14px;margin-bottom:20px;}
+.ttl{font-size:22px;font-weight:700;}.sub{font-size:12px;color:#9C9088;margin-top:3px;}
+table{width:100%;border-collapse:collapse;}th{background:#F5F0E8;padding:10px;text-align:left;font-size:12px;color:#6B6258;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+th:not(:first-child){text-align:right;}
+.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+.sbox{background:#F5F5F5;border-radius:8px;padding:12px;text-align:center;}
+.sval{font-size:18px;font-weight:700;margin-bottom:2px;}
+.slbl{font-size:10px;color:#888;text-transform:uppercase;}
+.pos{color:#3A7A4C;}.neg{color:#C84040;}
+.print-btn{position:fixed;bottom:16px;right:16px;background:#D4511E;color:#fff;border:none;padding:13px 20px;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;}
+@media print{.print-btn{display:none;}body{padding:0;}}
+</style></head><body>
+<div class="hdr"><div class="ttl">Riepilogo Contabilità</div><div class="sub">CommessaPro · Esportato il ${oggi}</div></div>
+<div class="summary">
+  <div class="sbox"><div class="sval">€ ${fmt(totPrev)}</div><div class="slbl">Fatturato</div></div>
+  <div class="sbox"><div class="sval">€ ${fmt(totCosti)}</div><div class="slbl">Costi totali</div></div>
+  <div class="sbox"><div class="sval ${margTot>=0?'pos':'neg'}">${margTot>=0?'+':''}€ ${fmt(margTot)}</div><div class="slbl">Margine</div></div>
+  <div class="sbox"><div class="sval ${margTot>=0?'pos':'neg'}">${totPrev>0?((margTot/totPrev)*100).toFixed(1)+'%':'—'}</div><div class="slbl">Redditività</div></div>
+</div>
+<table>
+  <thead><tr><th>Cantiere</th><th style="text-align:right">Preventivo</th><th style="text-align:right">Costi</th><th style="text-align:right">Margine</th></tr></thead>
+  <tbody>${righe}</tbody>
+  <tfoot><tr style="background:#0F0D0A;color:#fff">
+    <td style="padding:12px;font-weight:700">TOTALE (${lista.length} cantieri)</td>
+    <td style="padding:12px;text-align:right;font-weight:700">€ ${fmt(totPrev)}</td>
+    <td style="padding:12px;text-align:right;font-weight:700">€ ${fmt(totCosti)}</td>
+    <td style="padding:12px;text-align:right;font-weight:700;color:${margTot>=0?'#7CCA8C':'#E07070'}">${margTot>=0?'+':''}€ ${fmt(margTot)}</td>
+  </tr></tfoot>
+</table>
+<button class="print-btn" onclick="window.print()">🖨️ Salva PDF</button>
+</body></html>`;
+
+  const frame=document.createElement('iframe');
+  frame.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:9999;background:#fff';
+  document.body.appendChild(frame);
+  const doc=frame.contentDocument||frame.contentWindow.document;
+  doc.open();doc.write(html);doc.close();
+  const closeBtn=document.createElement('button');
+  closeBtn.textContent='✕ Chiudi';
+  closeBtn.style.cssText='position:fixed;top:16px;left:16px;z-index:10000;background:rgba(0,0,0,0.7);color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:14px;font-weight:700;cursor:pointer';
+  closeBtn.onclick=()=>{document.body.removeChild(frame);document.body.removeChild(closeBtn);};
+  document.body.appendChild(closeBtn);
+}
+
 function render(){
   const lista=getCantieri();
 

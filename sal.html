@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Epilogue:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
-:root{--bg:#0F0D0A;--surface:#1A1714;--surface2:#242018;--brick:#D4511E;--brick-dim:rgba(212,81,30,0.15);--sand:#C8B89A;--sand-dim:rgba(200,184,154,0.12);--white:#F5F0E8;--muted:#6B6258;--border:rgba(200,184,154,0.12);--green:#4A8C5C;--green-dim:rgba(74,140,92,0.15);--r:14px;--r-sm:10px;}
+:root{--bg:#FFFFFF;--surface:#F5F5F5;--surface2:#EBEBEB;--brick:#D4511E;--brick-dim:rgba(212,81,30,0.12);--sand:#8A6A50;--sand-dim:rgba(138,106,80,0.12);--white:#1A1612;--muted:#888280;--border:rgba(0,0,0,0.1);--green:#3A7A4C;--green-dim:rgba(58,122,76,0.12);--r:14px;--r-sm:10px;}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html,body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--white);min-height:100vh;}
 .view{display:none;}.view.active{display:block;}
@@ -86,7 +86,7 @@ input[type="file"]{display:none;}
       <button class="btn-back" onclick="tornaLista()">←</button>
       <div class="topbar-title" id="sal-title">SAL</div>
     </div>
-    <button class="btn-top" onclick="mostraForm()">+ Nuovo</button>
+    <div style="display:flex;gap:6px"><button class="btn-top" onclick="esportaSAL()">📤 Esporta</button><button class="btn-top" onclick="mostraForm()">+ Nuovo</button></div>
   </div>
   <div class="content">
     <div id="sal-form" style="display:none">
@@ -234,6 +234,69 @@ function delSAL(cantId,i){
   if(!confirm('Eliminare questo aggiornamento?'))return;
   const lista=getCantieri();const idx=lista.findIndex(c=>c.id===cantId);if(idx<0)return;
   lista[idx].sal.splice(i,1);salvaCantieri(lista);renderStorico(lista[idx]);toast('Eliminato','ok');
+}
+
+
+// ── ESPORTA SAL ──
+function esportaSAL(){
+  const lista = getCantieri();
+  const c = lista.find(x=>x.id===currentCantId);
+  if(!c) return;
+  const sal = c.sal||[];
+  if(!sal.length){ toast('Nessun aggiornamento da esportare','err'); return; }
+
+  const MESI=['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+  const fotoRows = sal.map((s,i)=>{
+    const d = new Date(s.data).toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'});
+    const fotoHtml = (s.foto||[]).length ? `
+      <table style="width:100%;border-collapse:separate;border-spacing:6px 6px;margin-top:8px">
+        <tr>${(s.foto||[]).map((url,fi)=>`
+          <td style="vertical-align:top;padding:0;width:50%">
+            <div style="font-size:8px;color:#9C9088;margin-bottom:3px">Foto ${fi+1}</div>
+            <img src="${url}" style="width:100%;height:160px;object-fit:cover;border-radius:6px;border:1px solid #E8E2D9;display:block">
+          </td>`).join('')}
+        </tr>
+      </table>` : '';
+    return `
+      <div style="margin-bottom:24px;page-break-inside:avoid;border-left:3px solid #D4511E;padding-left:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div style="font-weight:700;font-size:15px;color:#0F0D0A">${d}</div>
+          ${s.perc?`<span style="background:#E8F5E9;color:#3A7A4C;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px">${s.perc}%</span>`:''}
+        </div>
+        <div style="font-size:13px;line-height:1.7;color:#333;margin-bottom:6px">${s.desc}</div>
+        ${fotoHtml}
+      </div>`;
+  }).join('');
+
+  const oggi = new Date().toLocaleDateString('it-IT');
+  const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
+<title>SAL — ${c.titolo||c.cliente}</title>
+<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:#fff;color:#1A1612;padding:24px;max-width:680px;margin:0 auto;}
+.hdr{border-bottom:3px solid #D4511E;padding-bottom:14px;margin-bottom:24px;}
+.ttl{font-size:22px;font-weight:700;}.sub{font-size:13px;color:#9C9088;margin-top:4px;}
+@media print{body{padding:0;}.print-btn{display:none;}}
+.print-btn{position:fixed;bottom:16px;right:16px;background:#D4511E;color:#fff;border:none;padding:13px 20px;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(212,81,30,.4);}
+</style></head><body>
+<div class="hdr">
+  <div class="ttl">S.A.L. — ${c.titolo||c.cliente||'—'}</div>
+  <div class="sub">${c.cliente||''} · ${c.indirizzo||''} · Esportato il ${oggi}</div>
+</div>
+${fotoRows}
+<button class="print-btn" onclick="window.print()">🖨️ Salva PDF</button>
+</body></html>`;
+
+  const frame = document.createElement('iframe');
+  frame.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:9999;background:#fff';
+  document.body.appendChild(frame);
+  const doc = frame.contentDocument||frame.contentWindow.document;
+  doc.open(); doc.write(html); doc.close();
+
+  // Add close button
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = '✕ Chiudi';
+  closeBtn.style.cssText = 'position:fixed;top:16px;left:16px;z-index:10000;background:rgba(0,0,0,0.7);color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:14px;font-weight:700;cursor:pointer';
+  closeBtn.onclick = ()=>{ document.body.removeChild(frame); document.body.removeChild(closeBtn); };
+  document.body.appendChild(closeBtn);
 }
 
 // ── INIT ──
