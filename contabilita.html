@@ -290,9 +290,12 @@ function render(){
       <div class="cant-header" onclick="toggleBody('${c.id}')">
         <div>
           <div class="cant-nome">${c.titolo||c.cliente||'—'}</div>
-          <div class="cant-sub">${c.cliente||'—'} · ${c.indirizzo||'—'} · ${c.stato||'In corso'}</div>
+          <div class="cant-sub">${c.cliente||'—'} · ${c.stato||'In corso'}</div>
         </div>
-        <span class="badge ${badgeClass}">${badgeTxt}</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <a href="cantiere.html?id=${c.id}" onclick="event.stopPropagation()" style="font-size:11px;font-weight:700;color:var(--brick);text-decoration:none;padding:4px 8px;border-radius:6px;background:var(--brick-dim)">🏗️ Vai</a>
+          <span class="badge ${badgeClass}">${badgeTxt}</span>
+        </div>
       </div>
       <div class="cant-body" id="body-${c.id}" style="display:none">
 

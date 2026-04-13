@@ -4,216 +4,211 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>CommessaPro</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Epilogue:wght@400;500&display=swap" rel="stylesheet">
-<style>
-* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-body {
-  font-family: 'Epilogue', sans-serif;
-  background: #0F0D0A;
-  color: #F5F0E8;
-  min-height: 100vh;
-  padding: 0 0 40px;
-}
-
-.header {
-  padding: 48px 24px 32px;
-  text-align: center;
-}
-
-.logo {
-  font-family: 'Syne', sans-serif;
-  font-size: 32px;
-  font-weight: 800;
-  color: #F5F0E8;
-  letter-spacing: -0.5px;
-}
-
-.logo span { color: #D4511E; }
-
-.subtitle {
-  font-size: 14px;
-  color: #6B6258;
-  margin-top: 6px;
-}
-
-.section-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  color: #6B6258;
-  padding: 0 20px;
-  margin-bottom: 12px;
-}
-
-.tools {
-  padding: 0 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 32px;
-}
-
-.tool-card {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  background: #1A1714;
-  border: 1px solid rgba(200,184,154,0.12);
-  border-radius: 16px;
-  padding: 20px;
-  text-decoration: none;
-  color: inherit;
-  transition: all 0.15s;
-  position: relative;
-  overflow: hidden;
-}
-
-.tool-card:active { transform: scale(0.98); background: #242018; }
-
-.tool-card.active { border-color: rgba(212,81,30,0.4); }
-.tool-card.soon { opacity: 0.5; pointer-events: none; }
-
-.tool-icon {
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  flex-shrink: 0;
-}
-
-.tool-icon.orange { background: rgba(212,81,30,0.2); }
-.tool-icon.blue { background: rgba(74,120,180,0.2); }
-.tool-icon.green { background: rgba(74,140,92,0.2); }
-.tool-icon.amber { background: rgba(196,160,23,0.2); }
-
-.tool-info { flex: 1; }
-.tool-name {
-  font-family: 'Syne', sans-serif;
-  font-size: 17px;
-  font-weight: 700;
-  color: #F5F0E8;
-  margin-bottom: 4px;
-}
-
-.tool-desc { font-size: 13px; color: #6B6258; line-height: 1.4; }
-
-.tool-arrow {
-  color: #D4511E;
-  font-size: 20px;
-}
-
-.badge-soon {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  background: rgba(200,184,154,0.1);
-  color: #6B6258;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  padding: 3px 8px;
-  border-radius: 20px;
-  text-transform: uppercase;
-}
-
-.divider {
-  height: 1px;
-  background: rgba(200,184,154,0.08);
-  margin: 20px 16px;
-}
-
-.footer {
-  text-align: center;
-  font-size: 12px;
-  color: #3A3530;
-  padding: 0 20px;
-}
-</style>
-<link rel="icon" href="logo-192.png" type="image/png">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="CommessaPro">
 <meta name="theme-color" content="#0F0D0A">
+<link rel="icon" href="logo-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>CommessaPro</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Epilogue:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root{--bg:#0F0D0A;--surface:#1A1714;--surface2:#242018;--brick:#D4511E;--brick-dim:rgba(212,81,30,0.15);--sand:#C8B89A;--sand-dim:rgba(200,184,154,0.12);--white:#F5F0E8;--muted:#6B6258;--border:rgba(200,184,154,0.12);--green:#4A8C5C;--green-dim:rgba(74,140,92,0.15);}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--white);min-height:100vh;}
+
+/* HEADER */
+.header{padding:36px 24px 20px;text-align:center;}
+.logo{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:var(--white);}
+.logo span{color:var(--brick);}
+.subtitle{font-size:12px;color:var(--muted);margin-top:4px;}
+
+/* RIEPILOGO */
+.riepilogo{padding:0 16px 16px;}
+.riep-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+.stat-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;}
+.stat-val{font-family:'Syne',sans-serif;font-size:20px;font-weight:700;margin-bottom:2px;}
+.stat-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+.stat-val.pos{color:var(--green);}
+.stat-val.neg{color:#E05252;}
+
+/* CANTIERI APERTI */
+.cant-aperto{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;}
+.cant-aperto:active{background:var(--surface2);}
+.cant-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;}
+.cant-info{flex:1;min-width:0;}
+.cant-nome{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cant-meta{font-size:11px;color:var(--muted);margin-top:2px;}
+.cant-arrow{color:var(--muted);font-size:16px;}
+
+/* TOOLS */
+.section-label{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);padding:0 20px;margin-bottom:10px;}
+.tools{padding:0 16px;display:flex;flex-direction:column;gap:10px;margin-bottom:20px;}
+.tool-card{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;text-decoration:none;color:inherit;}
+.tool-card:active{background:var(--surface2);}
+.tool-card.soon{opacity:.45;pointer-events:none;}
+.tool-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
+.tool-info{flex:1;}
+.tool-name{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;margin-bottom:2px;}
+.tool-desc{font-size:12px;color:var(--muted);}
+.tool-arrow{color:var(--brick);font-size:18px;}
+.badge-soon{background:var(--sand-dim);color:var(--muted);font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.5px;}
+.divider{height:1px;background:var(--border);margin:12px 16px;}
+.footer{text-align:center;font-size:11px;color:#2A2520;padding:16px;}
+</style>
 </head>
 <body>
 
 <div class="header">
-  <img src="logo-512.png" width="72" height="72" style="border-radius:16px;margin-bottom:12px;display:block;margin-left:auto;margin-right:auto">
+  <img src="logo-512.png" width="60" height="60" style="border-radius:14px;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto">
   <div class="logo">Commessa<span>Pro</span></div>
-  <div class="subtitle">Gestione lavori edili · Andrea Fazi</div>
+  <div class="subtitle" id="greeting">Gestione lavori edili</div>
 </div>
 
-<div class="section-label">Strumenti attivi</div>
-
-<div class="tools">
-  <a href="sopralluogo.html" class="tool-card active">
-    <div class="tool-icon orange">🔍</div>
-    <div class="tool-info">
-      <div class="tool-name">Sopralluogo</div>
-      <div class="tool-desc">Scheda cliente, lavorazioni, foto e report Word</div>
-    </div>
-    <div class="tool-arrow">→</div>
-  </a>
-
-  <a href="cantiere.html" class="tool-card active">
-    <div class="tool-icon green">🏗️</div>
-    <div class="tool-info">
-      <div class="tool-name">Cantiere</div>
-      <div class="tool-desc">Diario operai, ore lavorate e riepilogo costi</div>
-    </div>
-    <div class="tool-arrow">→</div>
-  </a>
+<!-- RIEPILOGO GENERALE -->
+<div class="riepilogo">
+  <div class="riep-grid" id="riep-grid">
+    <div class="stat-box"><div class="stat-val" id="st-cantieri">—</div><div class="stat-lbl">Cantieri aperti</div></div>
+    <div class="stat-box"><div class="stat-val" id="st-ore">—</div><div class="stat-lbl">Ore questa settimana</div></div>
+    <div class="stat-box"><div class="stat-val pos" id="st-margine">—</div><div class="stat-lbl">Margine del mese</div></div>
+    <div class="stat-box"><div class="stat-val" id="st-sopralluoghi">—</div><div class="stat-lbl">Sopralluoghi totali</div></div>
+  </div>
+  <!-- CANTIERI APERTI -->
+  <div id="cantieri-aperti"></div>
 </div>
 
 <div class="divider"></div>
-
-<div class="section-label">Altri strumenti</div>
+<div class="section-label">Strumenti</div>
 
 <div class="tools">
-  <a href="sal.html" class="tool-card active">
+  <a href="sopralluogo.html" class="tool-card">
+    <div class="tool-icon" style="background:rgba(212,81,30,0.2)">🔍</div>
+    <div class="tool-info"><div class="tool-name">Sopralluogo</div><div class="tool-desc">Scheda cliente, foto, note, report PDF</div></div>
+    <div class="tool-arrow">→</div>
+  </a>
+  <a href="cantiere.html" class="tool-card">
+    <div class="tool-icon" style="background:rgba(74,140,92,0.2)">🏗️</div>
+    <div class="tool-info"><div class="tool-name">Cantiere</div><div class="tool-desc">Diario operai e ore lavorate</div></div>
+    <div class="tool-arrow">→</div>
+  </a>
+  <a href="sal.html" class="tool-card">
     <div class="tool-icon" style="background:rgba(74,120,180,0.2)">📸</div>
-    <div class="tool-info">
-      <div class="tool-name">S.A.L.</div>
-      <div class="tool-desc">Storico fotografico avanzamento lavori</div>
-    </div>
+    <div class="tool-info"><div class="tool-name">S.A.L.</div><div class="tool-desc">Storico fotografico avanzamento lavori</div></div>
     <div class="tool-arrow">→</div>
   </a>
-
-  <a href="contabilita.html" class="tool-card active">
-    <div class="tool-icon" style="background:rgba(74,140,92,0.2)">📊</div>
-    <div class="tool-info">
-      <div class="tool-name">Contabilità</div>
-      <div class="tool-desc">Preventivi, costi e margini per cantiere</div>
-    </div>
+  <a href="contabilita.html" class="tool-card">
+    <div class="tool-icon" style="background:rgba(74,140,92,0.15)">📊</div>
+    <div class="tool-info"><div class="tool-name">Contabilità</div><div class="tool-desc">Preventivi, costi e margini</div></div>
     <div class="tool-arrow">→</div>
   </a>
-
-  <a href="note.html" class="tool-card active">
+  <a href="note.html" class="tool-card">
     <div class="tool-icon" style="background:rgba(212,81,30,0.15)">📝</div>
-    <div class="tool-info">
-      <div class="tool-name">Note & Agenda</div>
-      <div class="tool-desc">Attività giornaliere e appunti di lavoro</div>
-    </div>
+    <div class="tool-info"><div class="tool-name">Note & Agenda</div><div class="tool-desc">Attività giornaliere per mese</div></div>
     <div class="tool-arrow">→</div>
   </a>
-
-  <a href="rubrica.html" class="tool-card active">
+  <a href="rubrica.html" class="tool-card">
     <div class="tool-icon" style="background:rgba(74,140,92,0.15)">👥</div>
-    <div class="tool-info">
-      <div class="tool-name">Rubrica Clienti</div>
-      <div class="tool-desc">Anagrafica con nome, telefono e email</div>
-    </div>
+    <div class="tool-info"><div class="tool-name">Rubrica Clienti</div><div class="tool-desc">Anagrafica nome, telefono, email</div></div>
     <div class="tool-arrow">→</div>
   </a>
 </div>
 
-<div class="footer">CommessaPro · Uso personale</div>
+<div class="footer">CommessaPro · v1.0</div>
 
+<script>
+const SUPA_URL='https://iradzlocobsipjazracw.supabase.co';
+const SUPA_KEY='sb_publishable_zFgRrNrmYSORug8N06heow_6vjl0fhH';
+let db=null;
+function initDB(){if(window.supabase)db=window.supabase.createClient(SUPA_URL,SUPA_KEY);}
+
+function getCantieri(){try{return JSON.parse(localStorage.getItem('cantieri_v1'))||[];}catch{return[];}}
+function getSopralluoghi(){try{return JSON.parse(localStorage.getItem('sopralluoghi_v3'))||[];}catch{return[];}}
+
+async function syncData(){
+  if(!db) return;
+  try{
+    const [rc, rs] = await Promise.all([
+      db.from('dati').select('valore').eq('chiave','cantieri_v1').maybeSingle(),
+      db.from('dati').select('valore').eq('chiave','sopralluoghi_v3').maybeSingle()
+    ]);
+    if(rc.data?.valore?.length>0){
+      const loc=getCantieri(),ids=new Set(rc.data.valore.map(x=>x.id)),ex=loc.filter(x=>!ids.has(x.id));
+      localStorage.setItem('cantieri_v1',JSON.stringify([...rc.data.valore,...ex]));
+    }
+    if(rs.data?.valore?.length>0){
+      const loc=getSopralluoghi(),ids=new Set(rs.data.valore.map(x=>x.id)),ex=loc.filter(x=>!ids.has(x.id));
+      localStorage.setItem('sopralluoghi_v3',JSON.stringify([...rs.data.valore,...ex]));
+    }
+  }catch(e){}
+  aggiornaRiepilogo();
+}
+
+function aggiornaRiepilogo(){
+  const cantieri = getCantieri();
+  const sopralluoghi = getSopralluoghi();
+  const oggi = new Date();
+  const MESI = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+
+  // Greeting
+  const ora = oggi.getHours();
+  const saluto = ora<12?'Buongiorno':ora<18?'Buon pomeriggio':'Buonasera';
+  document.getElementById('greeting').textContent = saluto+', Andrea 👋';
+
+  // Cantieri aperti
+  const aperti = cantieri.filter(c=>c.stato!=='Completato');
+  document.getElementById('st-cantieri').textContent = aperti.length;
+
+  // Ore questa settimana
+  const lunedi = new Date(oggi); lunedi.setDate(oggi.getDate()-oggi.getDay()+1); lunedi.setHours(0,0,0,0);
+  let oreSettimana = 0;
+  cantieri.forEach(c=>{
+    (c.giornate||[]).forEach(g=>{
+      const d = new Date(g.data+'T12:00:00');
+      if(d>=lunedi && d<=oggi) oreSettimana += g.ore*(g.operai||[]).length;
+    });
+  });
+  document.getElementById('st-ore').textContent = oreSettimana+'h';
+
+  // Margine del mese
+  let fatturato=0, costi=0;
+  cantieri.forEach(c=>{
+    const tariffa=parseFloat(c.tariffa)||22;
+    let ore=0;
+    (c.giornate||[]).forEach(g=>{
+      const d=new Date(g.data+'T12:00:00');
+      if(d.getMonth()===oggi.getMonth()&&d.getFullYear()===oggi.getFullYear())
+        ore+=g.ore*(g.operai||[]).length;
+    });
+    const mat=(c.costiMateriali||[]).reduce((s,m)=>s+(parseFloat(m.importo)||0),0);
+    costi+=ore*tariffa+mat;
+    if(parseFloat(c.preventivo)>0) fatturato+=parseFloat(c.preventivo);
+  });
+  const margine=fatturato-costi;
+  const elM=document.getElementById('st-margine');
+  elM.textContent=(margine>=0?'+':'')+new Intl.NumberFormat('it-IT',{minimumFractionDigits:0}).format(Math.round(margine))+'€';
+  elM.className='stat-val '+(margine>=0?'pos':'neg');
+
+  // Sopralluoghi
+  document.getElementById('st-sopralluoghi').textContent = sopralluoghi.length;
+
+  // Lista cantieri aperti
+  const el=document.getElementById('cantieri-aperti');
+  if(!aperti.length){el.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:8px 0 4px">Nessun cantiere in corso</div>';return;}
+  el.innerHTML=aperti.slice(0,3).map(c=>`
+    <a href="cantiere.html?id=${c.id}" class="cant-aperto">
+      <div class="cant-dot"></div>
+      <div class="cant-info">
+        <div class="cant-nome">${c.titolo||c.cliente||'—'}</div>
+        <div class="cant-meta">${c.cliente||''} · Dal ${c.dataInizio||'—'}</div>
+      </div>
+      <div class="cant-arrow">→</div>
+    </a>`).join('')+
+    (aperti.length>3?`<div style="font-size:12px;color:var(--muted);text-align:center;padding:6px">+${aperti.length-3} altri cantieri</div>`:'');
+}
+
+initDB();
+aggiornaRiepilogo();
+setTimeout(()=>syncData().catch(()=>aggiornaRiepilogo()),400);
+</script>
 </body>
 </html>
