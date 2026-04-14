@@ -290,7 +290,12 @@ function showView(name){
 
 // ── LISTA ──
 function getLista(){ try{return JSON.parse(localStorage.getItem(LIST_KEY))||[];}catch{return[];} }
-function salveLista(l){ localStorage.setItem(LIST_KEY,JSON.stringify(l)); dbSalva(LIST_KEY,l); }
+function salveLista(l){
+  localStorage.setItem(LIST_KEY,JSON.stringify(l));
+  // Supabase: versione senza foto/audio (troppo pesanti per singola riga)
+  const lLight=l.map(s=>({...s,foto:[],noteVocali:[]}));
+  dbSalva(LIST_KEY,lLight);
+}
 
 function renderLista(){
   const lista=getLista();
@@ -476,11 +481,11 @@ function caricaFoto(input){
       const img=new Image();
       img.onload=()=>{
         const canvas=document.createElement('canvas');
-        const MAX=600; let w=img.width,h=img.height;
+        const MAX=480; let w=img.width,h=img.height;
         if(w>h){if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}}else{if(h>MAX){w=Math.round(w*MAX/h);h=MAX;}}
         canvas.width=w; canvas.height=h;
         canvas.getContext('2d').drawImage(img,0,0,w,h);
-        foto.push({url:canvas.toDataURL('image/jpeg',0.65)});
+        foto.push({url:canvas.toDataURL('image/jpeg',0.50)});
         renderFoto(); salva();
       };
       img.src=e.target.result;
@@ -491,7 +496,10 @@ function caricaFoto(input){
 }
 
 function renderFoto(){
-  g('fnum').textContent=foto.length+' foto';
+  const totalKB = Math.round(foto.reduce((s,f)=>s+(f.url.length*0.75/1024),0));
+  g('fnum').textContent=foto.length+' foto · '+totalKB+'KB';
+  if(totalKB>800) g('fnum').style.color='#E05252';
+  else g('fnum').style.color='var(--muted)';
   const grid=g('foto-grid');
   if(!foto.length){grid.innerHTML='';aggiornaProg();return;}
   grid.innerHTML=foto.map((f,i)=>`
