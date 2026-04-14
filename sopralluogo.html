@@ -58,6 +58,9 @@ input[type="file"]{display:none;}
 .foto-item img{width:100%;height:100%;object-fit:cover;display:block;}
 .foto-del{position:absolute;top:3px;right:3px;width:22px;height:22px;background:rgba(0,0,0,.75);color:#fff;border:none;border-radius:50%;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
 .foto-num{position:absolute;bottom:3px;left:5px;font-size:9px;font-weight:700;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.9);}
+.foto-order{position:absolute;bottom:3px;right:3px;display:flex;gap:2px;}
+.foto-order button{width:20px;height:20px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:4px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
+.foto-order span{width:20px;}
 .bottom-bar{position:fixed;bottom:0;left:0;right:0;padding:10px 16px;padding-bottom:max(10px,env(safe-area-inset-bottom));background:linear-gradient(to top,var(--bg) 60%,transparent);z-index:100;display:flex;flex-direction:column;gap:8px;}
 .btn-main{width:100%;padding:16px;background:var(--brick);color:#fff;border:none;border-radius:var(--r);font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;-webkit-appearance:none;}
 .btn-main:active{transform:scale(.98);background:#B53D10;}
@@ -492,19 +495,44 @@ function renderFoto(){
   const grid=g('foto-grid');
   if(!foto.length){grid.innerHTML='';aggiornaProg();return;}
   grid.innerHTML=foto.map((f,i)=>`
-    <div class="foto-item"><img src="${f.url}">
+    <div class="foto-item">
+      <img src="${f.url}">
       <button class="foto-del" onclick="delFoto(${i})">✕</button>
       <span class="foto-num">${i+1}</span>
+      <div class="foto-order">
+        ${i>0?`<button onclick="muoviFoto(${i},-1)">◀</button>`:'<span></span>'}
+        ${i<foto.length-1?`<button onclick="muoviFoto(${i},+1)">▶</button>`:'<span></span>'}
+      </div>
     </div>`).join('');
   aggiornaProg();
+}
+
+function muoviFoto(i, dir){
+  const j = i+dir;
+  if(j<0||j>=foto.length) return;
+  [foto[i],foto[j]]=[foto[j],foto[i]];
+  renderFoto(); salva();
 }
 function delFoto(i){foto.splice(i,1);renderFoto();}
 
 // ── AVVIA CANTIERE ──
 function aggiornaBottoneAvvia(cantiereId){
   const btn=g('btn-avvia');
-  if(cantiereId){btn.textContent='🏗️ Vai al Cantiere';btn.onclick=()=>{window.location.href='cantiere.html?id='+cantiereId;};}
-  else{btn.textContent='🏗️ Avvia Cantiere';btn.onclick=avviaCantiere;}
+  // Verifica che il cantiere esista ancora
+  const cantieri = getCantieri();
+  const esiste = cantiereId && cantieri.some(c=>c.id===cantiereId);
+  if(esiste){
+    btn.textContent='🏗️ Vai al Cantiere';
+    btn.onclick=()=>{window.location.href='cantiere.html?id='+cantiereId;};
+  } else {
+    // Cantiere non esiste - pulisci il cantiereId dal sopralluogo
+    if(cantiereId && !esiste){
+      const lista=getLista(); const idx=lista.findIndex(s=>s.id===currentId);
+      if(idx>=0){lista[idx].cantiereId=null; salveLista(lista);}
+    }
+    btn.textContent='🏗️ Avvia Cantiere';
+    btn.onclick=avviaCantiere;
+  }
 }
 
 function avviaCantiere(){
@@ -546,13 +574,13 @@ function generaReport(){
     <tr><th style="text-align:left;padding:5px 10px;background:#F5F0E8;font-size:11px;color:#6B6258">Ambiente</th><th style="text-align:right;padding:5px 10px;background:#F5F0E8;font-size:11px;color:#6B6258">mq</th></tr>
     ${ambienti.map(a=>`<tr><td style="padding:7px 10px;border-top:1px solid #E8E2D9;font-size:13px">${a.nome||'—'}</td><td style="padding:7px 10px;border-top:1px solid #E8E2D9;font-size:13px;text-align:right;font-weight:600">${a.mq||'—'}</td></tr>`).join('')}</table>`:null;
 
-  const COLS=2,FSIZE=260;
-  let fotoRows='<table style="width:100%;border-collapse:separate;border-spacing:8px 10px">';
+  const COLS=2;
+  let fotoRows='<table style="width:80%;border-collapse:separate;border-spacing:10px 12px;margin:0 auto">';
   for(let i=0;i<foto.length;i+=COLS){
     fotoRows+='<tr>';
     for(let j=0;j<COLS;j++){
       const f=foto[i+j];
-      fotoRows+=f?`<td style="vertical-align:top;padding:0"><div style="font-size:8px;color:#9C9088;margin-bottom:3px;font-weight:700;letter-spacing:1px">FOTO ${i+j+1}</div><img src="${f.url}" width="${FSIZE}" height="${FSIZE}" style="width:${FSIZE}px;height:${FSIZE}px;object-fit:cover;border-radius:4px;border:1px solid #E8E2D9;display:block"></td>`:'<td></td>';
+      fotoRows+=f?`<td style="vertical-align:top;padding:0;text-align:center"><div style="font-size:7px;color:#9C9088;margin-bottom:3px;font-weight:700;letter-spacing:1px;text-align:center">FOTO ${i+j+1}</div><img src="${f.url}" style="width:100%;height:220px;object-fit:cover;border-radius:4px;border:1px solid #E8E2D9;display:block"></td>`:'<td style="width:50%"></td>';
     }
     fotoRows+='</tr>';
   }
@@ -566,7 +594,7 @@ function generaReport(){
     </div>`;}).join(''):'';
 
   const html=`<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sopralluogo — ${cliente}</title>
-<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:#fff;color:#1A1612;padding:20px;max-width:640px;margin:0 auto;font-size:14px;}.hdr{border-bottom:3px solid #D4511E;padding-bottom:12px;margin-bottom:18px;}.ttl{font-size:20px;font-weight:700;}.sub{font-size:12px;color:#9C9088;margin-top:3px;}.sec{margin-bottom:18px;}.stitle{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#D4511E;border-bottom:1px solid #E8E2D9;padding-bottom:4px;margin-bottom:10px;}table.info{width:100%;border-collapse:collapse;}table.info td{padding:8px 10px;border:1px solid #E8E2D9;font-size:13px;vertical-align:top;}table.info td:first-child{background:#F5F0E8;font-weight:600;color:#6B6258;width:32%;}.btext{font-size:13px;line-height:1.8;white-space:pre-wrap;}.firma-box{margin-top:24px;padding-top:12px;border-top:1px solid #E8E2D9;display:grid;grid-template-columns:1fr 1fr;gap:20px;}.fl{font-size:11px;color:#9C9088;}.fl strong{display:block;font-size:13px;color:#1A1612;margin-bottom:14px;}.fline{border-bottom:1px solid #ccc;height:18px;margin-top:4px;}@media print{body{padding:0;}audio{display:none;}}</style></head><body>
+<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:#fff;color:#1A1612;padding:12px 16px;max-width:720px;margin:0 auto;font-size:13px;}.hdr{border-bottom:3px solid #D4511E;padding-bottom:10px;margin-bottom:14px;}.ttl{font-size:19px;font-weight:700;}.sub{font-size:11px;color:#9C9088;margin-top:2px;}.sec{margin-bottom:14px;}.stitle{font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#D4511E;border-bottom:1px solid #E8E2D9;padding-bottom:3px;margin-bottom:8px;}table.info{width:100%;border-collapse:collapse;}table.info td{padding:6px 8px;border:1px solid #E8E2D9;font-size:12px;vertical-align:top;}table.info td:first-child{background:#F5F0E8;font-weight:600;color:#6B6258;width:28%;}.btext{font-size:12px;line-height:1.7;white-space:pre-wrap;}.firma-box{margin-top:16px;padding-top:10px;border-top:1px solid #E8E2D9;display:grid;grid-template-columns:1fr 1fr;gap:16px;page-break-inside:avoid;break-inside:avoid;}.fl{font-size:10px;color:#9C9088;}.fl strong{display:block;font-size:12px;color:#1A1612;margin-bottom:12px;}.fline{border-bottom:1px solid #ccc;height:16px;margin-top:3px;}.foto-sec{page-break-inside:avoid;}@media print{body{padding:6px 10px;}audio{display:none;}.firma-box{page-break-inside:avoid;break-inside:avoid;}}</style></head><body>
 <div class="hdr"><div class="ttl">REPORT DI SOPRALLUOGO</div><div class="sub">${gv('f-titolo')||''}</div><div class="sub">Data: ${data} &middot; Responsabile: ${resp}</div></div>
 <div class="sec"><div class="stitle">👤 Cliente</div><table class="info"><tr><td>Cliente</td><td>${cliente}</td></tr><tr><td>Telefono</td><td>${gv('ft')||'—'}</td></tr><tr><td>Email</td><td>${gv('fe')||'—'}</td></tr></table></div>
 <div class="sec"><div class="stitle">📍 Cantiere</div><table class="info"><tr><td>Indirizzo</td><td>${indirizzo}</td></tr><tr><td>Piano</td><td>${gv('fp')||'—'}</td></tr><tr><td>Superficie</td><td>${gv('fm')?gv('fm')+' mq':'—'}</td></tr><tr><td>Accesso</td><td>${gv('facc')||'—'}</td></tr></table></div>
@@ -574,7 +602,7 @@ ${ambHtml?`<div class="sec"><div class="stitle">📐 Misure per ambiente</div>${
 <div class="sec"><div class="stitle">🔨 Lavorazioni richieste</div><div class="btext">${gv('fl')||'—'}</div></div>
 ${gv('fn')?`<div class="sec"><div class="stitle">📝 Note aggiuntive</div><div class="btext">${gv('fn')}</div></div>`:''}
 ${audioHtml?`<div class="sec"><div class="stitle">🎙️ Note vocali (${noteVocali.length})</div>${audioHtml}</div>`:''}
-${foto.length?`<div class="sec"><div class="stitle">📷 Foto (${foto.length})</div>${fotoRows}</div>`:''}
+${foto.length?`<div class="sec foto-sec"><div class="stitle">📷 Foto (${foto.length})</div>${fotoRows}</div>`:''}
 <div class="firma-box"><div class="fl"><strong>${resp}</strong><div>Responsabile sopralluogo</div><div class="fline"></div><div style="margin-top:3px">Firma</div></div><div class="fl"><strong>${cliente}</strong><div>Cliente — presa visione</div><div class="fline"></div><div style="margin-top:3px">Firma</div></div></div>
 </body></html>`;
 
