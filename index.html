@@ -20,6 +20,8 @@ html,body{font-family:var(--font-body);background:var(--bg);color:var(--white);m
 .logo{font-family:var(--font-head);font-size:26px;font-weight:800;color:var(--white);}
 .logo span{color:var(--brick);}
 .settings-btn{width:40px;height:40px;background:var(--surface);border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;-webkit-user-select:none;}
+.logout-btn{width:40px;height:40px;background:var(--surface);border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;-webkit-user-select:none;color:var(--muted);}
+.readonly-badge{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;background:var(--brick-dim);color:var(--brick);border-radius:4px;padding:2px 5px;vertical-align:middle;margin-left:5px;}
 .greeting{font-size:12px;color:var(--muted);padding:0 24px 16px;}
 .riep-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 16px 16px;}
 .stat-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;}
@@ -62,9 +64,12 @@ html,body{font-family:var(--font-body);background:var(--bg);color:var(--white);m
   <div>
     <div class="logo">Commessa<span>Pro</span></div>
   </div>
-  <div class="settings-btn" onclick="apriSettings()">⚙️</div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <div class="logout-btn" onclick="logout()" title="Esci">⏏</div>
+    <div class="settings-btn" onclick="apriSettings()">⚙️</div>
+  </div>
 </div>
-<div class="greeting" id="greeting">Buongiorno, Andrea 👋</div>
+<div class="greeting" id="greeting">Caricamento…</div>
 
 <!-- RIEPILOGO -->
 <div class="riep-grid">
@@ -77,38 +82,7 @@ html,body{font-family:var(--font-body);background:var(--bg);color:var(--white);m
 <div class="divider"></div>
 <div class="section-label">Strumenti</div>
 
-<div class="tools">
-  <a href="sopralluogo.html" class="tool-card">
-    <div class="tool-icon" style="background:rgba(212,81,30,0.15)">🔍</div>
-    <div class="tool-info"><div class="tool-name">Sopralluogo</div><div class="tool-desc">Scheda cliente, foto, note, report PDF</div></div>
-    <div class="tool-arrow">→</div>
-  </a>
-  <a href="cantiere.html" class="tool-card">
-    <div class="tool-icon" style="background:rgba(58,122,76,0.15)">🏗️</div>
-    <div class="tool-info"><div class="tool-name">Cantiere</div><div class="tool-desc">Diario operai e ore lavorate</div></div>
-    <div class="tool-arrow">→</div>
-  </a>
-  <a href="sal.html" class="tool-card">
-    <div class="tool-icon" style="background:rgba(74,120,180,0.15)">📸</div>
-    <div class="tool-info"><div class="tool-name">S.A.L.</div><div class="tool-desc">Storico fotografico avanzamento lavori</div></div>
-    <div class="tool-arrow">→</div>
-  </a>
-  <a href="contabilita.html" class="tool-card">
-    <div class="tool-icon" style="background:rgba(58,122,76,0.15)">📊</div>
-    <div class="tool-info"><div class="tool-name">Contabilità</div><div class="tool-desc">Preventivi, costi e margini</div></div>
-    <div class="tool-arrow">→</div>
-  </a>
-  <a href="note.html" class="tool-card">
-    <div class="tool-icon" style="background:rgba(212,81,30,0.12)">📝</div>
-    <div class="tool-info"><div class="tool-name">Note & Agenda</div><div class="tool-desc">Attività giornaliere per mese</div></div>
-    <div class="tool-arrow">→</div>
-  </a>
-  <a href="rubrica.html" class="tool-card">
-    <div class="tool-icon" style="background:rgba(58,122,76,0.12)">👥</div>
-    <div class="tool-info"><div class="tool-name">Rubrica Clienti</div><div class="tool-desc">Anagrafica nome, telefono, email</div></div>
-    <div class="tool-arrow">→</div>
-  </a>
-</div>
+<div class="tools" id="tools-list"></div>
 
 <div class="footer">CommessaPro · v1.0</div>
 
@@ -145,11 +119,45 @@ html,body{font-family:var(--font-body);background:var(--bg);color:var(--white);m
 </div>
 
 <script>
+// ── AUTH ──
+const USER_KEY='cp_user';
+function getUser(){try{return JSON.parse(localStorage.getItem(USER_KEY))||null;}catch{return null;}}
+(function(){const u=getUser();if(!u||!u.email)window.location.replace('login.html');})();
+function logout(){localStorage.removeItem(USER_KEY);window.location.replace('login.html');}
+
 const SUPA_URL='https://iradzlocobsipjazracw.supabase.co';
 const SUPA_KEY='sb_publishable_zFgRrNrmYSORug8N06heow_6vjl0fhH';
 const SETTINGS_KEY='cp_settings';
 let db=null;
 function initDB(){if(window.supabase)db=window.supabase.createClient(SUPA_URL,SUPA_KEY);}
+
+// ── TOOLS PER RUOLO ──
+const ALL_TOOLS=[
+  {href:'sopralluogo.html',icon:'🔍',bg:'rgba(212,81,30,0.15)',name:'Sopralluogo',desc:'Scheda cliente, foto, note, report PDF',roles:['admin','segretaria','operaio'],readonly:['segretaria','operaio']},
+  {href:'cantiere.html',icon:'🏗️',bg:'rgba(58,122,76,0.15)',name:'Cantiere',desc:'Diario operai e ore lavorate',roles:['admin','operaio']},
+  {href:'sal.html',icon:'📸',bg:'rgba(74,120,180,0.15)',name:'S.A.L.',desc:'Storico fotografico avanzamento lavori',roles:['admin','operaio']},
+  {href:'contabilita.html',icon:'📊',bg:'rgba(58,122,76,0.15)',name:'Contabilità',desc:'Preventivi, costi e margini',roles:['admin','segretaria']},
+  {href:'note.html',icon:'📝',bg:'rgba(212,81,30,0.12)',name:'Note & Agenda',desc:'Attività giornaliere per mese',roles:['admin','segretaria']},
+  {href:'rubrica.html',icon:'👥',bg:'rgba(58,122,76,0.12)',name:'Rubrica Clienti',desc:'Anagrafica nome, telefono, email',roles:['admin','segretaria']},
+];
+function renderTools(){
+  const ruolo=(getUser()?.ruolo||'operatore').toLowerCase();
+  const isAdmin=ruolo==='admin';
+  const list=document.getElementById('tools-list');
+  list.innerHTML=ALL_TOOLS
+    .filter(t=>isAdmin||t.roles.includes(ruolo))
+    .map(t=>{
+      const ro=!isAdmin&&t.readonly&&t.readonly.includes(ruolo);
+      return `<a href="${t.href}" class="tool-card">
+        <div class="tool-icon" style="background:${t.bg}">${t.icon}</div>
+        <div class="tool-info">
+          <div class="tool-name">${t.name}${ro?'<span class="readonly-badge">sola lettura</span>':''}</div>
+          <div class="tool-desc">${t.desc}</div>
+        </div>
+        <div class="tool-arrow">→</div>
+      </a>`;
+    }).join('');
+}
 
 // ── SETTINGS ──
 const COLORS=[
@@ -263,7 +271,8 @@ function getSopralluoghi(){try{return JSON.parse(localStorage.getItem('sopralluo
 function aggiornaRiepilogo(){
   const cantieri=getCantieri(), sops=getSopralluoghi(), oggi=new Date();
   const ora=oggi.getHours();
-  document.getElementById('greeting').textContent=(ora<12?'Buongiorno':ora<18?'Buon pomeriggio':'Buonasera')+', Andrea 👋';
+  const nomeUtente=getUser()?.nome||getUser()?.email?.split('@')[0]||'';
+  document.getElementById('greeting').textContent=(ora<12?'Buongiorno':ora<18?'Buon pomeriggio':'Buonasera')+(nomeUtente?', '+nomeUtente:'')+' 👋';
   document.getElementById('st-sopralluoghi').textContent=sops.length;
   document.getElementById('st-cantieri').textContent=cantieri.filter(c=>c.stato!=='Completato').length;
   const lunedi=new Date(oggi); lunedi.setDate(oggi.getDate()-((oggi.getDay()||7)-1)); lunedi.setHours(0,0,0,0);
@@ -298,6 +307,7 @@ async function syncData(){
 // ── INIT ──
 initDB();
 applicaSettings(getSettings());
+renderTools();
 aggiornaRiepilogo();
 setTimeout(()=>syncData().catch(()=>aggiornaRiepilogo()),400);
 </script>
