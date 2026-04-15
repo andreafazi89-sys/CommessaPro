@@ -369,7 +369,7 @@ function render(){
     return `<div class="cant-card">
       <div class="cant-header" onclick="toggleBody('${c.id}')">
         <div>
-          <div class="cant-nome">${c.titolo||c.cliente||'—'}</div>
+          <div class="cant-nome">${c.commessa?c.commessa+' — ':''} ${c.titolo||c.cliente||'—'}</div>
           <div class="cant-sub">${c.cliente||'—'} · ${c.stato||'In corso'}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px">

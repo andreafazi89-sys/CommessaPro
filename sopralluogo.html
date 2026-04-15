@@ -138,6 +138,7 @@ input[type="file"]{display:none;}
         <div class="fg"><label>Data sopralluogo</label><input type="date" id="f-data" oninput="salva()"></div>
       </div>
       <div class="fg"><label>Titolo / Descrizione lavoro *</label><input type="text" id="f-titolo" placeholder="Es. Ristrutturazione bagno, Infiltrazione 3° piano..." oninput="salva()"></div>
+      <div class="fg"><label>Commessa</label><input type="text" id="f-commessa" placeholder="Es. WFP, IFAD, SQUARE..." oninput="salva()"></div>
     </div>
 
     <div class="section">
@@ -308,7 +309,7 @@ function renderLista(){
     <div class="sop-card" onclick="apriSopralluogo('${s.id}')">
       <div class="sop-icon">${s.cantiereId?'🏗️':'📋'}</div>
       <div class="sop-info">
-        <div class="sop-nome">${s.titolo||s.cliente||'Sopralluogo senza titolo'}</div>
+        <div class="sop-nome">${s.commessa?s.commessa+' — ':''}${s.titolo||s.cliente||'Sopralluogo senza titolo'}</div>
         <div class="sop-meta">${s.cliente||'—'} · ${s.data||'—'}${s.cantiereId?' · <span style="color:var(--green)">Cantiere attivo</span>':''}</div>
       </div>
       <button class="sop-del" onclick="event.stopPropagation();eliminaSopralluogo('${s.id}')">🗑</button>
@@ -336,7 +337,7 @@ function apriSopralluogo(id){
   currentId=id; foto=s.foto||[]; ambienti=s.ambienti||[];
   noteVocali=(s.noteVocali||[]).map(n=>({dur:n.dur,b64:n.b64,type:n.type||'audio/webm',url:null}));
   resetForm();
-  sv('f-resp',s.resp); sv('f-data',s.data); sv('f-titolo',s.titolo); sv('fc',s.cliente); sv('ft',s.tel);
+  sv('f-resp',s.resp); sv('f-data',s.data); sv('f-titolo',s.titolo); sv('f-commessa',s.commessa); sv('fc',s.cliente); sv('ft',s.tel);
   sv('fe',s.email); sv('fi',s.indirizzo); sv('fp',s.piano); sv('fm',s.mq);
   sv('facc',s.accesso); sv('fl',s.lavori); sv('fn',s.note);
   g('form-title').textContent=s.titolo||s.cliente||'Sopralluogo';
@@ -346,7 +347,7 @@ function apriSopralluogo(id){
 }
 
 function resetForm(){
-  ['f-titolo','fc','ft','fe','fi','fp','fm','fl','fn'].forEach(id=>{const el=g(id);if(el)el.value='';});
+  ['f-titolo','f-commessa','fc','ft','fe','fi','fp','fm','fl','fn'].forEach(id=>{const el=g(id);if(el)el.value='';});
   sv('f-resp','Andrea Fazi'); g('facc').selectedIndex=0;
 }
 
@@ -362,7 +363,7 @@ function salva(){
   g('si').textContent='● salvando...'; g('si').className='save-ind';
   saveTimer=setTimeout(()=>{
     const lista=getLista(); const idx=lista.findIndex(s=>s.id===currentId);
-    const dati={id:currentId,resp:gv('f-resp'),data:gv('f-data'),titolo:gv('f-titolo'),cliente:gv('fc'),tel:gv('ft'),email:gv('fe'),
+    const dati={id:currentId,resp:gv('f-resp'),data:gv('f-data'),titolo:gv('f-titolo'),commessa:gv('f-commessa'),cliente:gv('fc'),tel:gv('ft'),email:gv('fe'),
       indirizzo:gv('fi'),piano:gv('fp'),mq:gv('fm'),accesso:gv('facc'),lavori:gv('fl'),note:gv('fn'),
       ambienti,foto,noteVocali:noteVocali.map(n=>({dur:n.dur,b64:n.b64,type:n.type})),
       cantiereId:(idx>=0?lista[idx].cantiereId:null)||null};
@@ -386,6 +387,7 @@ function aggiornaCantiere(sop){
   cantieri[idx].indirizzo = sop.indirizzo;
   cantieri[idx].resp = sop.resp;
   cantieri[idx].mq = sop.mq;
+  cantieri[idx].commessa = sop.commessa;
   cantieri[idx].titolo = sop.titolo;
   localStorage.setItem('cantieri_v1', JSON.stringify(cantieri));
   dbSalva('cantieri_v1', cantieri);
@@ -548,7 +550,7 @@ function avviaCantiere(){
   if(!confirm(`Avviare il cantiere per ${gv('fc')}?`)) return;
   const cantiereId='cant_'+Date.now();
   const cantieri=getCantieri();
-  cantieri.unshift({id:cantiereId,sopralluogoId:currentId,titolo:gv('f-titolo'),cliente:gv('fc'),indirizzo:gv('fi'),
+  cantieri.unshift({id:cantiereId,sopralluogoId:currentId,commessa:gv('f-commessa'),titolo:gv('f-titolo'),cliente:gv('fc'),indirizzo:gv('fi'),
     resp:gv('f-resp'),mq:gv('fm'),dataInizio:new Date().toISOString().split('T')[0],
     stato:'In corso',giornate:[],costiMateriali:[],preventivo:0});
   localStorage.setItem('cantieri_v1',JSON.stringify(cantieri));
