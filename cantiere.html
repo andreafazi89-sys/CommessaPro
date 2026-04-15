@@ -63,6 +63,7 @@ textarea{resize:none;min-height:80px;line-height:1.6;}
 .empty-icon{font-size:48px;margin-bottom:12px;}
 .empty-txt{font-size:15px;font-weight:500;color:var(--sand);margin-bottom:6px;}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -119,7 +120,10 @@ textarea{resize:none;min-height:80px;line-height:1.6;}
       <div class="fg" style="margin-top:10px"><label>Lavori svolti oggi</label>
         <textarea id="g-note" placeholder="Descrivi brevemente cosa è stato fatto..."></textarea>
       </div>
-      <button onclick="aggiungiGiornata()" style="width:100%;padding:14px;background:var(--brick);color:#fff;border:none;border-radius:var(--r-sm);font-family:'Syne',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-top:4px">+ Salva giornata</button>
+      <div class="fg" style="margin-top:10px"><label>Subappaltatori (opzionale)</label>
+        <input type="text" id="g-sub" placeholder="Es. Idraulico Mario, Elettricista Rossi...">
+      </div>
+      <button onclick="aggiungiGiornata()" style="width:100%;padding:14px;background:var(--brick);color:#fff;border:none;border-radius:var(--r-sm);font-family:'Syne',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-top:10px">+ Salva giornata</button>
     </div>
     <div class="section">
       <div class="sec-title"><div class="sec-icon">📋</div>Diario lavori
@@ -211,8 +215,8 @@ function aggiungiGiornata(){
   if(!operaiSel.length){toast('Seleziona almeno un operaio','err');return;}
   const ore=parseFloat(gv('g-ore'))||8;
   if(!currentCant.giornate)currentCant.giornate=[];
-  currentCant.giornate.push({data:gv('g-data')||new Date().toISOString().split('T')[0],operai:[...operaiSel],ore,note:gv('g-note')});
-  salvaCantiere();g('g-note').value='';operaiSel=[];renderChips();renderDiario();toast('✓ Giornata salvata','ok');
+  currentCant.giornate.push({data:gv('g-data')||new Date().toISOString().split('T')[0],operai:[...operaiSel],ore,note:gv('g-note'),sub:gv('g-sub')});
+  salvaCantiere();g('g-note').value='';g('g-sub').value='';operaiSel=[];renderChips();renderDiario();toast('✓ Giornata salvata','ok');
 }
 
 function renderDiario(){
@@ -222,7 +226,7 @@ function renderDiario(){
   el.innerHTML=[...gg].reverse().map((g2,ri)=>{
     const i=gg.length-1-ri;
     const d=new Date(g2.data).toLocaleDateString('it-IT',{day:'2-digit',month:'short',year:'numeric'});
-    return `<div class="giornata-card"><div class="g-header"><div><div class="g-data">${d}</div><div class="g-ore">${g2.ore}h × ${g2.operai.length} op. = ${g2.ore*g2.operai.length}h totali</div></div><button class="g-del" onclick="delGiornata(${i})">🗑</button></div><div class="g-operai">${g2.operai.map(o=>o.split(' ')[0]).join(', ')}</div>${g2.note?`<div class="g-note">${g2.note}</div>`:''}</div>`;
+    return `<div class="giornata-card"><div class="g-header"><div><div class="g-data">${d}</div><div class="g-ore">${g2.ore}h × ${g2.operai.length} op. = ${g2.ore*g2.operai.length}h totali</div></div><div style="display:flex;gap:6px"><button onclick="scaricaRapporto(${i})" style="background:var(--green-dim);color:var(--green);border:1px solid var(--green);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer">📥 Rapporto</button><button class="g-del" onclick="delGiornata(${i})">🗑</button></div></div><div class="g-operai">${g2.operai.map(o=>o.split(' ')[0]).join(', ')}</div>${g2.note?`<div class="g-note">${g2.note}</div>`:''}</div>`;
   }).join('');
 }
 
@@ -253,6 +257,133 @@ function salvaTariffa(){
   currentCant.tariffa = val;
   salvaCantiere();
   dbSalva('cantieri_v1', getCantieri());
+}
+
+
+// ── RAPPORTO DI CANTIERE EXCEL ──
+function scaricaRapporto(idx){
+  const g2 = currentCant.giornate[idx];
+  if(!g2){ toast('Giornata non trovata','err'); return; }
+
+  const XLSX = window.XLSX;
+  if(!XLSX){ toast('Libreria Excel non caricata','err'); return; }
+
+  const wb = XLSX.utils.book_new();
+  const ws = {};
+
+  // Helper stile
+  const border = {
+    top:{style:'medium'},bottom:{style:'medium'},
+    left:{style:'medium'},right:{style:'medium'}
+  };
+  const borderTB = {bottom:{style:'medium'},left:{style:'medium'},right:{style:'medium'}};
+  const hdrFill = {patternType:'solid',fgColor:{rgb:'C0C0C0'}};
+  const font12b = {name:'Calibri',sz:12,bold:true};
+  const font10b = {name:'Calibri',sz:10,bold:true};
+  const font10  = {name:'Calibri',sz:10};
+  const center  = {horizontal:'center',vertical:'center'};
+  const left    = {horizontal:'left',vertical:'center'};
+
+  function sc(addr, v, style){
+    ws[addr]={v, s:style||{font:font10,alignment:left,border:borderTB}};
+  }
+
+  // Titolo
+  ws['G3']={v:'RAPPORTO DI CANTIERE',s:{font:font12b,alignment:center,border:border}};
+  ws['C3']={v:'',s:{border:border}};
+
+  // Cantiere + Data
+  ws['C5']={v:'CANTIERE',s:{font:font12b,alignment:left,border:border}};
+  ws['D5']={v:currentCant.titolo||currentCant.cliente||'',s:{font:font10,alignment:left,border:border}};
+  ws['J5']={v:'Data:',s:{font:font12b,alignment:left,border:border}};
+  const dataFmt = new Date(g2.data+'T12:00:00').toLocaleDateString('it-IT');
+  ws['K5']={v:dataFmt,s:{font:font10,alignment:left,border:border}};
+
+  // Intestazioni colonne
+  ws['C6']={v:'Operai interni',s:{font:font10b,alignment:center,fill:hdrFill,border:borderTB}};
+  ws['G6']={v:'Ore',s:{font:font10b,alignment:center,fill:hdrFill,border:borderTB}};
+  ws['H6']={v:'Descrizione Lavori Eseguiti',s:{font:font10b,alignment:center,fill:hdrFill,border:borderTB}};
+  ws['N6']={v:'Commessa',s:{font:font10b,alignment:center,fill:hdrFill,border:borderTB}};
+
+  // Righe operai (7-13)
+  const commessa = currentCant.titolo||currentCant.cliente||'';
+  (g2.operai||[]).forEach((op,i)=>{
+    if(i>=7) return;
+    const row = 7+i;
+    ws[`C${row}`]={v:op,s:{font:font10,alignment:left,border:borderTB}};
+    ws[`G${row}`]={v:g2.ore,s:{font:font10,alignment:center,border:borderTB}};
+    ws[`H${row}`]={v:i===0?(g2.note||''):'',s:{font:font10,alignment:left,border:borderTB}};
+    ws[`N${row}`]={v:commessa,s:{font:font10,alignment:left,border:borderTB}};
+  });
+  // Righe vuote fino a 13
+  for(let r=(g2.operai||[]).length;r<7;r++){
+    const row=7+r;
+    ['C','G','H','N'].forEach(col=>{ ws[`${col}${row}`]={v:'',s:{border:borderTB}}; });
+  }
+
+  // Subappaltatori header (riga 15)
+  ws['C15']={v:'Subappaltatori',s:{font:font10b,alignment:left,fill:{patternType:'solid',fgColor:{rgb:'BFBFBF'}},border:borderTB}};
+  // Righe subappaltatori (15-20)
+  const subs = g2.sub ? g2.sub.split(',').map(s=>s.trim()).filter(Boolean) : [];
+  for(let r=0;r<6;r++){
+    const row=15+r;
+    if(r===0) continue; // header già messo
+    ws[`C${row}`]={v:subs[r-1]||'',s:{font:font10,alignment:left,border:borderTB}};
+    ['H','N'].forEach(col=>{ ws[`${col}${row}`]={v:'',s:{border:borderTB}}; });
+  }
+
+  // Totale ore (riga 21)
+  ws['C21']={v:'Totale ore',s:{font:font10b,alignment:left,border:border}};
+  const totOre = (g2.operai||[]).length * g2.ore;
+  ws['H21']={v:totOre,s:{font:font10b,alignment:center,border:border}};
+  ws['N21']={v:commessa,s:{font:font10,alignment:left,border:border}};
+
+  // Merge cells
+  const merges=[
+    {s:{r:2,c:2},e:{r:3,c:5}},  // C3:F4
+    {s:{r:2,c:6},e:{r:3,c:14}}, // G3:O4
+    {s:{r:4,c:3},e:{r:4,c:8}},  // D5:I5
+    {s:{r:4,c:10},e:{r:4,c:14}},// K5:O5
+    {s:{r:5,c:2},e:{r:5,c:5}},  // C6:F6
+    {s:{r:5,c:7},e:{r:5,c:12}}, // H6:M6
+    {s:{r:5,c:13},e:{r:5,c:14}},// N6:O6
+  ];
+  // Operai rows merges
+  for(let r=0;r<7;r++){
+    const ri=6+r;
+    merges.push({s:{r:ri,c:2},e:{r:ri,c:5}});  // C:F operaio
+    merges.push({s:{r:ri,c:7},e:{r:ri,c:12}}); // H:M descrizione
+    merges.push({s:{r:ri,c:13},e:{r:ri,c:14}});// N:O commessa
+  }
+  // Subappaltatori merges
+  for(let r=0;r<6;r++){
+    const ri=14+r;
+    merges.push({s:{r:ri,c:2},e:{r:ri,c:5}});
+    merges.push({s:{r:ri,c:7},e:{r:ri,c:12}});
+    merges.push({s:{r:ri,c:13},e:{r:ri,c:14}});
+  }
+  // Totale merges
+  merges.push({s:{r:20,c:2},e:{r:20,c:5}});
+  merges.push({s:{r:20,c:7},e:{r:20,c:12}});
+  merges.push({s:{r:20,c:13},e:{r:20,c:14}});
+
+  ws['!merges']=merges;
+
+  // Column widths
+  ws['!cols']=[
+    {},{}, // A,B
+    {wch:11},{wch:13},{wch:13},{wch:13},{wch:13}, // C-G
+    {wch:13},{wch:13},{wch:13},{wch:13},{wch:13},{wch:13}, // H-N
+    {wch:13} // O
+  ];
+
+  ws['!ref']='C3:O21';
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Rapporto');
+
+  const dataStr = new Date(g2.data+'T12:00:00').toLocaleDateString('it-IT').replace(/\//g,'-');
+  XLSX.writeFile(wb, `Rapporto_${commessa}_${dataStr}.xlsx`);
+  toast('📥 Rapporto scaricato!','ok');
 }
 
 // ── INIT ──
