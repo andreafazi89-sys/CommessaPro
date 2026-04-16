@@ -214,7 +214,7 @@ function renderStorico(c){
   if(!sal.length){el.innerHTML=`<div class="empty-state"><div class="empty-icon">📷</div><div class="empty-txt">Nessun aggiornamento</div><div style="font-size:13px;color:var(--muted)">Premi "+ Nuovo" per aggiungere il primo SAL</div></div>`;return;}
   el.innerHTML=sal.map((s,i)=>{
     const d=new Date(s.data).toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'});
-    const fotoHtml=s.foto&&s.foto.length?`<div class="sal-foto-grid">${s.foto.map(url=>`<div class="sal-foto-item"><img src="${url}"></div>`).join('')}</div>`:'';
+    const fotoHtml=s.foto&&s.foto.length?`<div class="sal-foto-grid">${s.foto.map((url,fi)=>`<div class="sal-foto-item" style="position:relative"><img src="${url}"><button onclick="delFotoSAL('${c.id}',${i},${fi})" style="position:absolute;top:3px;right:3px;width:20px;height:20px;background:rgba(0,0,0,.7);color:#fff;border:none;border-radius:50%;font-size:10px;cursor:pointer">✕</button></div>`).join('')}</div>`:'';
     return `<div class="sal-entry">
       <div class="sal-header">
         <div><div class="sal-data">${d}</div>${s.foto&&s.foto.length?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${s.foto.length} foto</div>`:''}</div>
@@ -227,6 +227,17 @@ function renderStorico(c){
       ${fotoHtml}
     </div>`;
   }).join('');
+}
+
+async function delFotoSAL(cantId,salIdx,fotoIdx){
+  const lista=getCantieri(); const idx=lista.findIndex(c=>c.id===cantId); if(idx<0)return;
+  const url=lista[idx].sal[salIdx].foto[fotoIdx];
+  if(db&&url&&url.startsWith('https://')){
+    const path=url.split('/object/public/Foto/')[1];
+    if(path) await db.storage.from('Foto').remove([path]).catch(()=>{});
+  }
+  lista[idx].sal[salIdx].foto.splice(fotoIdx,1);
+  salvaCantieri(lista); renderStorico(lista[idx]); toast('Foto eliminata','inf');
 }
 
 async function delSAL(cantId,i){

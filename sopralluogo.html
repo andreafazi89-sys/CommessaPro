@@ -400,6 +400,15 @@ function aggiornaCantiere(sop){
   dbSalva('cantieri_v1', cantieri);
 }
 
+function aggiornaSopralluogoFoto(){
+  if(!currentId) return;
+  const lista=getLista(); const idx=lista.findIndex(s=>s.id===currentId);
+  if(idx<0) return;
+  lista[idx].foto=[...foto];
+  localStorage.setItem(LIST_KEY,JSON.stringify(lista));
+  dbSalva(LIST_KEY,lista.map(s=>({...s,foto:(s.foto||[]).filter(f=>f.url&&f.url.startsWith('https://')),noteVocali:[]})));
+}
+
 function aggiornaProg(){
   [[gv('f-titolo'),'p0'],[gv('fi'),'p1'],[gv('fl'),'p2'],[foto.length?'x':'','p3']].forEach(([v,id])=>{
     g(id)?.classList.toggle('done',!!v);
@@ -513,7 +522,7 @@ async function caricaFoto(input){
             }catch(err){ console.log('Upload exception:', err); /* mantieni fallback base64 */}
           }
           foto.push({url});
-          renderFoto(); salva(); resolve();
+          renderFoto(); aggiornaSopralluogoFoto(); salva(); resolve();
         };
         img.src=e.target.result;
       };
@@ -546,9 +555,16 @@ function muoviFoto(i, dir){
   const j = i+dir;
   if(j<0||j>=foto.length) return;
   [foto[i],foto[j]]=[foto[j],foto[i]];
-  renderFoto(); salva();
+  renderFoto(); aggiornaSopralluogoFoto(); salva();
 }
-function delFoto(i){foto.splice(i,1);renderFoto();}
+async function delFoto(i){
+  const f=foto[i]; foto.splice(i,1); renderFoto();
+  if(f&&f.url&&f.url.startsWith('https://')&&db){
+    const path=f.url.split('/object/public/Foto/')[1];
+    if(path) await db.storage.from('Foto').remove([path]).catch(()=>{});
+  }
+  aggiornaSopralluogoFoto(); salva();
+}
 
 // ── AVVIA CANTIERE ──
 function aggiornaBottoneAvvia(cantiereId){
