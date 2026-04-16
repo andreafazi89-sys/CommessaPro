@@ -493,6 +493,7 @@ async function caricaFoto(input){
           canvas.getContext('2d').drawImage(img,0,0,w,h);
           const b64=canvas.toDataURL('image/jpeg',0.50);
           let url=b64; // fallback base64
+          console.log('db:', db, 'currentId:', currentId);
           if(db&&currentId){
             try{
               const path=`sopralluoghi/${currentId}/${Date.now()}.jpg`;
@@ -501,8 +502,8 @@ async function caricaFoto(input){
               if(!error){
                 const {data:pub}=db.storage.from('Foto').getPublicUrl(path);
                 url=pub.publicUrl;
-              }
-            }catch(err){/* mantieni fallback base64 */}
+              } else { console.log('Upload error:', error); }
+            }catch(err){ console.log('Upload exception:', err); /* mantieni fallback base64 */}
           }
           foto.push({url});
           renderFoto(); salva(); resolve();
