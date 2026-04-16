@@ -44,7 +44,7 @@ html,body{font-family:var(--font-body);background:var(--bg);color:var(--white);m
 /* SETTINGS PANEL */
 .settings-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:500;display:none;}
 .settings-overlay.show{display:block;}
-.settings-panel{position:fixed;bottom:0;left:0;right:0;background:var(--bg);border-top:1px solid var(--border);border-radius:20px 20px 0 0;padding:20px 20px 40px;z-index:501;transform:translateY(100%);transition:transform .3s ease;}
+.settings-panel{position:fixed;bottom:0;left:0;right:0;background:var(--bg);border-top:1px solid var(--border);border-radius:20px 20px 0 0;padding:20px 20px 40px;z-index:501;transform:translateY(100%);transition:transform .3s ease;max-height:90vh;overflow-y:auto;}
 .settings-panel.show{transform:translateY(0);}
 .settings-title{font-family:var(--font-head);font-size:17px;font-weight:700;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;}
 .settings-close{background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0;}
@@ -56,6 +56,16 @@ html,body{font-family:var(--font-body);background:var(--bg);color:var(--white);m
 .color-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;}
 .color-opt{width:100%;aspect-ratio:1;border-radius:10px;cursor:pointer;border:3px solid transparent;-webkit-user-select:none;}
 .color-opt.active{border-color:var(--white);box-shadow:0 0 0 2px var(--brick);}
+.admin-section{border-top:1px solid var(--border);padding-top:20px;margin-top:4px;}
+.utente-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);transition:opacity .2s;}
+.utente-row:last-child{border-bottom:none;}
+.utente-info{flex:1;min-width:0;}
+.utente-nome{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.utente-email{font-size:11px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.utente-controls{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.utente-ruolo-sel{padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--white);font-family:var(--font-body);font-size:12px;outline:none;-webkit-appearance:none;cursor:pointer;}
+.utente-attivo{padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--muted);font-family:var(--font-body);font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.utente-attivo.on{background:var(--green-dim);border-color:var(--green);color:var(--green);}
 </style>
 </head>
 <body>
@@ -116,6 +126,14 @@ html,body{font-family:var(--font-body);background:var(--bg);color:var(--white);m
   </div>
 
   <div style="font-size:11px;color:var(--muted);margin-top:4px">Le impostazioni si applicano a tutta l'app.</div>
+
+  <div id="sez-gestione-utenti" style="display:none">
+    <div class="admin-section">
+      <div class="setting-lbl">👥 Gestione Utenti</div>
+      <div id="utenti-feedback" style="font-size:12px;color:var(--muted);min-height:18px;margin-bottom:8px"></div>
+      <div id="utenti-list"></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -232,12 +250,72 @@ function apriSettings(){
   // Color grid
   const grid=document.getElementById('color-grid');
   grid.innerHTML=COLORS.map(col=>`
-    <div class="color-opt ${s.colore===col.val?'active':''}" 
-      style="background:${col.val}" 
-      onclick="setColore('${col.val}')" 
+    <div class="color-opt ${s.colore===col.val?'active':''}"
+      style="background:${col.val}"
+      onclick="setColore('${col.val}')"
       title="${col.name}"></div>`).join('');
+  // Admin section
+  const isAdmin=getUser()?.ruolo==='admin';
+  document.getElementById('sez-gestione-utenti').style.display=isAdmin?'block':'none';
+  if(isAdmin) caricaUtenti();
   document.getElementById('s-overlay').classList.add('show');
   document.getElementById('s-panel').classList.add('show');
+}
+
+// ── GESTIONE UTENTI (admin only) ──
+async function caricaUtenti(){
+  if(!db) return;
+  const fb=document.getElementById('utenti-feedback');
+  const list=document.getElementById('utenti-list');
+  fb.textContent='Caricamento...'; list.innerHTML='';
+  try{
+    const {data,error}=await db.from('utenti').select('id,nome,email,ruolo,attivo').order('nome');
+    if(error) throw error;
+    fb.textContent='';
+    if(!data||!data.length){list.innerHTML='<div style="font-size:13px;color:var(--muted);padding:8px 0">Nessun utente trovato</div>';return;}
+    list.innerHTML=data.map(u=>`
+      <div class="utente-row" id="urow-${u.id}">
+        <div class="utente-info">
+          <div class="utente-nome">${u.nome||u.email}</div>
+          <div class="utente-email">${u.email}</div>
+        </div>
+        <div class="utente-controls">
+          <select class="utente-ruolo-sel" onchange="aggiornaRuolo('${u.id}',this.value)">
+            <option value="admin"${u.ruolo==='admin'?' selected':''}>Admin</option>
+            <option value="segretaria"${u.ruolo==='segretaria'?' selected':''}>Segretaria</option>
+            <option value="operaio"${u.ruolo==='operaio'?' selected':''}>Operaio</option>
+          </select>
+          <button class="utente-attivo${u.attivo?' on':''}" onclick="aggiornaAttivo('${u.id}',${!u.attivo})">${u.attivo?'✓ Attivo':'✗ Off'}</button>
+        </div>
+      </div>`).join('');
+  }catch(e){
+    fb.textContent='Errore caricamento utenti';
+    fb.style.color='#C84040';
+  }
+}
+
+async function aggiornaRuolo(id,ruolo){
+  if(!db) return;
+  const row=document.getElementById('urow-'+id);
+  const fb=document.getElementById('utenti-feedback');
+  if(row) row.style.opacity='0.5';
+  fb.textContent='Salvataggio...'; fb.style.color='var(--muted)';
+  const {error}=await db.from('utenti').update({ruolo}).eq('id',id);
+  if(row) row.style.opacity='1';
+  if(error){fb.textContent='Errore salvataggio ruolo';fb.style.color='#C84040';}
+  else{fb.textContent='✓ Salvato';fb.style.color='var(--green)';setTimeout(()=>fb.textContent='',2000);}
+}
+
+async function aggiornaAttivo(id,attivo){
+  if(!db) return;
+  const row=document.getElementById('urow-'+id);
+  const fb=document.getElementById('utenti-feedback');
+  if(row) row.style.opacity='0.5';
+  fb.textContent='Salvataggio...'; fb.style.color='var(--muted)';
+  const {error}=await db.from('utenti').update({attivo}).eq('id',id);
+  if(row) row.style.opacity='1';
+  if(error){fb.textContent='Errore salvataggio stato';fb.style.color='#C84040';}
+  else{fb.textContent='✓ Salvato';fb.style.color='var(--green)';setTimeout(()=>{fb.textContent='';caricaUtenti();},800);}
 }
 
 function chiudiSettings(){
