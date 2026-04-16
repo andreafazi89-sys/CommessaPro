@@ -112,10 +112,15 @@ async function forcSync(){
   toast('🔄 Sincronizzazione...','inf');
   if(!db){toast('Nessuna connessione','inf');return;}
   try{
-    const {data}=await db.from('dati').select('valore').eq('chiave',NOTE_KEY).maybeSingle();
-    if(data&&data.valore&&data.valore.length>0){
-      const loc=getDati(),ids=new Set(data.valore.map(x=>x.id)),ex=loc.filter(x=>!ids.has(x.id));
-      salvaDati([...data.valore,...ex]); render();
+    const {data}=await db.from('dati').select('valore,ts').eq('chiave',NOTE_KEY).maybeSingle();
+    if(data&&data.valore){
+      const localTs=localStorage.getItem(NOTE_KEY+'_ts')||'';
+      const remoteTs=data.ts||'';
+      if(!localTs||remoteTs>localTs){
+        localStorage.setItem(NOTE_KEY,JSON.stringify(data.valore));
+        localStorage.setItem(NOTE_KEY+'_ts',remoteTs);
+        render();
+      }
     }
     toast('✓ Sincronizzato','ok');
   }catch(e){toast('Sync ok (offline)','inf');}
@@ -134,7 +139,7 @@ const g=id=>document.getElementById(id);
 function toast(msg,tipo='ok'){const t=g('toast');t.textContent=msg;t.className='toast '+tipo+' show';clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2500);}
 
 function getDati(){try{return JSON.parse(localStorage.getItem(NOTE_KEY))||[];}catch{return[];}}
-function salvaDati(d){localStorage.setItem(NOTE_KEY,JSON.stringify(d));dbSalva(NOTE_KEY,d);}
+function salvaDati(d){const ts=new Date().toISOString();localStorage.setItem(NOTE_KEY,JSON.stringify(d));localStorage.setItem(NOTE_KEY+'_ts',ts);dbSalva(NOTE_KEY,d);}
 
 function cambiaMese(delta){
   meseVis+=delta;
