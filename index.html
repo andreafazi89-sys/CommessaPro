@@ -50,22 +50,37 @@ html,body{font-family:var(--font-body);background:var(--bg);color:var(--white);m
 .settings-close{background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0;}
 .setting-row{margin-bottom:20px;}
 .setting-lbl{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
-.toggle-group{display:flex;gap:8px;}
-.toggle-opt{flex:1;padding:11px;border:1.5px solid var(--border);border-radius:10px;text-align:center;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface);color:var(--muted);-webkit-user-select:none;}
-.toggle-opt.active{border-color:var(--brick);background:var(--brick-dim);color:var(--white);}
-.color-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;}
-.color-opt{width:100%;aspect-ratio:1;border-radius:10px;cursor:pointer;border:3px solid transparent;-webkit-user-select:none;}
+/* Compact appearance */
+.compact-settings{display:flex;gap:10px;margin-bottom:12px;}
+.compact-group{flex:1;}
+.compact-lbl{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:5px;}
+.mini-toggle{display:flex;gap:4px;}
+.mini-opt{flex:1;padding:8px 4px;border:1.5px solid var(--border);border-radius:8px;text-align:center;font-size:12px;font-weight:600;cursor:pointer;background:var(--surface);color:var(--muted);-webkit-user-select:none;}
+.mini-opt.active{border-color:var(--brick);background:var(--brick-dim);color:var(--white);}
+.color-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:5px;margin-bottom:4px;}
+.color-opt{width:100%;aspect-ratio:1;border-radius:6px;cursor:pointer;border:2px solid transparent;-webkit-user-select:none;}
 .color-opt.active{border-color:var(--white);box-shadow:0 0 0 2px var(--brick);}
-.admin-section{border-top:1px solid var(--border);padding-top:20px;margin-top:4px;}
-.utente-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);transition:opacity .2s;}
+/* User management */
+.utente-row{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border);transition:opacity .2s;}
 .utente-row:last-child{border-bottom:none;}
 .utente-info{flex:1;min-width:0;}
-.utente-nome{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.utente-email{font-size:11px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.utente-controls{display:flex;align-items:center;gap:6px;flex-shrink:0;}
-.utente-ruolo-sel{padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--white);font-family:var(--font-body);font-size:12px;outline:none;-webkit-appearance:none;cursor:pointer;}
-.utente-attivo{padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--muted);font-family:var(--font-body);font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;}
-.utente-attivo.on{background:var(--green-dim);border-color:var(--green);color:var(--green);}
+.utente-nome{font-size:13px;font-weight:600;}
+.role-badge{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;border-radius:4px;padding:2px 6px;margin-left:4px;vertical-align:middle;}
+.role-badge.admin{background:var(--brick-dim);color:var(--brick);}
+.role-badge.segretaria{background:rgba(37,99,235,0.12);color:#2563EB;}
+.role-badge.operaio{background:var(--green-dim);color:var(--green);}
+.edit-btn{padding:5px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:12px;font-family:var(--font-body);cursor:pointer;color:var(--sand);flex-shrink:0;}
+.edit-btn.open{border-color:var(--brick);color:var(--brick);background:var(--brick-dim);}
+.utente-editor{background:var(--surface);border-radius:10px;padding:10px 12px;margin-bottom:6px;border:1px solid var(--border);}
+.perm-row{display:flex;align-items:center;gap:6px;margin-bottom:6px;}
+.perm-row:last-child{margin-bottom:0;}
+.perm-lbl{font-size:11px;font-weight:500;min-width:90px;flex-shrink:0;color:var(--white);}
+.perm-opts{display:flex;gap:3px;flex:1;}
+.perm-btn{flex:1;padding:5px 2px;border:1.5px solid var(--border);border-radius:6px;font-size:10px;font-weight:600;font-family:var(--font-body);cursor:pointer;background:var(--surface2);color:var(--muted);text-align:center;-webkit-user-select:none;transition:all .1s;}
+.perm-btn.ph{border-color:#888;background:rgba(136,136,136,0.1);color:#888;}
+.perm-btn.pr{border-color:#2563EB;background:rgba(37,99,235,0.1);color:#2563EB;}
+.perm-btn.pf{border-color:var(--green);background:var(--green-dim);color:var(--green);}
+.utenti-fb{font-size:11px;min-height:16px;margin:4px 0 6px;}
 </style>
 </head>
 <body>
@@ -104,36 +119,35 @@ html,body{font-family:var(--font-body);background:var(--bg);color:var(--white);m
     <button class="settings-close" onclick="chiudiSettings()">✕</button>
   </div>
 
-  <div class="setting-row">
-    <div class="setting-lbl">Sfondo app</div>
-    <div class="toggle-group">
-      <div class="toggle-opt" id="opt-bianco" onclick="setTema('bianco')">☀️ Bianco</div>
-      <div class="toggle-opt" id="opt-nero" onclick="setTema('nero')">🌙 Scuro</div>
-    </div>
-  </div>
-
-  <div class="setting-row">
-    <div class="setting-lbl">Font</div>
-    <div class="toggle-group">
-      <div class="toggle-opt" id="opt-font-syne" onclick="setFont('syne')" style="font-family:'Syne',sans-serif">Syne</div>
-      <div class="toggle-opt" id="opt-font-inter" onclick="setFont('inter')" style="font-family:'Inter',sans-serif">Inter</div>
-    </div>
-  </div>
-
-  <div class="setting-row">
-    <div class="setting-lbl">Colore accent (report e dettagli)</div>
-    <div class="color-grid" id="color-grid"></div>
-  </div>
-
-  <div style="font-size:11px;color:var(--muted);margin-top:4px">Le impostazioni si applicano a tutta l'app.</div>
-
+  <!-- ADMIN: Gestione Utenti -->
   <div id="sez-gestione-utenti" style="display:none">
-    <div class="admin-section">
-      <div class="setting-lbl">👥 Gestione Utenti</div>
-      <div id="utenti-feedback" style="font-size:12px;color:var(--muted);min-height:18px;margin-bottom:8px"></div>
-      <div id="utenti-list"></div>
+    <div class="setting-lbl">👥 Utenti</div>
+    <div class="utenti-fb" id="utenti-feedback"></div>
+    <div id="utenti-list"></div>
+    <div style="height:1px;background:var(--border);margin:12px 0 16px"></div>
+  </div>
+
+  <!-- ASPETTO COMPATTO -->
+  <div class="setting-lbl">Aspetto</div>
+  <div class="compact-settings">
+    <div class="compact-group">
+      <span class="compact-lbl">Sfondo</span>
+      <div class="mini-toggle">
+        <div class="mini-opt" id="opt-bianco" onclick="setTema('bianco')">☀️ Bianco</div>
+        <div class="mini-opt" id="opt-nero" onclick="setTema('nero')">🌙 Scuro</div>
+      </div>
+    </div>
+    <div class="compact-group">
+      <span class="compact-lbl">Font</span>
+      <div class="mini-toggle">
+        <div class="mini-opt" id="opt-font-syne" onclick="setFont('syne')" style="font-family:'Syne',sans-serif">Syne</div>
+        <div class="mini-opt" id="opt-font-inter" onclick="setFont('inter')" style="font-family:'Inter',sans-serif">Inter</div>
+      </div>
     </div>
   </div>
+  <div class="setting-lbl">Colore accent</div>
+  <div class="color-grid" id="color-grid"></div>
+  <div style="font-size:11px;color:var(--muted);margin-top:8px">Le impostazioni si applicano a tutta l'app.</div>
 </div>
 
 <script>
@@ -151,21 +165,28 @@ function initDB(){if(window.supabase)db=window.supabase.createClient(SUPA_URL,SU
 
 // ── TOOLS PER RUOLO ──
 const ALL_TOOLS=[
-  {href:'sopralluogo.html',icon:'🔍',bg:'rgba(212,81,30,0.15)',name:'Sopralluogo',desc:'Scheda cliente, foto, note, report PDF',roles:['admin','segretaria','operaio'],readonly:['segretaria','operaio']},
-  {href:'cantiere.html',icon:'🏗️',bg:'rgba(58,122,76,0.15)',name:'Cantiere',desc:'Diario operai e ore lavorate',roles:['admin','operaio']},
-  {href:'sal.html',icon:'📸',bg:'rgba(74,120,180,0.15)',name:'S.A.L.',desc:'Storico fotografico avanzamento lavori',roles:['admin','operaio']},
-  {href:'contabilita.html',icon:'📊',bg:'rgba(58,122,76,0.15)',name:'Contabilità',desc:'Preventivi, costi e margini',roles:['admin','segretaria']},
-  {href:'note.html',icon:'📝',bg:'rgba(212,81,30,0.12)',name:'Note & Agenda',desc:'Attività giornaliere per mese',roles:['admin','segretaria']},
-  {href:'rubrica.html',icon:'👥',bg:'rgba(58,122,76,0.12)',name:'Rubrica Clienti',desc:'Anagrafica nome, telefono, email',roles:['admin','segretaria']},
+  {key:'sopralluogo',href:'sopralluogo.html',icon:'🔍',bg:'rgba(212,81,30,0.15)',name:'Sopralluogo',desc:'Scheda cliente, foto, note, report PDF',roles:['admin','segretaria','operaio'],readonly:['segretaria','operaio']},
+  {key:'cantiere',href:'cantiere.html',icon:'🏗️',bg:'rgba(58,122,76,0.15)',name:'Cantiere',desc:'Diario operai e ore lavorate',roles:['admin','operaio']},
+  {key:'sal',href:'sal.html',icon:'📸',bg:'rgba(74,120,180,0.15)',name:'S.A.L.',desc:'Storico fotografico avanzamento lavori',roles:['admin','operaio']},
+  {key:'contabilita',href:'contabilita.html',icon:'📊',bg:'rgba(58,122,76,0.15)',name:'Contabilità',desc:'Preventivi, costi e margini',roles:['admin','segretaria']},
+  {key:'note',href:'note.html',icon:'📝',bg:'rgba(212,81,30,0.12)',name:'Note & Agenda',desc:'Attività giornaliere per mese',roles:['admin','segretaria']},
+  {key:'rubrica',href:'rubrica.html',icon:'👥',bg:'rgba(58,122,76,0.12)',name:'Rubrica Clienti',desc:'Anagrafica nome, telefono, email',roles:['admin','segretaria']},
 ];
 function renderTools(){
-  const ruolo=(getUser()?.ruolo||'operatore').toLowerCase();
+  const user=getUser();
+  const ruolo=(user?.ruolo||'operatore').toLowerCase();
   const isAdmin=ruolo==='admin';
+  const permessi=user?.permessi||null;
   const list=document.getElementById('tools-list');
   list.innerHTML=ALL_TOOLS
-    .filter(t=>isAdmin||t.roles.includes(ruolo))
+    .filter(t=>{
+      if(permessi&&t.key in permessi) return permessi[t.key]!=='hidden';
+      return isAdmin||t.roles.includes(ruolo);
+    })
     .map(t=>{
-      const ro=!isAdmin&&t.readonly&&t.readonly.includes(ruolo);
+      let ro;
+      if(permessi&&t.key in permessi) ro=permessi[t.key]==='readonly';
+      else ro=!isAdmin&&t.readonly&&t.readonly.includes(ruolo);
       return `<a href="${t.href}" class="tool-card">
         <div class="tool-icon" style="background:${t.bg}">${t.icon}</div>
         <div class="tool-info">
@@ -263,59 +284,83 @@ function apriSettings(){
 }
 
 // ── GESTIONE UTENTI (admin only) ──
+const TOOLS_PERM=[
+  {key:'sopralluogo',label:'Sopralluogo'},
+  {key:'cantiere',label:'Cantiere'},
+  {key:'sal',label:'S.A.L.'},
+  {key:'contabilita',label:'Contabilità'},
+  {key:'note',label:'Note & Agenda'},
+  {key:'rubrica',label:'Rubrica'},
+];
+let permessiCache={}; // {userId: {key: value}}
+
 async function caricaUtenti(){
   if(!db) return;
   const fb=document.getElementById('utenti-feedback');
   const list=document.getElementById('utenti-list');
-  fb.textContent='Caricamento...'; list.innerHTML='';
+  fb.textContent='Caricamento...'; fb.style.color='var(--muted)'; list.innerHTML='';
   try{
-    const {data,error}=await db.from('utenti').select('id,nome,email,ruolo,attivo').order('nome');
+    const {data,error}=await db.from('utenti').select('id,nome,email,ruolo,attivo,permessi').order('nome');
     if(error) throw error;
     fb.textContent='';
     if(!data||!data.length){list.innerHTML='<div style="font-size:13px;color:var(--muted);padding:8px 0">Nessun utente trovato</div>';return;}
+    // Init cache
+    data.forEach(u=>{ permessiCache[u.id]=u.permessi||{}; });
     list.innerHTML=data.map(u=>`
-      <div class="utente-row" id="urow-${u.id}">
-        <div class="utente-info">
-          <div class="utente-nome">${u.nome||u.email}</div>
-          <div class="utente-email">${u.email}</div>
+      <div>
+        <div class="utente-row" id="urow-${u.id}">
+          <div class="utente-info">
+            <span class="utente-nome">${u.nome||u.email}</span>
+            <span class="role-badge ${u.ruolo||'operaio'}">${u.ruolo||'operaio'}</span>
+          </div>
+          <button class="edit-btn" id="ebtn-${u.id}" onclick="toggleEditor('${u.id}')" title="Modifica permessi">✏️ Modifica</button>
         </div>
-        <div class="utente-controls">
-          <select class="utente-ruolo-sel" onchange="aggiornaRuolo('${u.id}',this.value)">
-            <option value="admin"${u.ruolo==='admin'?' selected':''}>Admin</option>
-            <option value="segretaria"${u.ruolo==='segretaria'?' selected':''}>Segretaria</option>
-            <option value="operaio"${u.ruolo==='operaio'?' selected':''}>Operaio</option>
-          </select>
-          <button class="utente-attivo${u.attivo?' on':''}" onclick="aggiornaAttivo('${u.id}',${!u.attivo})">${u.attivo?'✓ Attivo':'✗ Off'}</button>
+        <div class="utente-editor" id="uedit-${u.id}" style="display:none">
+          ${TOOLS_PERM.map(t=>{
+            const v=permessiCache[u.id][t.key]||'full';
+            return `<div class="perm-row" data-uid="${u.id}" data-tool="${t.key}">
+              <span class="perm-lbl">${t.label}</span>
+              <div class="perm-opts">
+                <button class="perm-btn${v==='hidden'?' ph':''}" onclick="aggiornaPerm('${u.id}','${t.key}','hidden')">Nascosto</button>
+                <button class="perm-btn${v==='readonly'?' pr':''}" onclick="aggiornaPerm('${u.id}','${t.key}','readonly')">Solo lettura</button>
+                <button class="perm-btn${v==='full'?' pf':''}" onclick="aggiornaPerm('${u.id}','${t.key}','full')">Completo</button>
+              </div>
+            </div>`;
+          }).join('')}
         </div>
       </div>`).join('');
   }catch(e){
-    fb.textContent='Errore caricamento utenti';
-    fb.style.color='#C84040';
+    fb.textContent='Errore caricamento utenti'; fb.style.color='#C84040';
   }
 }
 
-async function aggiornaRuolo(id,ruolo){
-  if(!db) return;
-  const row=document.getElementById('urow-'+id);
-  const fb=document.getElementById('utenti-feedback');
-  if(row) row.style.opacity='0.5';
-  fb.textContent='Salvataggio...'; fb.style.color='var(--muted)';
-  const {error}=await db.from('utenti').update({ruolo}).eq('id',id);
-  if(row) row.style.opacity='1';
-  if(error){fb.textContent='Errore salvataggio ruolo';fb.style.color='#C84040';}
-  else{fb.textContent='✓ Salvato';fb.style.color='var(--green)';setTimeout(()=>fb.textContent='',2000);}
+function toggleEditor(id){
+  const ed=document.getElementById('uedit-'+id);
+  const btn=document.getElementById('ebtn-'+id);
+  const open=ed.style.display==='none';
+  ed.style.display=open?'block':'none';
+  btn.classList.toggle('open',open);
+  btn.textContent=open?'✕ Chiudi':'✏️ Modifica';
 }
 
-async function aggiornaAttivo(id,attivo){
+async function aggiornaPerm(userId,tool,val){
   if(!db) return;
-  const row=document.getElementById('urow-'+id);
   const fb=document.getElementById('utenti-feedback');
-  if(row) row.style.opacity='0.5';
+  // Update cache
+  if(!permessiCache[userId]) permessiCache[userId]={};
+  permessiCache[userId][tool]=val;
+  // Update buttons immediately
+  const row=document.querySelector(`.perm-row[data-uid="${userId}"][data-tool="${tool}"]`);
+  if(row) row.querySelectorAll('.perm-btn').forEach(btn=>{
+    btn.className='perm-btn';
+    if(btn.textContent.trim()==='Nascosto'&&val==='hidden') btn.classList.add('ph');
+    if(btn.textContent.trim()==='Solo lettura'&&val==='readonly') btn.classList.add('pr');
+    if(btn.textContent.trim()==='Completo'&&val==='full') btn.classList.add('pf');
+  });
   fb.textContent='Salvataggio...'; fb.style.color='var(--muted)';
-  const {error}=await db.from('utenti').update({attivo}).eq('id',id);
-  if(row) row.style.opacity='1';
-  if(error){fb.textContent='Errore salvataggio stato';fb.style.color='#C84040';}
-  else{fb.textContent='✓ Salvato';fb.style.color='var(--green)';setTimeout(()=>{fb.textContent='';caricaUtenti();},800);}
+  const {error}=await db.from('utenti').update({permessi:permessiCache[userId]}).eq('id',userId);
+  if(error){fb.textContent='Errore salvataggio';fb.style.color='#C84040';}
+  else{fb.textContent='✓ Salvato';fb.style.color='var(--green)';setTimeout(()=>fb.textContent='',2000);}
 }
 
 function chiudiSettings(){

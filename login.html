@@ -320,20 +320,28 @@ async function handleLogin(e) {
     const userEmail = authData.user.email;
     const { data: profile, error: profileError } = await db
       .from('utenti')
-      .select('nome, ruolo')
+      .select('nome, ruolo, attivo, permessi')
       .eq('email', userEmail)
       .maybeSingle();
 
     let nome = '';
     let ruolo = 'operatore';
+    let permessi = null;
 
     if (!profileError && profile) {
       nome = profile.nome || '';
       ruolo = profile.ruolo || 'operatore';
+      permessi = profile.permessi || null;
+      if (profile.attivo === false) {
+        setMsg('Account disattivato. Contatta l\'amministratore.', 'error');
+        setLoading(false);
+        await db.auth.signOut();
+        return;
+      }
     }
 
     // 3. Persist user to localStorage
-    const cpUser = { email: userEmail, nome, ruolo };
+    const cpUser = { email: userEmail, nome, ruolo, permessi };
     localStorage.setItem(USER_KEY, JSON.stringify(cpUser));
 
     setMsg('Accesso effettuato. Reindirizzamento…', 'success');
