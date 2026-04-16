@@ -180,12 +180,13 @@ function renderTools(){
   const list=document.getElementById('tools-list');
   list.innerHTML=ALL_TOOLS
     .filter(t=>{
+      if(isAdmin) return true;
       if(permessi&&t.key in permessi) return permessi[t.key]!=='hidden';
-      return isAdmin||t.roles.includes(ruolo);
+      return t.roles.includes(ruolo);
     })
     .map(t=>{
       let ro;
-      if(permessi&&t.key in permessi) ro=permessi[t.key]==='readonly';
+      if(!isAdmin&&permessi&&t.key in permessi) ro=permessi[t.key]==='readonly';
       else ro=!isAdmin&&t.readonly&&t.readonly.includes(ruolo);
       return `<a href="${t.href}" class="tool-card">
         <div class="tool-icon" style="background:${t.bg}">${t.icon}</div>
