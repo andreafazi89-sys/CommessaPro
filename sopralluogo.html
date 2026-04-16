@@ -296,7 +296,7 @@ function getLista(){ try{return JSON.parse(localStorage.getItem(LIST_KEY))||[];}
 function salveLista(l){
   localStorage.setItem(LIST_KEY,JSON.stringify(l));
   // Supabase: versione senza foto/audio (troppo pesanti per singola riga)
-  const lLight=l.map(s=>({...s,foto:[],noteVocali:[]}));
+  const lLight=l.map(s=>({...s,foto:(s.foto||[]).filter(f=>f.url&&f.url.startsWith('https://')),noteVocali:[]}));
   dbSalva(LIST_KEY,lLight);
 }
 
