@@ -319,16 +319,17 @@ function scaricaRapporto(idx){
   }
 
   // Totale ore — sotto la colonna Ore (G21)
-  const totOre = (g2.operai||[]).length * g2.ore;
+  const totOre = (g2.operai||[]).length * (parseFloat(g2.ore)||0);
   if(ws['G21']) ws['G21'].v = totOre; else ws['G21'] = {t:'n', v:totOre};
   // Svuota H21 (il template originale ha il totale lì, noi lo mettiamo in G21)
   if(ws['H21']) ws['H21'].v = '';
   // N21 commessa non ripetuta (svuota)
   if(ws['N21']) ws['N21'].v = '';
 
-  // Nome operatore sotto la firma (M24)
-  const nomeResponsabile = (currentCant.resp||'').toUpperCase();
-  if(ws['M24']) ws['M24'].v = nomeResponsabile; else ws['M24'] = {t:'s', v:nomeResponsabile};
+  // Nome operatore sotto la firma (M24) — utente loggato
+  const cpUser = JSON.parse(localStorage.getItem('cp_user')||'{}');
+  const nomeOperatore = (cpUser.nome || cpUser.email || '').toUpperCase();
+  if(ws['M24']) ws['M24'].v = nomeOperatore; else ws['M24'] = {t:'s', v:nomeOperatore};
 
   const dataStr = dataFmt.replace(/\//g,'-');
   XLSX.writeFile(wb, `Rapporto_${commessa}_${dataStr}.xlsx`, {cellStyles:true, bookType:'xlsx'});
