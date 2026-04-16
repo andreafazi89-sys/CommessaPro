@@ -320,7 +320,9 @@ function renderLista(){
 
 function eliminaSopralluogo(id){
   if(!confirm('Eliminare questo sopralluogo?')) return;
-  salveLista(getLista().filter(s=>s.id!==id));
+  const newList=getLista().filter(s=>s.id!==id);
+  salveLista(newList);
+  dbSalva(LIST_KEY, newList.map(s=>({...s,foto:(s.foto||[]).filter(f=>f.url&&f.url.startsWith('https://')),noteVocali:[]})));
   renderLista(); toast('Eliminato','inf');
 }
 
