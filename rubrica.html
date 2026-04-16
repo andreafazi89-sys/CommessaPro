@@ -95,10 +95,7 @@ async function forcSync(){
   if(!db)return;
   try{
     const {data}=await db.from('dati').select('valore').eq('chiave',CLI_KEY).maybeSingle();
-    if(data&&data.valore&&data.valore.length>0){
-      const loc=getClienti(),ids=new Set(data.valore.map(x=>x.id)),ex=loc.filter(x=>!ids.has(x.id));
-      salvaClienti([...data.valore,...ex]); renderLista();
-    }
+    if(data&&data.valore){ localStorage.setItem(CLI_KEY,JSON.stringify(data.valore)); renderLista(); }
   }catch(e){}
 }
 
@@ -174,6 +171,8 @@ function eliminaCliente(id){
 // ── INIT ──
 initDB();renderLista();
 setTimeout(()=>forcSync().catch(()=>{}),500);
+setInterval(()=>{ if(!document.hidden) forcSync().catch(()=>{}); },30000);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) forcSync().catch(()=>{}); });
 </script>
 </body>
 </html>

@@ -114,13 +114,9 @@ async function forcSync(){
   try{
     const {data}=await db.from('dati').select('valore,ts').eq('chiave',NOTE_KEY).maybeSingle();
     if(data&&data.valore){
-      const localTs=localStorage.getItem(NOTE_KEY+'_ts')||'';
-      const remoteTs=data.ts||'';
-      if(!localTs||remoteTs>localTs){
-        localStorage.setItem(NOTE_KEY,JSON.stringify(data.valore));
-        localStorage.setItem(NOTE_KEY+'_ts',remoteTs);
-        render();
-      }
+      localStorage.setItem(NOTE_KEY,JSON.stringify(data.valore));
+      if(data.ts) localStorage.setItem(NOTE_KEY+'_ts',data.ts);
+      render();
     }
     toast('✓ Sincronizzato','ok');
   }catch(e){toast('Sync ok (offline)','inf');}
@@ -218,6 +214,8 @@ function salva(){
 // ── INIT ──
 initDB();render();
 setTimeout(()=>forcSync().catch(()=>{}),500);
+setInterval(()=>{ if(!document.hidden) forcSync().catch(()=>{}); },30000);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) forcSync().catch(()=>{}); });
 </script>
 </body>
 </html>

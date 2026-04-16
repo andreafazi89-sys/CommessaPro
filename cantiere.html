@@ -156,10 +156,7 @@ async function forcSync(){
   if(!db){toast('Nessuna connessione','err');return;}
   try{
     const {data}=await db.from('dati').select('valore').eq('chiave',CANT_KEY).maybeSingle();
-    if(data&&data.valore&&data.valore.length>0){
-      const loc=getCantieri(),ids=new Set(data.valore.map(x=>x.id)),ex=loc.filter(x=>!ids.has(x.id));
-      salvaCantieri([...data.valore,...ex]); renderLista();
-    }
+    if(data&&data.valore){ localStorage.setItem(CANT_KEY,JSON.stringify(data.valore)); renderLista(); }
     toast('✓ Sincronizzato','ok');
   }catch(e){toast('Errore sync','err');}
 }
@@ -346,7 +343,7 @@ initDB();
 const params=new URLSearchParams(window.location.search);
 const idParam=params.get('id');
 if(idParam){const c=getCantieri().find(x=>x.id===idParam);if(c)apriCantiere(idParam);else renderLista();}
-else{renderLista();setTimeout(()=>forcSync().catch(()=>{}),500);}
+else{renderLista();setTimeout(()=>forcSync().catch(()=>{}),500);setInterval(()=>{ if(!document.hidden) forcSync().catch(()=>{}); },30000);document.addEventListener('visibilitychange',()=>{ if(!document.hidden) forcSync().catch(()=>{}); });}
 </script>
 </body>
 </html>
