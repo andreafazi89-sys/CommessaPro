@@ -497,9 +497,9 @@ async function caricaFoto(input){
             try{
               const path=`sopralluoghi/${currentId}/${Date.now()}.jpg`;
               const blob=await new Promise(res=>canvas.toBlob(res,'image/jpeg',0.50));
-              const {error}=await db.storage.from('foto').upload(path,blob,{contentType:'image/jpeg',upsert:false});
+              const {error}=await db.storage.from('FOTO').upload(path,blob,{contentType:'image/jpeg',upsert:false});
               if(!error){
-                const {data:pub}=db.storage.from('foto').getPublicUrl(path);
+                const {data:pub}=db.storage.from('FOTO').getPublicUrl(path);
                 url=pub.publicUrl;
               }
             }catch(err){/* mantieni fallback base64 */}
