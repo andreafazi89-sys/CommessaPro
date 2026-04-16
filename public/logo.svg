@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="100" fill="#0F0D0A"/>
+  <!-- House shape -->
+  <polygon points="256,80 420,220 420,420 92,420 92,220" fill="none" stroke="#D4511E" stroke-width="28" stroke-linejoin="round" stroke-linecap="round"/>
+  <!-- Roof line -->
+  <polyline points="200,420 200,300 312,300 312,420" fill="none" stroke="#C8B89A" stroke-width="22" stroke-linejoin="round"/>
+  <!-- Window -->
+  <rect x="210" y="155" width="92" height="75" rx="6" fill="none" stroke="#D4511E" stroke-width="20"/>
+  <!-- Cross in window -->
+  <line x1="256" y1="155" x2="256" y2="230" stroke="#D4511E" stroke-width="14"/>
+  <line x1="210" y1="192" x2="302" y2="192" stroke="#D4511E" stroke-width="14"/>
+  <!-- CP text at bottom -->
+  <text x="256" y="480" text-anchor="middle" font-family="Arial" font-weight="700" font-size="60" fill="#C8B89A" letter-spacing="4">CP</text>
+</svg>
