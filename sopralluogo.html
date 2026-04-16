@@ -266,8 +266,10 @@ async function forcSync(){
     const locale = getLista();
     const remIds = new Set(remoto.map(x=>x.id));
     const extra = locale.filter(x=>!remIds.has(x.id));
-    salveLista([...remoto,...extra]);
+    const synced = [...remoto,...extra];
+    salveLista(synced);
     renderLista();
+    if(currentId && !synced.some(s=>s.id===currentId)) tornaLista();
   }
   toast('✓ Sincronizzato','ok');
 }
@@ -726,6 +728,8 @@ initDB();
 renderLista();
 // Sync da Supabase in background
 setTimeout(()=>forcSync().catch(()=>{}), 500);
+// Auto-sync ogni 30s quando la lista è attiva
+setInterval(()=>{ if(g('view-lista').classList.contains('active')) forcSync().catch(()=>{}); }, 30000);
 </script>
 
 <!-- RUBRICA MODAL -->
