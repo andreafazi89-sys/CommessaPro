@@ -62,10 +62,16 @@ html,body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--whi
 .toast.show{opacity:1;transform:translateY(0);}
 .toast.ok{background:var(--green);color:#fff;}
 .toast.inf{background:var(--surface2);color:var(--white);border:1px solid var(--border);}
+.ro-banner{display:none;background:#1D4ED8;color:#fff;padding:10px 16px;font-size:13px;font-weight:600;text-align:center;letter-spacing:.3px;}
+body.ro .ro-banner{display:block;}
+body.ro input:not([type=file]):not([type=hidden]),body.ro textarea{pointer-events:none;opacity:.6;}
+body.ro .task-check{pointer-events:none;opacity:.6;}
+body.ro .btn-add,body.ro .add-giorno-btn,body.ro .task-del,body.ro .task-star,body.ro #add-panel{display:none!important;}
 </style>
 </head>
 <body>
 
+<div class="ro-banner">🔒 Modalità sola lettura</div>
 <div class="topbar">
   <div style="display:flex;align-items:center;gap:10px">
     <a href="index.html" style="color:var(--muted);text-decoration:none;font-size:22px">←</a>
@@ -101,6 +107,7 @@ html,body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--whi
 <script>
 // ── AUTH ──
 (function(){try{const u=JSON.parse(localStorage.getItem('cp_user'));if(!u||!u.email)window.location.replace('login.html');}catch(e){window.location.replace('login.html');}})();
+(function(){try{const u=JSON.parse(localStorage.getItem('cp_user'));if(u&&u.permessi&&u.permessi.note==='readonly')document.body.classList.add('ro');}catch(e){}})();
 // ── SUPABASE ──
 const SUPA_URL='https://iradzlocobsipjazracw.supabase.co';
 const SUPA_KEY='sb_publishable_zFgRrNrmYSORug8N06heow_6vjl0fhH';

@@ -53,6 +53,10 @@ textarea{resize:none;min-height:80px;line-height:1.6;}
 .toast.ok{background:var(--green);color:#fff;}
 .toast.err{background:#C8441A;color:#fff;}
 .toast.inf{background:var(--surface2);color:var(--white);border:1px solid var(--border);}
+.ro-banner{display:none;background:#1D4ED8;color:#fff;padding:10px 16px;font-size:13px;font-weight:600;text-align:center;letter-spacing:.3px;}
+body.ro .ro-banner{display:block;}
+body.ro input:not([type=file]):not([type=hidden]),body.ro textarea{pointer-events:none;opacity:.6;}
+body.ro #sezione-registra,body.ro #btn-chiudi,body.ro .g-del{display:none!important;}
 .cant-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;gap:14px;}
 .cant-card:active{border-color:var(--brick);}
 .cant-icon{width:44px;height:44px;background:var(--green-dim);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
@@ -67,6 +71,7 @@ textarea{resize:none;min-height:80px;line-height:1.6;}
 </head>
 <body>
 
+<div class="ro-banner">🔒 Modalità sola lettura</div>
 <div id="view-lista" class="view active">
   <div class="topbar">
     <div style="display:flex;align-items:center;gap:10px">
@@ -110,7 +115,7 @@ textarea{resize:none;min-height:80px;line-height:1.6;}
       </div>
     </div>
 
-    <div class="section">
+    <div class="section" id="sezione-registra">
       <div class="sec-title"><div class="sec-icon">📅</div>Registra giornata</div>
       <div class="row2" style="margin-bottom:10px">
         <div class="fg"><label>Data</label><input type="date" id="g-data"></div>
@@ -133,7 +138,7 @@ textarea{resize:none;min-height:80px;line-height:1.6;}
     </div>
   </div>
   <div class="bottom-bar">
-    <button class="btn-main" onclick="chiudiCantiere()">✓ Chiudi Cantiere</button>
+    <button class="btn-main" id="btn-chiudi" onclick="chiudiCantiere()">✓ Chiudi Cantiere</button>
   </div>
 </div>
 
@@ -142,6 +147,7 @@ textarea{resize:none;min-height:80px;line-height:1.6;}
 <script>
 // ── AUTH ──
 (function(){try{const u=JSON.parse(localStorage.getItem('cp_user'));if(!u||!u.email)window.location.replace('login.html');}catch(e){window.location.replace('login.html');}})();
+(function(){try{const u=JSON.parse(localStorage.getItem('cp_user'));if(u&&u.permessi&&u.permessi.cantiere==='readonly')document.body.classList.add('ro');}catch(e){}})();
 // ── SUPABASE ──
 const SUPA_URL='https://iradzlocobsipjazracw.supabase.co';
 const SUPA_KEY='sb_publishable_zFgRrNrmYSORug8N06heow_6vjl0fhH';

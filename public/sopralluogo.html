@@ -78,6 +78,10 @@ input[type="file"]{display:none;}
 .report-frame{flex:1;border:none;width:100%;}
 .toast{position:fixed;top:70px;left:16px;right:16px;padding:14px 16px;border-radius:var(--r-sm);font-size:14px;font-weight:500;text-align:center;z-index:9999;opacity:0;transform:translateY(-8px);transition:all .3s;pointer-events:none;}
 .toast.show{opacity:1;transform:translateY(0);}
+.ro-banner{display:none;background:#1D4ED8;color:#fff;padding:10px 16px;font-size:13px;font-weight:600;text-align:center;letter-spacing:.3px;}
+body.ro .ro-banner{display:block;}
+body.ro input:not([type=file]):not([type=hidden]),body.ro textarea,body.ro select{pointer-events:none;opacity:.6;}
+body.ro .foto-btns,body.ro .del-btn,body.ro .foto-del,body.ro .foto-order,body.ro .voice-del,body.ro .rec-btn,body.ro #si,body.ro #btn-avvia,body.ro #btn-copia{display:none!important;}
 .toast.ok{background:var(--green);color:#fff;}
 .toast.err{background:#C8441A;color:#fff;}
 .toast.inf{background:var(--surface2);color:var(--white);border:1px solid var(--border);}
@@ -97,6 +101,7 @@ input[type="file"]{display:none;}
 </head>
 <body>
 
+<div class="ro-banner">🔒 Modalità sola lettura</div>
 <div id="view-lista" class="view active">
   <div class="topbar">
     <div style="display:flex;align-items:center;gap:10px">
@@ -214,7 +219,7 @@ input[type="file"]{display:none;}
   </div>
   <div class="bottom-bar">
     <div class="btn-row">
-      <button class="btn-sec" onclick="copiaTesto()">📋 Copia</button>
+      <button class="btn-sec" id="btn-copia" onclick="copiaTesto()">📋 Copia</button>
       <button class="btn-sec" onclick="generaReport()" style="flex:2">📄 Genera Report</button>
     </div>
     <button class="btn-main green" id="btn-avvia" onclick="avviaCantiere()">🏗️ Avvia Cantiere</button>
@@ -238,6 +243,7 @@ input[type="file"]{display:none;}
 <script>
 // ── AUTH ──
 (function(){try{const u=JSON.parse(localStorage.getItem('cp_user'));if(!u||!u.email)window.location.replace('login.html');}catch(e){window.location.replace('login.html');}})();
+(function(){try{const u=JSON.parse(localStorage.getItem('cp_user'));if(u&&u.permessi&&u.permessi.sopralluogo==='readonly')document.body.classList.add('ro');}catch(e){}})();
 // ── SUPABASE ──
 const SUPA_URL = 'https://iradzlocobsipjazracw.supabase.co';
 const SUPA_KEY = 'sb_publishable_zFgRrNrmYSORug8N06heow_6vjl0fhH';

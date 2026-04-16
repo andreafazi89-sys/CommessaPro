@@ -62,10 +62,15 @@ input[type="file"]{display:none;}
 .toast.ok{background:var(--green);color:#fff;}
 .toast.err{background:#C8441A;color:#fff;}
 .toast.inf{background:var(--surface2);color:var(--white);border:1px solid var(--border);}
+.ro-banner{display:none;background:#1D4ED8;color:#fff;padding:10px 16px;font-size:13px;font-weight:600;text-align:center;letter-spacing:.3px;}
+body.ro .ro-banner{display:block;}
+body.ro input:not([type=file]):not([type=hidden]),body.ro textarea{pointer-events:none;opacity:.6;}
+body.ro #sal-form,body.ro #btn-nuovo-sal,body.ro .sal-del{display:none!important;}
 </style>
 </head>
 <body>
 
+<div class="ro-banner">🔒 Modalità sola lettura</div>
 <div id="view-lista" class="view active">
   <div class="topbar">
     <div style="display:flex;align-items:center;gap:10px">
@@ -86,7 +91,7 @@ input[type="file"]{display:none;}
       <button class="btn-back" onclick="tornaLista()">←</button>
       <div class="topbar-title" id="sal-title">SAL</div>
     </div>
-    <div style="display:flex;gap:6px"><button class="btn-top" onclick="esportaSAL()">📤 Esporta</button><button class="btn-top" onclick="mostraForm()">+ Nuovo</button></div>
+    <div style="display:flex;gap:6px"><button class="btn-top" onclick="esportaSAL()">📤 Esporta</button><button class="btn-top" id="btn-nuovo-sal" onclick="mostraForm()">+ Nuovo</button></div>
   </div>
   <div class="content">
     <div id="sal-form" style="display:none">
@@ -126,6 +131,7 @@ input[type="file"]{display:none;}
 <script>
 // ── AUTH ──
 (function(){try{const u=JSON.parse(localStorage.getItem('cp_user'));if(!u||!u.email)window.location.replace('login.html');}catch(e){window.location.replace('login.html');}})();
+(function(){try{const u=JSON.parse(localStorage.getItem('cp_user'));if(u&&u.permessi&&u.permessi.sal==='readonly')document.body.classList.add('ro');}catch(e){}})();
 // ── SUPABASE ──
 const SUPA_URL='https://iradzlocobsipjazracw.supabase.co';
 const SUPA_KEY='sb_publishable_zFgRrNrmYSORug8N06heow_6vjl0fhH';
