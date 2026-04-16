@@ -177,6 +177,9 @@ function renderTools(){
   const ruolo=(user?.ruolo||'operatore').toLowerCase();
   const isAdmin=ruolo==='admin';
   const permessi=user?.permessi||null;
+  console.log('[renderTools] user:', user);
+  console.log('[renderTools] ruolo:', ruolo, '| isAdmin:', isAdmin);
+  console.log('[renderTools] ALL_TOOLS length:', ALL_TOOLS.length);
   const list=document.getElementById('tools-list');
   list.innerHTML=ALL_TOOLS
     .filter(t=>{
@@ -197,6 +200,7 @@ function renderTools(){
         <div class="tool-arrow">→</div>
       </a>`;
     }).join('');
+  console.log('[renderTools] tools rendered:', list.innerHTML.length, 'chars');
 }
 
 // ── SETTINGS ──
