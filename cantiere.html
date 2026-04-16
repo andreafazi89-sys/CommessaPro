@@ -168,10 +168,14 @@ function getCantieri(){try{return JSON.parse(localStorage.getItem(CANT_KEY))||[]
 function salvaCantieri(l){localStorage.setItem(CANT_KEY,JSON.stringify(l));dbSalva(CANT_KEY,l);}
 function showView(n){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));g('view-'+n).classList.add('active');window.scrollTo(0,0);}
 
-function eliminaCantiere(id){
+async function eliminaCantiere(id){
   if(!confirm('Eliminare questo cantiere?')) return;
-  // Rimuovi il cantiereId dal sopralluogo collegato
   const cant = getCantieri().find(c=>c.id===id);
+  if(cant&&db){
+    const paths=(cant.sal||[]).flatMap(s=>(s.foto||[]).filter(url=>typeof url==='string'&&url.startsWith('https://')).map(url=>url.split('/object/public/Foto/')[1])).filter(Boolean);
+    if(paths.length) await db.storage.from('Foto').remove(paths).catch(()=>{});
+  }
+  // Rimuovi il cantiereId dal sopralluogo collegato
   if(cant&&cant.sopralluogoId){
     const sops = JSON.parse(localStorage.getItem('sopralluoghi_v3')||'[]');
     const sopIdx = sops.findIndex(s=>s.id===cant.sopralluogoId);

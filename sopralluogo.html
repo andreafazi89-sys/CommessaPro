@@ -316,8 +316,13 @@ function renderLista(){
     </div>`).join('');
 }
 
-function eliminaSopralluogo(id){
+async function eliminaSopralluogo(id){
   if(!confirm('Eliminare questo sopralluogo?')) return;
+  const sop=getLista().find(s=>s.id===id);
+  if(sop&&db){
+    const paths=(sop.foto||[]).filter(f=>f.url&&f.url.startsWith('https://')).map(f=>f.url.split('/object/public/Foto/')[1]).filter(Boolean);
+    if(paths.length) await db.storage.from('Foto').remove(paths).catch(()=>{});
+  }
   const newList=getLista().filter(s=>s.id!==id);
   salveLista(newList);
   dbSalva(LIST_KEY, newList.map(s=>({...s,foto:(s.foto||[]).filter(f=>f.url&&f.url.startsWith('https://')),noteVocali:[]})));

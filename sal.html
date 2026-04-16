@@ -229,9 +229,14 @@ function renderStorico(c){
   }).join('');
 }
 
-function delSAL(cantId,i){
+async function delSAL(cantId,i){
   if(!confirm('Eliminare questo aggiornamento?'))return;
   const lista=getCantieri();const idx=lista.findIndex(c=>c.id===cantId);if(idx<0)return;
+  if(db){
+    const sal=lista[idx].sal[i];
+    const paths=(sal.foto||[]).filter(url=>typeof url==='string'&&url.startsWith('https://')).map(url=>url.split('/object/public/Foto/')[1]).filter(Boolean);
+    if(paths.length) await db.storage.from('Foto').remove(paths).catch(()=>{});
+  }
   lista[idx].sal.splice(i,1);salvaCantieri(lista);renderStorico(lista[idx]);toast('Eliminato','ok');
 }
 
