@@ -497,8 +497,10 @@ async function caricaFoto(input){
           if(db&&currentId){
             try{
               const path=`sopralluoghi/${currentId}/${Date.now()}.jpg`;
+              console.log('uploading to path:', path, 'bucket: Foto');
               const blob=await new Promise(res=>canvas.toBlob(res,'image/jpeg',0.50));
               const {error}=await db.storage.from('Foto').upload(path,blob,{contentType:'image/jpeg',upsert:false});
+              console.log('upload result:', JSON.stringify(error));
               if(!error){
                 const {data:pub}=db.storage.from('Foto').getPublicUrl(path);
                 url=pub.publicUrl;
