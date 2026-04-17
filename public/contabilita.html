@@ -85,12 +85,24 @@ input::placeholder{color:var(--muted);}
 body.ro .ro-banner{display:block;}
 body.ro input{pointer-events:none;opacity:.6;}
 body.ro .mat-del,body.ro .add-mat-btn{display:none!important;}
+.onboarding-banner{background:var(--brick-dim);padding:14px 16px;display:flex;flex-direction:column;gap:10px;}
+.onboarding-text{font-size:13px;line-height:1.6;color:var(--white);}
+.onboarding-dismiss{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--brick);cursor:pointer;-webkit-user-select:none;}
+.onboarding-dismiss input[type=checkbox]{width:16px;height:16px;accent-color:var(--brick);flex-shrink:0;cursor:pointer;}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
 
 <div class="ro-banner">🔒 Modalità sola lettura</div>
+<div class="onboarding-banner" id="ob">
+  <div class="onboarding-text">📊 Contabilità — Inserisci il preventivo approvato e i costi dei materiali. L'app calcola automaticamente il margine e la redditività per ogni cantiere.</div>
+  <label class="onboarding-dismiss"><input type="checkbox" onchange="dismissOB()"> ✓ Ho capito, non mostrare più</label>
+</div>
+<script>
+(function(){var u=JSON.parse(localStorage.getItem('cp_user')||'null');var k='onboarding_contabilita_'+(u&&u.email?u.email:'anon');if(localStorage.getItem(k)==='1')document.getElementById('ob').style.display='none';})();
+function dismissOB(){var u=JSON.parse(localStorage.getItem('cp_user')||'null');var k='onboarding_contabilita_'+(u&&u.email?u.email:'anon');localStorage.setItem(k,'1');document.getElementById('ob').style.display='none';}
+</script>
 <div class="topbar">
   <a href="index.html" style="color:var(--muted);text-decoration:none;font-size:22px">←</a>
   <div class="topbar-title">📊 Contabilità</div>

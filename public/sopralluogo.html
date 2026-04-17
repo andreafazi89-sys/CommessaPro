@@ -85,6 +85,10 @@ body.ro .foto-btns,body.ro .del-btn,body.ro .foto-del,body.ro .foto-order,body.r
 .toast.ok{background:var(--green);color:#fff;}
 .toast.err{background:#C8441A;color:#fff;}
 .toast.inf{background:var(--surface2);color:var(--white);border:1px solid var(--border);}
+.onboarding-banner{background:var(--brick-dim);padding:14px 16px;display:flex;flex-direction:column;gap:10px;}
+.onboarding-text{font-size:13px;line-height:1.6;color:var(--white);}
+.onboarding-dismiss{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--brick);cursor:pointer;-webkit-user-select:none;}
+.onboarding-dismiss input[type=checkbox]{width:16px;height:16px;accent-color:var(--brick);flex-shrink:0;cursor:pointer;}
 .sop-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;gap:14px;}
 .sop-card:active{border-color:var(--brick);}
 .sop-icon{width:44px;height:44px;background:var(--brick-dim);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
@@ -102,6 +106,14 @@ body.ro .foto-btns,body.ro .del-btn,body.ro .foto-del,body.ro .foto-order,body.r
 <body>
 
 <div class="ro-banner">🔒 Modalità sola lettura</div>
+<div class="onboarding-banner" id="ob">
+  <div class="onboarding-text">📋 Sopralluogo — Crea una scheda per ogni nuovo lavoro. Inserisci cliente, indirizzo, foto e lavorazioni richieste. Quando sei pronto, premi 'Avvia Cantiere' per iniziare i lavori.</div>
+  <label class="onboarding-dismiss"><input type="checkbox" onchange="dismissOB()"> ✓ Ho capito, non mostrare più</label>
+</div>
+<script>
+(function(){var u=JSON.parse(localStorage.getItem('cp_user')||'null');var k='onboarding_sopralluogo_'+(u&&u.email?u.email:'anon');if(localStorage.getItem(k)==='1')document.getElementById('ob').style.display='none';})();
+function dismissOB(){var u=JSON.parse(localStorage.getItem('cp_user')||'null');var k='onboarding_sopralluogo_'+(u&&u.email?u.email:'anon');localStorage.setItem(k,'1');document.getElementById('ob').style.display='none';}
+</script>
 <div id="view-lista" class="view active">
   <div class="topbar">
     <div style="display:flex;align-items:center;gap:10px">
