@@ -62,20 +62,10 @@ html,body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--whi
 .toast.show{opacity:1;transform:translateY(0);}
 .toast.ok{background:var(--green);color:#fff;}
 .toast.inf{background:var(--surface2);color:var(--white);border:1px solid var(--border);}
-.ro-banner{display:none;background:#1D4ED8;color:#fff;padding:10px 16px;font-size:13px;font-weight:600;text-align:center;letter-spacing:.3px;}
-body.ro .ro-banner{display:block;}
-body.ro input:not([type=file]):not([type=hidden]),body.ro textarea{pointer-events:none;opacity:.6;}
-body.ro .task-check{pointer-events:none;opacity:.6;}
-body.ro .btn-add,body.ro .add-giorno-btn,body.ro .task-del,body.ro .task-star,body.ro #add-panel{display:none!important;}
-.onboarding-banner{background:var(--brick-dim);padding:14px 16px;display:flex;flex-direction:column;gap:10px;}
-.onboarding-text{font-size:13px;line-height:1.6;color:var(--white);}
-.onboarding-dismiss{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--brick);cursor:pointer;-webkit-user-select:none;}
-.onboarding-dismiss input[type=checkbox]{width:16px;height:16px;accent-color:var(--brick);flex-shrink:0;cursor:pointer;}
 </style>
 </head>
 <body>
 
-<div class="ro-banner">🔒 Modalità sola lettura</div>
 <div class="topbar">
   <div style="display:flex;align-items:center;gap:10px">
     <a href="index.html" style="color:var(--muted);text-decoration:none;font-size:22px">←</a>
@@ -87,13 +77,6 @@ body.ro .btn-add,body.ro .add-giorno-btn,body.ro .task-del,body.ro .task-star,bo
     <button class="btn-add" onclick="apriPanel(null)">+ Aggiungi</button>
   </div>
 </div>
-<div id="ob-banner" style="background:#FFF3ED;border:1px solid #D4511E;border-radius:12px;margin:12px 16px;padding:14px;font-family:Epilogue,sans-serif;font-size:13px;color:#1A1612;">
-  <strong>📝 Note & Agenda</strong> — Usa l'agenda giornaliera per tenere traccia delle cose da fare. Premi + su ogni giorno per aggiungere attività, tocca il cerchio per segnarle come fatte.<br><br>
-  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;color:#D4511E">
-    <input type="checkbox" onchange="if(this.checked){document.getElementById('ob-banner').style.display='none';localStorage.setItem('ob_note','1');}"> ✓ Ho capito, non mostrare più
-  </label>
-</div>
-<script>if(localStorage.getItem('ob_note')==='1')document.getElementById('ob-banner').style.display='none';</script>
 
 <div class="mese-nav">
   <button class="mese-btn" onclick="cambiaMese(-1)">‹</button>
@@ -101,6 +84,13 @@ body.ro .btn-add,body.ro .add-giorno-btn,body.ro .task-del,body.ro .task-star,bo
   <button class="mese-btn" onclick="cambiaMese(+1)">›</button>
 </div>
 
+<div id="ob-banner" style="background:#FFF3ED;border:1.5px solid #D4511E;border-radius:12px;margin:12px 16px;padding:14px;font-size:13px;color:#1A1612;line-height:1.6;font-family:Epilogue,sans-serif">
+  <strong>📝 Note & Agenda</strong> — Usa l'agenda giornaliera per tenere traccia delle cose da fare. Premi + su ogni giorno per aggiungere attività, tocca il cerchio per segnarle come fatte.<br><br>
+  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;color:#D4511E">
+    <input type="checkbox" onchange="if(this.checked){document.getElementById('ob-banner').style.display='none';localStorage.setItem('ob_note','1');}"> ✓ Ho capito, non mostrare più
+  </label>
+</div>
+<script>if(localStorage.getItem('ob_note')==='1')document.getElementById('ob-banner').style.display='none';</script>
 <div class="content" id="content"></div>
 
 <div class="add-panel" id="add-panel">
@@ -116,9 +106,6 @@ body.ro .btn-add,body.ro .add-giorno-btn,body.ro .task-del,body.ro .task-star,bo
 <div class="toast" id="toast"></div>
 
 <script>
-// ── AUTH ──
-(function(){try{const u=JSON.parse(localStorage.getItem('cp_user'));if(!u||!u.email)window.location.replace('login.html');}catch(e){window.location.replace('login.html');}})();
-(function(){try{const u=JSON.parse(localStorage.getItem('cp_user'));if(u&&u.permessi&&u.permessi.note==='readonly')document.body.classList.add('ro');}catch(e){}})();
 // ── SUPABASE ──
 const SUPA_URL='https://iradzlocobsipjazracw.supabase.co';
 const SUPA_KEY='sb_publishable_zFgRrNrmYSORug8N06heow_6vjl0fhH';
@@ -130,11 +117,10 @@ async function forcSync(){
   toast('🔄 Sincronizzazione...','inf');
   if(!db){toast('Nessuna connessione','inf');return;}
   try{
-    const {data}=await db.from('dati').select('valore,ts').eq('chiave',NOTE_KEY).maybeSingle();
-    if(data&&data.valore){
-      localStorage.setItem(NOTE_KEY,JSON.stringify(data.valore));
-      if(data.ts) localStorage.setItem(NOTE_KEY+'_ts',data.ts);
-      render();
+    const {data}=await db.from('dati').select('valore').eq('chiave',NOTE_KEY).maybeSingle();
+    if(data&&data.valore&&data.valore.length>0){
+      const loc=getDati(),ids=new Set(data.valore.map(x=>x.id)),ex=loc.filter(x=>!ids.has(x.id));
+      salvaDati([...data.valore,...ex]); render();
     }
     toast('✓ Sincronizzato','ok');
   }catch(e){toast('Sync ok (offline)','inf');}
@@ -153,7 +139,7 @@ const g=id=>document.getElementById(id);
 function toast(msg,tipo='ok'){const t=g('toast');t.textContent=msg;t.className='toast '+tipo+' show';clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2500);}
 
 function getDati(){try{return JSON.parse(localStorage.getItem(NOTE_KEY))||[];}catch{return[];}}
-function salvaDati(d){const ts=new Date().toISOString();localStorage.setItem(NOTE_KEY,JSON.stringify(d));localStorage.setItem(NOTE_KEY+'_ts',ts);dbSalva(NOTE_KEY,d);}
+function salvaDati(d){localStorage.setItem(NOTE_KEY,JSON.stringify(d));dbSalva(NOTE_KEY,d);}
 
 function cambiaMese(delta){
   meseVis+=delta;
@@ -232,8 +218,6 @@ function salva(){
 // ── INIT ──
 initDB();render();
 setTimeout(()=>forcSync().catch(()=>{}),500);
-setInterval(()=>{ if(!document.hidden) forcSync().catch(()=>{}); },30000);
-document.addEventListener('visibilitychange',()=>{ if(!document.hidden) forcSync().catch(()=>{}); });
 </script>
 </body>
 </html>

@@ -47,19 +47,10 @@ input::placeholder{color:var(--muted);}
 .toast.show{opacity:1;transform:translateY(0);}
 .toast.ok{background:var(--green);color:#fff;}
 .toast.err{background:#C8441A;color:#fff;}
-.ro-banner{display:none;background:#1D4ED8;color:#fff;padding:10px 16px;font-size:13px;font-weight:600;text-align:center;letter-spacing:.3px;}
-body.ro .ro-banner{display:block;}
-body.ro input{pointer-events:none;opacity:.6;}
-body.ro .btn-add-fab,body.ro .form-panel,body.ro .cli-edit,body.ro .cli-del{display:none!important;}
-.onboarding-banner{background:var(--brick-dim);padding:14px 16px;display:flex;flex-direction:column;gap:10px;}
-.onboarding-text{font-size:13px;line-height:1.6;color:var(--white);}
-.onboarding-dismiss{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--brick);cursor:pointer;-webkit-user-select:none;}
-.onboarding-dismiss input[type=checkbox]{width:16px;height:16px;accent-color:var(--brick);flex-shrink:0;cursor:pointer;}
 </style>
 </head>
 <body>
 
-<div class="ro-banner">🔒 Modalità sola lettura</div>
 <div class="topbar">
   <div style="display:flex;align-items:center;gap:10px">
     <a href="index.html" style="color:var(--muted);text-decoration:none;font-size:22px">←</a>
@@ -67,7 +58,8 @@ body.ro .btn-add-fab,body.ro .form-panel,body.ro .cli-edit,body.ro .cli-del{disp
   </div>
   <button onclick="forcSync()" style="background:var(--sand-dim);color:var(--sand);border:none;border-radius:8px;padding:7px 10px;font-size:14px;cursor:pointer" title="Sincronizza">🔄</button>
 </div>
-<div id="ob-banner" style="background:#FFF3ED;border:1px solid #D4511E;border-radius:12px;margin:12px 16px;padding:14px;font-family:Epilogue,sans-serif;font-size:13px;color:#1A1612;">
+
+<div id="ob-banner" style="background:#FFF3ED;border:1.5px solid #D4511E;border-radius:12px;margin:12px 16px;padding:14px;font-size:13px;color:#1A1612;line-height:1.6;font-family:Epilogue,sans-serif">
   <strong>👥 Rubrica Clienti</strong> — Salva i tuoi clienti con nome, telefono e email. Potrai selezionarli direttamente quando crei un nuovo sopralluogo.<br><br>
   <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;color:#D4511E">
     <input type="checkbox" onchange="if(this.checked){document.getElementById('ob-banner').style.display='none';localStorage.setItem('ob_rub','1');}"> ✓ Ho capito, non mostrare più
@@ -97,9 +89,6 @@ body.ro .btn-add-fab,body.ro .form-panel,body.ro .cli-edit,body.ro .cli-del{disp
 <div class="toast" id="toast"></div>
 
 <script>
-// ── AUTH ──
-(function(){try{const u=JSON.parse(localStorage.getItem('cp_user'));if(!u||!u.email)window.location.replace('login.html');}catch(e){window.location.replace('login.html');}})();
-(function(){try{const u=JSON.parse(localStorage.getItem('cp_user'));if(u&&u.permessi&&u.permessi.rubrica==='readonly')document.body.classList.add('ro');}catch(e){}})();
 // ── SUPABASE ──
 const SUPA_URL='https://iradzlocobsipjazracw.supabase.co';
 const SUPA_KEY='sb_publishable_zFgRrNrmYSORug8N06heow_6vjl0fhH';
@@ -111,7 +100,10 @@ async function forcSync(){
   if(!db)return;
   try{
     const {data}=await db.from('dati').select('valore').eq('chiave',CLI_KEY).maybeSingle();
-    if(data&&data.valore){ localStorage.setItem(CLI_KEY,JSON.stringify(data.valore)); renderLista(); }
+    if(data&&data.valore&&data.valore.length>0){
+      const loc=getClienti(),ids=new Set(data.valore.map(x=>x.id)),ex=loc.filter(x=>!ids.has(x.id));
+      salvaClienti([...data.valore,...ex]); renderLista();
+    }
   }catch(e){}
 }
 
@@ -139,8 +131,8 @@ function renderLista(){
       </div>
       <div class="cli-actions">
         <button class="cli-btn" onclick="chiamaCliente('${c.tel||''}')">📞</button>
-        <button class="cli-btn cli-edit" onclick="apriForm('${c.id}')">✏️</button>
-        <button class="cli-btn cli-del" onclick="eliminaCliente('${c.id}')">🗑</button>
+        <button class="cli-btn" onclick="apriForm('${c.id}')">✏️</button>
+        <button class="cli-btn" onclick="eliminaCliente('${c.id}')">🗑</button>
       </div>
     </div>`).join('');
 }
@@ -187,8 +179,6 @@ function eliminaCliente(id){
 // ── INIT ──
 initDB();renderLista();
 setTimeout(()=>forcSync().catch(()=>{}),500);
-setInterval(()=>{ if(!document.hidden) forcSync().catch(()=>{}); },30000);
-document.addEventListener('visibilitychange',()=>{ if(!document.hidden) forcSync().catch(()=>{}); });
 </script>
 </body>
 </html>

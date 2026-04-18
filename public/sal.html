@@ -62,26 +62,10 @@ input[type="file"]{display:none;}
 .toast.ok{background:var(--green);color:#fff;}
 .toast.err{background:#C8441A;color:#fff;}
 .toast.inf{background:var(--surface2);color:var(--white);border:1px solid var(--border);}
-.ro-banner{display:none;background:#1D4ED8;color:#fff;padding:10px 16px;font-size:13px;font-weight:600;text-align:center;letter-spacing:.3px;}
-body.ro .ro-banner{display:block;}
-body.ro input:not([type=file]):not([type=hidden]),body.ro textarea{pointer-events:none;opacity:.6;}
-body.ro #sal-form,body.ro #btn-nuovo-sal,body.ro .sal-del{display:none!important;}
-.onboarding-banner{background:var(--brick-dim);padding:14px 16px;display:flex;flex-direction:column;gap:10px;}
-.onboarding-text{font-size:13px;line-height:1.6;color:var(--white);}
-.onboarding-dismiss{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--brick);cursor:pointer;-webkit-user-select:none;}
-.onboarding-dismiss input[type=checkbox]{width:16px;height:16px;accent-color:var(--brick);flex-shrink:0;cursor:pointer;}
 </style>
 </head>
 <body>
 
-<div class="ro-banner">🔒 Modalità sola lettura</div>
-<div id="ob-banner" style="background:#FFF3ED;border:1px solid #D4511E;border-radius:12px;margin:12px 16px;padding:14px;font-family:Epilogue,sans-serif;font-size:13px;color:#1A1612;">
-  <strong>📸 S.A.L.</strong> — Documenta l'avanzamento dei lavori con foto e percentuale di completamento. Ogni aggiornamento crea uno storico fotografico del cantiere.<br><br>
-  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;color:#D4511E">
-    <input type="checkbox" onchange="if(this.checked){document.getElementById('ob-banner').style.display='none';localStorage.setItem('ob_sal','1');}"> ✓ Ho capito, non mostrare più
-  </label>
-</div>
-<script>if(localStorage.getItem('ob_sal')==='1')document.getElementById('ob-banner').style.display='none';</script>
 <div id="view-lista" class="view active">
   <div class="topbar">
     <div style="display:flex;align-items:center;gap:10px">
@@ -90,7 +74,15 @@ body.ro #sal-form,body.ro #btn-nuovo-sal,body.ro .sal-del{display:none!important
     </div>
     <button class="btn-top" onclick="forcSync()" title="Sincronizza">🔄</button>
   </div>
-  <div class="content" style="padding-bottom:40px">
+
+<div id="ob-banner" style="background:#FFF3ED;border:1.5px solid #D4511E;border-radius:12px;margin:12px 16px;padding:14px;font-size:13px;color:#1A1612;line-height:1.6;font-family:Epilogue,sans-serif">
+  <strong>📸 S.A.L.</strong> — Documenta l'avanzamento dei lavori con foto e percentuale di completamento. Ogni aggiornamento crea uno storico fotografico del cantiere.<br><br>
+  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;color:#D4511E">
+    <input type="checkbox" onchange="if(this.checked){document.getElementById('ob-banner').style.display='none';localStorage.setItem('ob_sal','1');}"> ✓ Ho capito, non mostrare più
+  </label>
+</div>
+<script>if(localStorage.getItem('ob_sal')==='1')document.getElementById('ob-banner').style.display='none';</script>
+<div class="content" style="padding-bottom:40px">
     <div style="font-size:12px;color:var(--muted);padding:4px 4px 14px">Storico fotografico avanzamento lavori per cantiere.</div>
     <div id="lista-cantieri"></div>
   </div>
@@ -102,7 +94,7 @@ body.ro #sal-form,body.ro #btn-nuovo-sal,body.ro .sal-del{display:none!important
       <button class="btn-back" onclick="tornaLista()">←</button>
       <div class="topbar-title" id="sal-title">SAL</div>
     </div>
-    <div style="display:flex;gap:6px"><button class="btn-top" onclick="esportaSAL()">📤 Esporta</button><button class="btn-top" id="btn-nuovo-sal" onclick="mostraForm()">+ Nuovo</button></div>
+    <div style="display:flex;gap:6px"><button class="btn-top" onclick="esportaSAL()">📤 Esporta</button><button class="btn-top" onclick="mostraForm()">+ Nuovo</button></div>
   </div>
   <div class="content">
     <div id="sal-form" style="display:none">
@@ -140,9 +132,6 @@ body.ro #sal-form,body.ro #btn-nuovo-sal,body.ro .sal-del{display:none!important
 <div class="toast" id="toast"></div>
 
 <script>
-// ── AUTH ──
-(function(){try{const u=JSON.parse(localStorage.getItem('cp_user'));if(!u||!u.email)window.location.replace('login.html');}catch(e){window.location.replace('login.html');}})();
-(function(){try{const u=JSON.parse(localStorage.getItem('cp_user'));if(u&&u.permessi&&u.permessi.sal==='readonly')document.body.classList.add('ro');}catch(e){}})();
 // ── SUPABASE ──
 const SUPA_URL='https://iradzlocobsipjazracw.supabase.co';
 const SUPA_KEY='sb_publishable_zFgRrNrmYSORug8N06heow_6vjl0fhH';
@@ -155,7 +144,10 @@ async function forcSync(){
   if(!db)return;
   try{
     const {data}=await db.from('dati').select('valore').eq('chiave',CANT_KEY).maybeSingle();
-    if(data&&data.valore){ localStorage.setItem(CANT_KEY,JSON.stringify(data.valore)); renderLista(); }
+    if(data&&data.valore&&data.valore.length>0){
+      const loc=getCantieri(),ids=new Set(data.valore.map(x=>x.id)),ex=loc.filter(x=>!ids.has(x.id));
+      salvaCantieri([...data.valore,...ex]); renderLista();
+    }
     toast('✓ Sincronizzato','ok');
   }catch(e){toast('Sync ok','inf');}
 }
@@ -231,7 +223,7 @@ function renderStorico(c){
   if(!sal.length){el.innerHTML=`<div class="empty-state"><div class="empty-icon">📷</div><div class="empty-txt">Nessun aggiornamento</div><div style="font-size:13px;color:var(--muted)">Premi "+ Nuovo" per aggiungere il primo SAL</div></div>`;return;}
   el.innerHTML=sal.map((s,i)=>{
     const d=new Date(s.data).toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'});
-    const fotoHtml=s.foto&&s.foto.length?`<div class="sal-foto-grid">${s.foto.map((url,fi)=>`<div class="sal-foto-item" style="position:relative"><img src="${url}"><button onclick="delFotoSAL('${c.id}',${i},${fi})" style="position:absolute;top:3px;right:3px;width:20px;height:20px;background:rgba(0,0,0,.7);color:#fff;border:none;border-radius:50%;font-size:10px;cursor:pointer">✕</button></div>`).join('')}</div>`:'';
+    const fotoHtml=s.foto&&s.foto.length?`<div class="sal-foto-grid">${s.foto.map(url=>`<div class="sal-foto-item"><img src="${url}"></div>`).join('')}</div>`:'';
     return `<div class="sal-entry">
       <div class="sal-header">
         <div><div class="sal-data">${d}</div>${s.foto&&s.foto.length?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${s.foto.length} foto</div>`:''}</div>
@@ -246,25 +238,9 @@ function renderStorico(c){
   }).join('');
 }
 
-async function delFotoSAL(cantId,salIdx,fotoIdx){
-  const lista=getCantieri(); const idx=lista.findIndex(c=>c.id===cantId); if(idx<0)return;
-  const url=lista[idx].sal[salIdx].foto[fotoIdx];
-  if(db&&url&&url.startsWith('https://')){
-    const path=url.split('/object/public/Foto/')[1];
-    if(path) await db.storage.from('Foto').remove([path]).catch(()=>{});
-  }
-  lista[idx].sal[salIdx].foto.splice(fotoIdx,1);
-  salvaCantieri(lista); renderStorico(lista[idx]); toast('Foto eliminata','inf');
-}
-
-async function delSAL(cantId,i){
+function delSAL(cantId,i){
   if(!confirm('Eliminare questo aggiornamento?'))return;
   const lista=getCantieri();const idx=lista.findIndex(c=>c.id===cantId);if(idx<0)return;
-  if(db){
-    const sal=lista[idx].sal[i];
-    const paths=(sal.foto||[]).filter(url=>typeof url==='string'&&url.startsWith('https://')).map(url=>url.split('/object/public/Foto/')[1]).filter(Boolean);
-    if(paths.length) await db.storage.from('Foto').remove(paths).catch(()=>{});
-  }
   lista[idx].sal.splice(i,1);salvaCantieri(lista);renderStorico(lista[idx]);toast('Eliminato','ok');
 }
 
@@ -334,8 +310,6 @@ ${fotoRows}
 // ── INIT ──
 initDB();renderLista();
 setTimeout(()=>forcSync().catch(()=>{}),500);
-setInterval(()=>{ if(!document.hidden) forcSync().catch(()=>{}); },30000);
-document.addEventListener('visibilitychange',()=>{ if(!document.hidden) forcSync().catch(()=>{}); });
 </script>
 </body>
 </html>
