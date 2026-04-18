@@ -156,7 +156,12 @@ input[type="file"]{display:none;}
 
     <div class="section">
       <div class="sec-title"><div class="sec-icon">📍</div>Cantiere</div>
-      <div class="fg"><label>Indirizzo *</label><input type="text" id="fi" placeholder="Via, numero, città" oninput="salva()"></div>
+      <div class="fg"><label>Indirizzo *</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="text" id="fi" placeholder="Via, numero, città" oninput="salva()" style="flex:1">
+            <button onclick="geoLocalizza()" title="Usa posizione attuale" style="width:46px;height:48px;background:var(--brick-dim);border:1.5px solid var(--brick);border-radius:var(--r-sm);font-size:20px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center" id="geo-btn">📍</button>
+          </div>
+        </div>
       <div class="row2">
         <div class="fg"><label>Piano</label><input type="text" id="fp" placeholder="Es. 2° piano" oninput="salva()"></div>
         <div class="fg"><label>Sup. totale (mq)</label><input type="number" id="fm" placeholder="Es. 75" oninput="salva()"></div>
@@ -717,6 +722,38 @@ function mostraOnboarding(){
   document.body.appendChild(div);
 }
 }
+
+// ── GEO-LOCALIZZAZIONE ──
+function geoLocalizza(){
+  const btn = document.getElementById('geo-btn');
+  if(!navigator.geolocation){ toast('GPS non disponibile','err'); return; }
+  btn.textContent = '⏳';
+  navigator.geolocation.getCurrentPosition(
+    async pos => {
+      const {latitude: lat, longitude: lon} = pos.coords;
+      try{
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=it`);
+        const data = await res.json();
+        const addr = data.address;
+        const road = addr.road || addr.pedestrian || addr.footway || '';
+        const num = addr.house_number ? ' '+addr.house_number : '';
+        const city = addr.city || addr.town || addr.village || addr.municipality || '';
+        const full = (road + num + (city ? ', '+city : '')).trim();
+        if(full){
+          document.getElementById('fi').value = full;
+          salva();
+          toast('📍 Posizione rilevata','ok');
+        } else {
+          toast('Indirizzo non trovato','err');
+        }
+      }catch(e){ toast('Errore geolocalizzazione','err'); }
+      finally{ btn.textContent = '📍'; }
+    },
+    err => { btn.textContent = '📍'; toast('Posizione non disponibile','err'); },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
 // ── INIT ──
 initDB();
 renderLista();
