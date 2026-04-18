@@ -106,6 +106,13 @@ body.ro .foto-btns,body.ro .del-btn,body.ro .foto-del,body.ro .foto-order,body.r
 <body>
 
 <div class="ro-banner">🔒 Modalità sola lettura</div>
+<div id="ob-banner" style="background:#FFF3ED;border:1px solid #D4511E;border-radius:12px;margin:12px 16px;padding:14px;font-family:Epilogue,sans-serif;font-size:13px;color:#1A1612;">
+  <strong>📋 Sopralluogo</strong> — Crea una scheda per ogni nuovo lavoro. Inserisci cliente, indirizzo, foto e lavorazioni richieste. Quando sei pronto, premi "Avvia Cantiere".<br><br>
+  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;color:#D4511E">
+    <input type="checkbox" onchange="if(this.checked){document.getElementById('ob-banner').style.display='none';localStorage.setItem('ob_sop','1');}"> ✓ Ho capito, non mostrare più
+  </label>
+</div>
+<script>if(localStorage.getItem('ob_sop')==='1')document.getElementById('ob-banner').style.display='none';</script>
 <div id="view-lista" class="view active">
   <div class="topbar">
     <div style="display:flex;align-items:center;gap:10px">
@@ -119,11 +126,6 @@ body.ro .foto-btns,body.ro .del-btn,body.ro .foto-del,body.ro .foto-order,body.r
       <button class="btn-top" onclick="nuovoSopralluogo()">+ Nuovo</button>
     </div>
   </div>
-  <div id="ob-banner" style="background:#FFF3ED;border:1px solid #D4511E;border-radius:12px;margin:12px 16px;padding:14px">
-    <div style="font-size:13px;line-height:1.6;margin-bottom:10px">📋 Sopralluogo — Crea una scheda per ogni nuovo lavoro. Inserisci cliente, indirizzo, foto e lavorazioni richieste. Quando sei pronto, premi 'Avvia Cantiere' per iniziare i lavori.</div>
-    <button onclick="dismissBanner()" style="background:#D4511E;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">✓ Ho capito</button>
-  </div>
-  <script>(function(){var u=JSON.parse(localStorage.getItem('cp_user')||'null');var k='ob_sop';var k2='ob_sop_'+(u&&u.email?u.email:'');if(localStorage.getItem(k)==='1'||localStorage.getItem(k2)==='1'){var b=document.getElementById('ob-banner');if(b)b.style.display='none';}})();function dismissBanner(){var u=JSON.parse(localStorage.getItem('cp_user')||'null');localStorage.setItem('ob_sop','1');if(u&&u.email)localStorage.setItem('ob_sop_'+u.email,'1');document.getElementById('ob-banner').style.display='none';}</script>
   <div class="content" style="padding-bottom:40px"><div id="lista-container"></div></div>
 </div>
 

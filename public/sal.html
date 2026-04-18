@@ -75,6 +75,13 @@ body.ro #sal-form,body.ro #btn-nuovo-sal,body.ro .sal-del{display:none!important
 <body>
 
 <div class="ro-banner">🔒 Modalità sola lettura</div>
+<div id="ob-banner" style="background:#FFF3ED;border:1px solid #D4511E;border-radius:12px;margin:12px 16px;padding:14px;font-family:Epilogue,sans-serif;font-size:13px;color:#1A1612;">
+  <strong>📸 S.A.L.</strong> — Documenta l'avanzamento dei lavori con foto e percentuale di completamento. Ogni aggiornamento crea uno storico fotografico del cantiere.<br><br>
+  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;color:#D4511E">
+    <input type="checkbox" onchange="if(this.checked){document.getElementById('ob-banner').style.display='none';localStorage.setItem('ob_sal','1');}"> ✓ Ho capito, non mostrare più
+  </label>
+</div>
+<script>if(localStorage.getItem('ob_sal')==='1')document.getElementById('ob-banner').style.display='none';</script>
 <div id="view-lista" class="view active">
   <div class="topbar">
     <div style="display:flex;align-items:center;gap:10px">
@@ -83,11 +90,6 @@ body.ro #sal-form,body.ro #btn-nuovo-sal,body.ro .sal-del{display:none!important
     </div>
     <button class="btn-top" onclick="forcSync()" title="Sincronizza">🔄</button>
   </div>
-  <div id="ob-banner" style="background:#FFF3ED;border:1px solid #D4511E;border-radius:12px;margin:12px 16px;padding:14px">
-    <div style="font-size:13px;line-height:1.6;margin-bottom:10px">📸 S.A.L. — Documenta l'avanzamento dei lavori con foto e percentuale di completamento. Ogni aggiornamento crea uno storico fotografico del cantiere.</div>
-    <button onclick="dismissBanner()" style="background:#D4511E;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">✓ Ho capito</button>
-  </div>
-  <script>(function(){var u=JSON.parse(localStorage.getItem('cp_user')||'null');var k='ob_sal';var k2='ob_sal_'+(u&&u.email?u.email:'');if(localStorage.getItem(k)==='1'||localStorage.getItem(k2)==='1'){var b=document.getElementById('ob-banner');if(b)b.style.display='none';}})();function dismissBanner(){var u=JSON.parse(localStorage.getItem('cp_user')||'null');localStorage.setItem('ob_sal','1');if(u&&u.email)localStorage.setItem('ob_sal_'+u.email,'1');document.getElementById('ob-banner').style.display='none';}</script>
   <div class="content" style="padding-bottom:40px">
     <div style="font-size:12px;color:var(--muted);padding:4px 4px 14px">Storico fotografico avanzamento lavori per cantiere.</div>
     <div id="lista-cantieri"></div>
