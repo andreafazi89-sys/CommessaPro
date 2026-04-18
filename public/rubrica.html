@@ -59,13 +59,6 @@ input::placeholder{color:var(--muted);}
   <button onclick="forcSync()" style="background:var(--sand-dim);color:var(--sand);border:none;border-radius:8px;padding:7px 10px;font-size:14px;cursor:pointer" title="Sincronizza">🔄</button>
 </div>
 
-<div id="ob-banner" style="background:#FFF3ED;border:1.5px solid #D4511E;border-radius:12px;margin:12px 16px;padding:14px;font-size:13px;color:#1A1612;line-height:1.6;font-family:Epilogue,sans-serif">
-  <strong>👥 Rubrica Clienti</strong> — Salva i tuoi clienti con nome, telefono e email. Potrai selezionarli direttamente quando crei un nuovo sopralluogo.<br><br>
-  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;color:#D4511E">
-    <input type="checkbox" onchange="if(this.checked){document.getElementById('ob-banner').style.display='none';localStorage.setItem('ob_rub','1');}"> ✓ Ho capito, non mostrare più
-  </label>
-</div>
-<script>if(localStorage.getItem('ob_rub')==='1')document.getElementById('ob-banner').style.display='none';</script>
 <div class="content">
   <div id="lista-clienti"></div>
 </div>
@@ -176,8 +169,28 @@ function eliminaCliente(id){
   salvaClienti(getClienti().filter(x=>x.id!==id));renderLista();toast('Eliminato','ok');
 }
 
+
+// ── ONBOARDING BANNER ──
+function mostraOnboarding(){
+  if(localStorage.getItem('ob_rub')==='1') return;
+  const cpUser = JSON.parse(localStorage.getItem('cp_user')||'{}');
+  const bannerKey = 'ob_rub_'+cpUser.email;
+  if(localStorage.getItem(bannerKey)==='1') return;
+  const div = document.createElement('div');
+  div.id = 'ob-banner';
+  div.style.cssText = 'background:#FFF3ED;border:1.5px solid #D4511E;border-radius:12px;margin:12px 16px;padding:14px;font-size:13px;color:#1A1612;line-height:1.6;font-family:Epilogue,sans-serif';
+  div.innerHTML = '<strong>👥 Rubrica Clienti</strong> — Salva i tuoi clienti con nome, telefono e email. Potrai selezionarli direttamente quando crei un nuovo sopralluogo.<br><br><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;color:#D4511E"><input type="checkbox" onchange="if(this.checked){document.getElementById(\'ob-banner\').style.display=\'none\';localStorage.setItem(\'ob_rub\',\'1\');localStorage.setItem(\'ob_rub_'+cpUser.email+'\',\'1\');}"> ✓ Ho capito, non mostrare più</label>';
+  // Insert after topbar
+  const topbar = document.querySelector('.topbar');
+  if(topbar && topbar.nextSibling){
+    topbar.parentNode.insertBefore(div, topbar.nextSibling);
+  } else {
+    document.body.insertBefore(div, document.body.firstChild);
+  }
+}
 // ── INIT ──
 initDB();renderLista();
+mostraOnboarding();
 setTimeout(()=>forcSync().catch(()=>{}),500);
 </script>
 </body>

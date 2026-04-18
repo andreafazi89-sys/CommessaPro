@@ -92,13 +92,6 @@ input::placeholder{color:var(--muted);}
   <div style="display:flex;gap:6px"><button style="background:var(--sand-dim);color:var(--sand);border:none;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:500;cursor:pointer;font-family:Epilogue,sans-serif" onclick="esportaContabilita()">📤 Esporta</button><button style="background:var(--sand-dim);color:var(--sand);border:none;border-radius:8px;padding:7px 10px;font-size:14px;cursor:pointer" onclick="forcSync()" title="Sincronizza">🔄</button></div>
 </div>
 
-<div id="ob-banner" style="background:#FFF3ED;border:1.5px solid #D4511E;border-radius:12px;margin:12px 16px;padding:14px;font-size:13px;color:#1A1612;line-height:1.6;font-family:Epilogue,sans-serif">
-  <strong>📊 Contabilità</strong> — Inserisci il preventivo approvato e i costi dei materiali. L'app calcola automaticamente il margine e la redditività per ogni cantiere.<br><br>
-  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;color:#D4511E">
-    <input type="checkbox" onchange="if(this.checked){document.getElementById('ob-banner').style.display='none';localStorage.setItem('ob_cont','1');}"> ✓ Ho capito, non mostrare più
-  </label>
-</div>
-<script>if(localStorage.getItem('ob_cont')==='1')document.getElementById('ob-banner').style.display='none';</script>
 <div class="content">
 
   <!-- TOTALI GENERALI -->
@@ -415,6 +408,7 @@ function render(){
 
 initDB();
 render();
+mostraOnboarding();
 setTimeout(()=>forcSync().catch(e=>render()),300);
 </script>
 </body>

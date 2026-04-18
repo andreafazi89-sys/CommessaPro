@@ -84,13 +84,6 @@ html,body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--whi
   <button class="mese-btn" onclick="cambiaMese(+1)">›</button>
 </div>
 
-<div id="ob-banner" style="background:#FFF3ED;border:1.5px solid #D4511E;border-radius:12px;margin:12px 16px;padding:14px;font-size:13px;color:#1A1612;line-height:1.6;font-family:Epilogue,sans-serif">
-  <strong>📝 Note & Agenda</strong> — Usa l'agenda giornaliera per tenere traccia delle cose da fare. Premi + su ogni giorno per aggiungere attività, tocca il cerchio per segnarle come fatte.<br><br>
-  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;color:#D4511E">
-    <input type="checkbox" onchange="if(this.checked){document.getElementById('ob-banner').style.display='none';localStorage.setItem('ob_note','1');}"> ✓ Ho capito, non mostrare più
-  </label>
-</div>
-<script>if(localStorage.getItem('ob_note')==='1')document.getElementById('ob-banner').style.display='none';</script>
 <div class="content" id="content"></div>
 
 <div class="add-panel" id="add-panel">
@@ -215,8 +208,28 @@ function salva(){
   render();toast('✓ Aggiunto');
 }
 
+
+// ── ONBOARDING BANNER ──
+function mostraOnboarding(){
+  if(localStorage.getItem('ob_note')==='1') return;
+  const cpUser = JSON.parse(localStorage.getItem('cp_user')||'{}');
+  const bannerKey = 'ob_note_'+cpUser.email;
+  if(localStorage.getItem(bannerKey)==='1') return;
+  const div = document.createElement('div');
+  div.id = 'ob-banner';
+  div.style.cssText = 'background:#FFF3ED;border:1.5px solid #D4511E;border-radius:12px;margin:12px 16px;padding:14px;font-size:13px;color:#1A1612;line-height:1.6;font-family:Epilogue,sans-serif';
+  div.innerHTML = '<strong>📝 Note & Agenda</strong> — Usa l'agenda giornaliera per tenere traccia delle cose da fare. Premi + su ogni giorno per aggiungere attività, tocca il cerchio per segnarle come fatte.<br><br><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;color:#D4511E"><input type="checkbox" onchange="if(this.checked){document.getElementById(\'ob-banner\').style.display=\'none\';localStorage.setItem(\'ob_note\',\'1\');localStorage.setItem(\'ob_note_'+cpUser.email+'\',\'1\');}"> ✓ Ho capito, non mostrare più</label>';
+  // Insert after topbar
+  const topbar = document.querySelector('.topbar');
+  if(topbar && topbar.nextSibling){
+    topbar.parentNode.insertBefore(div, topbar.nextSibling);
+  } else {
+    document.body.insertBefore(div, document.body.firstChild);
+  }
+}
 // ── INIT ──
 initDB();render();
+mostraOnboarding();
 setTimeout(()=>forcSync().catch(()=>{}),500);
 </script>
 </body>
