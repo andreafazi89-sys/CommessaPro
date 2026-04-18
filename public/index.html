@@ -175,22 +175,19 @@ const ALL_TOOLS=[
 function renderTools(){
   const user=getUser();
   const ruolo=(user?.ruolo||'operatore').toLowerCase();
-  const isAdmin=ruolo==='admin';
+  const isPrivileged=ruolo==='admin'||ruolo==='segretaria';
   const permessi=user?.permessi||null;
-  console.log('[renderTools] user:', user);
-  console.log('[renderTools] ruolo:', ruolo, '| isAdmin:', isAdmin);
-  console.log('[renderTools] ALL_TOOLS length:', ALL_TOOLS.length);
   const list=document.getElementById('tools-list');
   list.innerHTML=ALL_TOOLS
     .filter(t=>{
-      if(isAdmin) return true;
+      if(isPrivileged) return true;
       if(permessi&&t.key in permessi) return permessi[t.key]!=='hidden';
       return t.roles.includes(ruolo);
     })
     .map(t=>{
       let ro;
-      if(!isAdmin&&permessi&&t.key in permessi) ro=permessi[t.key]==='readonly';
-      else ro=!isAdmin&&t.readonly&&t.readonly.includes(ruolo);
+      if(!isPrivileged&&permessi&&t.key in permessi) ro=permessi[t.key]==='readonly';
+      else ro=!isPrivileged&&t.readonly&&t.readonly.includes(ruolo);
       return `<a href="${t.href}" class="tool-card">
         <div class="tool-icon" style="background:${t.bg}">${t.icon}</div>
         <div class="tool-info">
@@ -200,7 +197,6 @@ function renderTools(){
         <div class="tool-arrow">→</div>
       </a>`;
     }).join('');
-  console.log('[renderTools] tools rendered:', list.innerHTML.length, 'chars');
 }
 
 // ── SETTINGS ──

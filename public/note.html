@@ -76,14 +76,6 @@ body.ro .btn-add,body.ro .add-giorno-btn,body.ro .task-del,body.ro .task-star,bo
 <body>
 
 <div class="ro-banner">🔒 Modalità sola lettura</div>
-<div class="onboarding-banner" id="ob">
-  <div class="onboarding-text">📝 Note & Agenda — Usa l'agenda giornaliera per tenere traccia delle cose da fare. Premi + su ogni giorno per aggiungere attività, tocca il cerchio per segnarle come fatte.</div>
-  <label class="onboarding-dismiss"><input type="checkbox" onchange="dismissOB()"> ✓ Ho capito, non mostrare più</label>
-</div>
-<script>
-(function(){var u=JSON.parse(localStorage.getItem('cp_user')||'null');var k='onboarding_note_'+(u&&u.email?u.email:'anon');if(localStorage.getItem(k)==='1')document.getElementById('ob').style.display='none';})();
-function dismissOB(){var u=JSON.parse(localStorage.getItem('cp_user')||'null');var k='onboarding_note_'+(u&&u.email?u.email:'anon');localStorage.setItem(k,'1');document.getElementById('ob').style.display='none';}
-</script>
 <div class="topbar">
   <div style="display:flex;align-items:center;gap:10px">
     <a href="index.html" style="color:var(--muted);text-decoration:none;font-size:22px">←</a>
@@ -95,6 +87,11 @@ function dismissOB(){var u=JSON.parse(localStorage.getItem('cp_user')||'null');v
     <button class="btn-add" onclick="apriPanel(null)">+ Aggiungi</button>
   </div>
 </div>
+<div id="ob-banner" style="background:#FFF3ED;border:1px solid #D4511E;border-radius:12px;margin:12px 16px;padding:14px">
+  <div style="font-size:13px;line-height:1.6;margin-bottom:10px">📝 Note & Agenda — Usa l'agenda giornaliera per tenere traccia delle cose da fare. Premi + su ogni giorno per aggiungere attività, tocca il cerchio per segnarle come fatte.</div>
+  <button onclick="dismissBanner()" style="background:#D4511E;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">✓ Ho capito</button>
+</div>
+<script>(function(){var u=JSON.parse(localStorage.getItem('cp_user')||'null');var k='ob_note';var k2='ob_note_'+(u&&u.email?u.email:'');if(localStorage.getItem(k)==='1'||localStorage.getItem(k2)==='1'){var b=document.getElementById('ob-banner');if(b)b.style.display='none';}})();function dismissBanner(){var u=JSON.parse(localStorage.getItem('cp_user')||'null');localStorage.setItem('ob_note','1');if(u&&u.email)localStorage.setItem('ob_note_'+u.email,'1');document.getElementById('ob-banner').style.display='none';}</script>
 
 <div class="mese-nav">
   <button class="mese-btn" onclick="cambiaMese(-1)">‹</button>

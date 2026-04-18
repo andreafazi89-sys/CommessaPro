@@ -84,14 +84,6 @@ body.ro #sezione-registra,body.ro #btn-chiudi,body.ro .g-del{display:none!import
 <body>
 
 <div class="ro-banner">🔒 Modalità sola lettura</div>
-<div class="onboarding-banner" id="ob">
-  <div class="onboarding-text">🏗️ Cantiere — Registra ogni giornata lavorativa con gli operai presenti, le ore e i lavori svolti. Puoi scaricare il rapporto giornaliero in PDF con il pulsante 📥.</div>
-  <label class="onboarding-dismiss"><input type="checkbox" onchange="dismissOB()"> ✓ Ho capito, non mostrare più</label>
-</div>
-<script>
-(function(){var u=JSON.parse(localStorage.getItem('cp_user')||'null');var k='onboarding_cantiere_'+(u&&u.email?u.email:'anon');if(localStorage.getItem(k)==='1')document.getElementById('ob').style.display='none';})();
-function dismissOB(){var u=JSON.parse(localStorage.getItem('cp_user')||'null');var k='onboarding_cantiere_'+(u&&u.email?u.email:'anon');localStorage.setItem(k,'1');document.getElementById('ob').style.display='none';}
-</script>
 <div id="view-lista" class="view active">
   <div class="topbar">
     <div style="display:flex;align-items:center;gap:10px">
@@ -103,6 +95,11 @@ function dismissOB(){var u=JSON.parse(localStorage.getItem('cp_user')||'null');v
       <button class="btn-top" onclick="document.getElementById('cant-import').click()">📥 Ripristina</button>
     </div>
   </div>
+  <div id="ob-banner" style="background:#FFF3ED;border:1px solid #D4511E;border-radius:12px;margin:12px 16px;padding:14px">
+    <div style="font-size:13px;line-height:1.6;margin-bottom:10px">🏗️ Cantiere — Registra ogni giornata lavorativa con gli operai presenti, le ore e i lavori svolti. Puoi scaricare il rapporto giornaliero in PDF con il pulsante 📥.</div>
+    <button onclick="dismissBanner()" style="background:#D4511E;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">✓ Ho capito</button>
+  </div>
+  <script>(function(){var u=JSON.parse(localStorage.getItem('cp_user')||'null');var k='ob_cant';var k2='ob_cant_'+(u&&u.email?u.email:'');if(localStorage.getItem(k)==='1'||localStorage.getItem(k2)==='1'){var b=document.getElementById('ob-banner');if(b)b.style.display='none';}})();function dismissBanner(){var u=JSON.parse(localStorage.getItem('cp_user')||'null');localStorage.setItem('ob_cant','1');if(u&&u.email)localStorage.setItem('ob_cant_'+u.email,'1');document.getElementById('ob-banner').style.display='none';}</script>
   <input type="file" id="cant-import" accept=".json" style="display:none" onchange="importaCantieri(this)">
   <div class="content" style="padding-bottom:40px">
     <div style="font-size:12px;color:var(--muted);padding:4px 4px 14px">I cantieri si avviano dalla scheda Sopralluogo.</div>
