@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="CommessaPro">
+<meta name="theme-color" content="#0F0D0A">
+<link rel="icon" href="logo-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>I miei rapporti</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Epilogue:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root{--bg:#FFFFFF;--surface:#F5F5F5;--surface2:#EBEBEB;--brick:#D4511E;--brick-dim:rgba(212,81,30,0.12);--sand:#8A6A50;--sand-dim:rgba(138,106,80,0.12);--white:#1A1612;--muted:#888280;--border:rgba(0,0,0,0.1);--green:#3A7A4C;--green-dim:rgba(58,122,76,0.12);--r:14px;--r-sm:10px;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--white);min-height:100vh;}
+.view{display:none;}.view.active{display:block;}
+.topbar{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;}
+.topbar-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;}
+.btn-back{color:var(--muted);background:none;border:none;cursor:pointer;font-size:22px;padding:0;}
+.btn-top{background:var(--sand-dim);color:var(--sand);border:none;border-radius:8px;padding:7px 12px;font-family:Epilogue,sans-serif;font-size:12px;font-weight:500;cursor:pointer;}
+.content{padding:16px 16px 120px;}
+.section{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px;margin-bottom:14px;}
+.sec-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--sand);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.sec-icon{width:28px;height:28px;background:var(--brick-dim);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.fg{margin-bottom:12px;}.fg:last-child{margin-bottom:0;}
+label{display:block;font-size:11px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+input,textarea,select{width:100%;padding:13px 14px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r-sm);color:var(--white);font-family:'Epilogue',sans-serif;font-size:16px;outline:none;-webkit-appearance:none;}
+input:focus,textarea:focus,select:focus{border-color:var(--brick);}
+input::placeholder,textarea::placeholder{color:var(--muted);}
+select option{background:#FFFFFF;color:var(--white);}
+textarea{resize:none;min-height:70px;line-height:1.5;}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.row-split{display:grid;grid-template-columns:2fr 1fr;gap:10px;}
+.btn-main{width:100%;padding:16px;background:var(--brick);color:#fff;border:none;border-radius:var(--r);font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;-webkit-appearance:none;}
+.btn-main:active{transform:scale(.98);}
+.btn-main.green{background:var(--green);}
+.btn-main.sec{background:var(--surface2);color:var(--white);border:1px solid var(--border);}
+.bottom-bar{position:fixed;bottom:0;left:0;right:0;padding:12px 16px;padding-bottom:max(12px,env(safe-area-inset-bottom));background:linear-gradient(to top,var(--bg) 70%,transparent);z-index:100;display:flex;gap:10px;}
+.bottom-bar .btn-main{flex:1;}
+.toast{position:fixed;top:70px;left:16px;right:16px;padding:14px 16px;border-radius:var(--r-sm);font-size:14px;font-weight:500;text-align:center;z-index:999;opacity:0;transform:translateY(-8px);transition:all .3s;pointer-events:none;}
+.toast.show{opacity:1;transform:translateY(0);}
+.toast.ok{background:var(--green);color:#fff;}
+.toast.err{background:#C8441A;color:#fff;}
+.toast.inf{background:var(--surface2);color:var(--white);border:1px solid var(--border);}
+.empty-state{text-align:center;padding:48px 20px;color:var(--muted);}
+.empty-icon{font-size:48px;margin-bottom:12px;}
+.empty-txt{font-size:15px;font-weight:500;color:var(--sand);margin-bottom:6px;}
+.empty-sub{font-size:13px;color:var(--muted);}
+/* Card rapporto (lista) */
+.rpt-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;}
+.rpt-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;gap:10px;}
+.rpt-data{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;}
+.rpt-cant{font-size:12px;color:var(--sand);margin-top:2px;font-weight:500;}
+.rpt-ore{font-size:13px;font-weight:700;color:var(--brick);background:var(--brick-dim);padding:4px 10px;border-radius:20px;white-space:nowrap;}
+.rpt-desc{font-size:13px;line-height:1.5;color:var(--white);margin-top:4px;}
+.rpt-sub{font-size:12px;color:var(--muted);margin-top:6px;font-style:italic;}
+.rpt-actions{display:flex;gap:8px;margin-top:10px;}
+.rpt-btn{flex:1;padding:8px;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:Epilogue,sans-serif;}
+.rpt-btn.edit{background:var(--sand-dim);color:var(--sand);}
+.rpt-btn.del{background:rgba(200,68,26,.12);color:#C8441A;}
+/* Riga cantiere nel form (multi-riga) */
+.riga-cant{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px;margin-bottom:10px;position:relative;}
+.riga-cant .rc-num{position:absolute;top:8px;right:10px;font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;}
+.riga-cant .rc-del{position:absolute;top:6px;right:6px;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:4px 8px;}
+.btn-add-riga{width:100%;padding:12px;background:transparent;color:var(--brick);border:2px dashed var(--brick);border-radius:var(--r-sm);font-family:Epilogue,sans-serif;font-size:13px;font-weight:600;cursor:pointer;margin-top:6px;}
+/* Badge totale ore nel form */
+.tot-bar{background:var(--brick-dim);border:1px solid var(--brick);border-radius:var(--r-sm);padding:10px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:600;color:var(--brick);}
+.tot-bar .tot-val{font-family:'Syne',sans-serif;font-size:16px;}
+</style>
+</head>
+<body>
+
+<!-- VISTA LISTA -->
+<div id="view-lista" class="view active">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:10px">
+      <a href="index.html" style="color:var(--muted);text-decoration:none;font-size:22px">←</a>
+      <div class="topbar-title">📝 I miei rapporti</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-top" onclick="forcSync()" title="Sincronizza">🔄</button>
+    </div>
+  </div>
+  <div class="content">
+    <div id="lista-container"></div>
+  </div>
+  <div class="bottom-bar">
+    <button class="btn-main" onclick="nuovoRapporto()">➕ Nuova giornata</button>
+  </div>
+</div>
+
+<!-- VISTA FORM -->
+<div id="view-form" class="view">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:10px">
+      <button class="btn-back" onclick="tornaLista()">←</button>
+      <div class="topbar-title" id="form-title">Nuova giornata</div>
+    </div>
+  </div>
+  <div class="content">
+    <div class="section">
+      <div class="sec-title"><div class="sec-icon">📅</div>Data giornata</div>
+      <div class="fg"><input type="date" id="f-data"></div>
+    </div>
+
+    <div class="section">
+      <div class="sec-title"><div class="sec-icon">👷</div>Operaio</div>
+      <div class="fg">
+        <label>Nome operaio *</label>
+        <select id="f-operaio">
+          <option value="">-- seleziona --</option>
+          <option>Adrian Lup</option>
+          <option>Fabio Cardini</option>
+          <option>Daniele Schedel</option>
+          <option>Michele Poveste</option>
+          <option>Vasile Banta</option>
+          <option>Andrea Fazi</option>
+          <option>Lino Brunozzi</option>
+          <option>Rino Lenti</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="sec-title"><div class="sec-icon">🏗️</div>Cantieri lavorati</div>
+      <div class="tot-bar">
+        <span>Totale ore giornata</span>
+        <span class="tot-val" id="tot-ore">0h</span>
+      </div>
+      <div id="righe-container"></div>
+      <button type="button" class="btn-add-riga" onclick="aggiungiRiga()">+ Aggiungi cantiere</button>
+    </div>
+  </div>
+  <div class="bottom-bar">
+    <button class="btn-main sec" onclick="tornaLista()">Annulla</button>
+    <button class="btn-main green" onclick="salvaRapporto()">✓ Salva</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── SUPABASE ──
+const SUPA_URL = 'https://iradzlocobsipjazracw.supabase.co';
+const SUPA_KEY = 'sb_publishable_zFgRrNrmYSORug8N06heow_6vjl0fhH';
+const RPT_KEY = 'rapporti_v1';
+const CANT_KEY = 'cantieri_v1';
+let db = null;
+let currentEditId = null;  // null = nuovo, altrimenti id del record in modifica
+let rigaCounter = 0;       // contatore incrementale per le righe del form
+
+function initDB(){ if(window.supabase) db = window.supabase.createClient(SUPA_URL, SUPA_KEY); }
+
+async function dbSalva(k, v){
+  if(!db) return;
+  try{ await db.from('dati').upsert({chiave:k, valore:v, ts:new Date().toISOString()}, {onConflict:'chiave'}); }catch(e){}
+}
+async function dbCarica(k){
+  if(!db) return null;
+  try{
+    const {data} = await db.from('dati').select('valore').eq('chiave', k).maybeSingle();
+    return data ? data.valore : null;
+  }catch(e){ return null; }
+}
+async function forcSync(){
+  toast('🔄 Sincronizzazione...','inf');
+  const remoto = await dbCarica(RPT_KEY);
+  if(remoto && Array.isArray(remoto)){
+    const locale = getRapporti();
+    const remIds = new Set(remoto.map(r=>r.id));
+    const extra = locale.filter(r=>!remIds.has(r.id));
+    salvaRapporti([...remoto, ...extra]);
+    renderLista();
+  }
+  // carica anche cantieri
+  const remotiCant = await dbCarica(CANT_KEY);
+  if(remotiCant && Array.isArray(remotiCant)){
+    localStorage.setItem(CANT_KEY, JSON.stringify(remotiCant));
+  }
+  toast('✓ Sincronizzato','ok');
+}
+
+// ── HELPERS ──
+const g = id => document.getElementById(id);
+const gv = id => g(id)?.value?.trim() || '';
+function toast(msg, tipo){
+  const t = g('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + tipo + ' show';
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.remove('show'), 3000);
+}
+function showView(name){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  g('view-'+name).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+// ── STORAGE ──
+function getRapporti(){
+  try{ return JSON.parse(localStorage.getItem(RPT_KEY)) || []; }
+  catch{ return []; }
+}
+function salvaRapporti(l){
+  localStorage.setItem(RPT_KEY, JSON.stringify(l));
+  dbSalva(RPT_KEY, l);
+}
+function getCantieri(){
+  try{ return JSON.parse(localStorage.getItem(CANT_KEY)) || []; }
+  catch{ return []; }
+}
+function getCantieriAperti(){
+  return getCantieri().filter(c => c.stato !== 'Completato');
+}
+function getCpUser(){
+  try{ return JSON.parse(localStorage.getItem('cp_user') || '{}'); }
+  catch{ return {}; }
+}
+
+// ── LISTA ──
+function renderLista(){
+  const el = g('lista-container');
+  const tutti = getRapporti();
+  const cpUser = getCpUser();
+  // Filtra: se operaio, solo i propri; se admin/capo/segretaria, per ora sempre i propri (step 1)
+  // Nota: nello step 1.5 aggiungeremo toggle "tutti"
+  const email = (cpUser.email || '').toLowerCase();
+  const miei = tutti.filter(r => (r.autore || '').toLowerCase() === email);
+
+  if(!miei.length){
+    el.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">📋</div>
+      <div class="empty-txt">Nessun rapporto caricato</div>
+      <div class="empty-sub">Premi "➕ Nuova giornata" per iniziare</div>
+    </div>`;
+    return;
+  }
+
+  // Raggruppa per data (desc)
+  const perData = {};
+  miei.forEach(r => {
+    if(!perData[r.data]) perData[r.data] = [];
+    perData[r.data].push(r);
+  });
+  const date = Object.keys(perData).sort().reverse();
+
+  const cantieri = getCantieri();
+  const nomeCant = id => {
+    const c = cantieri.find(x => x.id === id);
+    if(!c) return '— cantiere rimosso —';
+    return (c.commessa ? c.commessa + ' · ' : '') + (c.titolo || c.cliente || 'Cantiere');
+  };
+
+  el.innerHTML = date.map(data => {
+    const giorno = new Date(data + 'T12:00:00').toLocaleDateString('it-IT', {day:'2-digit', month:'short', year:'numeric', weekday:'short'});
+    const record = perData[data];
+    const totGiorno = record.reduce((s,r) => s + (parseFloat(r.ore) || 0), 0);
+    return `
+      <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:14px 4px 8px">${giorno} · ${totGiorno}h totali</div>
+      ${record.map(r => `
+        <div class="rpt-card">
+          <div class="rpt-head">
+            <div style="flex:1;min-width:0">
+              <div class="rpt-data">${r.operaio || '—'}</div>
+              <div class="rpt-cant">${nomeCant(r.cantiereId)}</div>
+            </div>
+            <div class="rpt-ore">${r.ore}h</div>
+          </div>
+          ${r.descrizione ? `<div class="rpt-desc">${r.descrizione}</div>` : ''}
+          ${r.subappaltatori ? `<div class="rpt-sub">Sub: ${r.subappaltatori}</div>` : ''}
+          <div class="rpt-actions">
+            <button class="rpt-btn edit" onclick="modificaRapporto('${r.id}')">✏️ Modifica</button>
+            <button class="rpt-btn del" onclick="eliminaRapporto('${r.id}')">🗑 Elimina</button>
+          </div>
+        </div>
+      `).join('')}
+    `;
+  }).join('');
+}
+
+function tornaLista(){
+  showView('lista');
+  renderLista();
+}
+
+// ── FORM: nuovo / modifica ──
+function nuovoRapporto(){
+  currentEditId = null;
+  g('form-title').textContent = 'Nuova giornata';
+  g('f-data').value = new Date().toISOString().split('T')[0];
+  // Preseleziona operaio se l'utente loggato ha un nome che matcha
+  const cpUser = getCpUser();
+  const sel = g('f-operaio');
+  sel.value = '';
+  if(cpUser.nome){
+    for(const opt of sel.options){
+      if(opt.value === cpUser.nome){ sel.value = cpUser.nome; break; }
+    }
+  }
+  // Resetta righe
+  g('righe-container').innerHTML = '';
+  rigaCounter = 0;
+  aggiungiRiga();
+  showView('form');
+}
+
+function modificaRapporto(id){
+  // Lo step 1 tratta ogni record come modifica singola (non riapriamo
+  // tutte le righe del giorno: una riga = un rapporto da modificare)
+  const r = getRapporti().find(x => x.id === id);
+  if(!r){ toast('Rapporto non trovato','err'); return; }
+  currentEditId = id;
+  g('form-title').textContent = 'Modifica rapporto';
+  g('f-data').value = r.data;
+  g('f-operaio').value = r.operaio || '';
+  g('righe-container').innerHTML = '';
+  rigaCounter = 0;
+  aggiungiRiga({cantiereId:r.cantiereId, ore:r.ore, descrizione:r.descrizione, subappaltatori:r.subappaltatori});
+  showView('form');
+}
+
+function eliminaRapporto(id){
+  if(!confirm('Confermi eliminazione del rapporto?')) return;
+  const lista = getRapporti().filter(r => r.id !== id);
+  salvaRapporti(lista);
+  renderLista();
+  toast('Eliminato','inf');
+}
+
+// ── FORM: righe multi-cantiere ──
+function aggiungiRiga(preset){
+  rigaCounter++;
+  const n = rigaCounter;
+  const cantieri = getCantieriAperti();
+  const opts = cantieri.map(c => {
+    const label = (c.commessa ? c.commessa + ' · ' : '') + (c.titolo || c.cliente || 'Cantiere');
+    return `<option value="${c.id}">${label}</option>`;
+  }).join('');
+
+  const inEdit = !!preset;
+  const div = document.createElement('div');
+  div.className = 'riga-cant';
+  div.id = 'riga-' + n;
+  div.innerHTML = `
+    ${!inEdit ? `<button type="button" class="rc-del" onclick="rimuoviRiga(${n})" title="Rimuovi">✕</button>` : ''}
+    <div class="rc-num">RIGA ${n}</div>
+    <div class="fg" style="margin-top:16px">
+      <label>Cantiere *</label>
+      <select id="rc-cant-${n}" onchange="aggiornaTotale()">
+        <option value="">-- seleziona --</option>
+        ${opts}
+      </select>
+    </div>
+    <div class="fg">
+      <label>Ore lavorate *</label>
+      <input type="number" step="0.5" min="0" max="24" id="rc-ore-${n}" placeholder="Es. 8" oninput="aggiornaTotale()">
+    </div>
+    <div class="fg">
+      <label>Descrizione lavori</label>
+      <textarea id="rc-desc-${n}" placeholder="Cosa hai fatto oggi..."></textarea>
+    </div>
+    <div class="fg">
+      <label>Subappaltatori (opzionale)</label>
+      <input type="text" id="rc-sub-${n}" placeholder="Es. Ditta Rossi">
+    </div>
+  `;
+  g('righe-container').appendChild(div);
+
+  if(preset){
+    g('rc-cant-'+n).value = preset.cantiereId || '';
+    g('rc-ore-'+n).value = preset.ore || '';
+    g('rc-desc-'+n).value = preset.descrizione || '';
+    g('rc-sub-'+n).value = preset.subappaltatori || '';
+  }
+  aggiornaTotale();
+}
+
+function rimuoviRiga(n){
+  const el = g('riga-'+n);
+  if(!el) return;
+  // Non permetto di eliminare se è l'unica riga
+  const tot = document.querySelectorAll('.riga-cant').length;
+  if(tot <= 1){ toast('Deve esserci almeno una riga','err'); return; }
+  el.remove();
+  aggiornaTotale();
+}
+
+function aggiornaTotale(){
+  let tot = 0;
+  document.querySelectorAll('[id^="rc-ore-"]').forEach(inp => {
+    const v = parseFloat(inp.value);
+    if(!isNaN(v)) tot += v;
+  });
+  g('tot-ore').textContent = tot + 'h';
+}
+
+function raccogliRighe(){
+  // Legge tutte le righe visibili nel form e restituisce un array di oggetti
+  const out = [];
+  document.querySelectorAll('.riga-cant').forEach(div => {
+    const n = div.id.replace('riga-', '');
+    const cant = g('rc-cant-'+n)?.value || '';
+    const ore = parseFloat(g('rc-ore-'+n)?.value || 0);
+    const desc = g('rc-desc-'+n)?.value?.trim() || '';
+    const sub = g('rc-sub-'+n)?.value?.trim() || '';
+    if(cant || ore > 0 || desc) out.push({cantiereId:cant, ore, descrizione:desc, subappaltatori:sub});
+  });
+  return out;
+}
+
+// ── SALVA ──
+function salvaRapporto(){
+  const data = gv('f-data');
+  const operaio = gv('f-operaio');
+  if(!data){ toast('Seleziona la data','err'); return; }
+  if(!operaio){ toast('Seleziona l\'operaio','err'); return; }
+
+  const righe = raccogliRighe();
+  if(!righe.length){ toast('Aggiungi almeno una riga','err'); return; }
+
+  // Validazione righe
+  for(let i=0; i<righe.length; i++){
+    const r = righe[i];
+    if(!r.cantiereId){ toast(`Riga ${i+1}: seleziona un cantiere`,'err'); return; }
+    if(!r.ore || r.ore <= 0){ toast(`Riga ${i+1}: inserisci le ore`,'err'); return; }
+  }
+
+  const cpUser = getCpUser();
+  const autore = (cpUser.email || '').toLowerCase();
+  const now = new Date().toISOString();
+
+  let lista = getRapporti();
+
+  if(currentEditId){
+    // Modifica: aggiorno il record esistente (prendo solo la prima riga in caso di modifica)
+    const idx = lista.findIndex(r => r.id === currentEditId);
+    if(idx < 0){ toast('Record non trovato','err'); return; }
+    const r0 = righe[0];
+    lista[idx] = {
+      ...lista[idx],
+      data, operaio,
+      cantiereId: r0.cantiereId,
+      ore: r0.ore,
+      descrizione: r0.descrizione,
+      subappaltatori: r0.subappaltatori,
+      timestamp: now
+    };
+  } else {
+    // Nuovo: creo N record, uno per riga
+    righe.forEach((r, i) => {
+      lista.push({
+        id: 'rpt_' + Date.now() + '_' + i,
+        cantiereId: r.cantiereId,
+        data, operaio,
+        operaioEmail: autore,
+        ore: r.ore,
+        descrizione: r.descrizione,
+        subappaltatori: r.subappaltatori,
+        tipo: 'operaio',
+        autore,
+        timestamp: now
+      });
+    });
+  }
+
+  salvaRapporti(lista);
+  toast(currentEditId ? '✓ Rapporto aggiornato' : `✓ Salvate ${righe.length} righe`, 'ok');
+  setTimeout(() => tornaLista(), 600);
+}
+
+// ── INIT ──
+initDB();
+renderLista();
+// Sync in background
+setTimeout(() => forcSync().catch(()=>{}), 500);
+</script>
+</body>
+</html>
