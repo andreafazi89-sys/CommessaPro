@@ -133,6 +133,33 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
   </div>
 </div>
 
+<!-- DEBUG PANEL TEMPORANEO -->
+<div id="debug-panel" style="position:fixed;bottom:80px;left:10px;right:10px;background:#1A1612;color:#fff;padding:12px;border-radius:8px;font-family:monospace;font-size:11px;z-index:9998;border:2px solid #D4511E;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+    <strong style="color:#D4511E">🔍 DEBUG cp_user</strong>
+    <button onclick="document.getElementById('debug-panel').style.display='none'" style="background:none;border:none;color:#fff;cursor:pointer;font-size:16px">✕</button>
+  </div>
+  <div id="debug-content" style="line-height:1.6;word-break:break-all"></div>
+</div>
+
+<script>
+// Mostra contenuto cp_user per debug
+(function(){
+  const raw = localStorage.getItem('cp_user');
+  const u = raw ? JSON.parse(raw) : {};
+  const ruolo = u.ruolo || '(vuoto)';
+  const isOp = (ruolo || '').toLowerCase() === 'operaio';
+  document.getElementById('debug-content').innerHTML = `
+    <div>email: <span style="color:#8FD1A0">${u.email || '(vuoto)'}</span></div>
+    <div>nome: <span style="color:#8FD1A0">${u.nome || '(vuoto)'}</span></div>
+    <div>ruolo: <span style="color:#8FD1A0">"${ruolo}"</span></div>
+    <div>→ isOperaio(): <span style="color:${isOp?'#8FD1A0':'#FF8066'}">${isOp}</span></div>
+    <div style="margin-top:6px;font-size:10px;color:#888">JSON completo:</div>
+    <div style="font-size:10px;color:#aaa">${raw || 'null'}</div>
+  `;
+})();
+</script>
+
 <div class="toast" id="toast"></div>
 
 <script>
