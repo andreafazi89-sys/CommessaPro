@@ -68,6 +68,11 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
 /* Badge totale ore nel form */
 .tot-bar{background:var(--brick-dim);border:1px solid var(--brick);border-radius:var(--r-sm);padding:10px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:600;color:var(--brick);}
 .tot-bar .tot-val{font-family:'Syne',sans-serif;font-size:16px;}
+/* Campo nome operaio bloccato (ruolo operaio) */
+.op-locked{background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:13px 14px;display:flex;align-items:center;gap:10px;}
+.op-locked-icon{width:32px;height:32px;background:var(--brick-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--brick);font-weight:700;}
+.op-locked-name{font-size:16px;font-weight:600;flex:1;}
+.op-locked-hint{font-size:11px;color:var(--muted);margin-top:4px;}
 </style>
 </head>
 <body>
@@ -107,19 +112,8 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
 
     <div class="section">
       <div class="sec-title"><div class="sec-icon">👷</div>Operaio</div>
-      <div class="fg">
-        <label>Nome operaio *</label>
-        <select id="f-operaio">
-          <option value="">-- seleziona --</option>
-          <option>Adrian Lup</option>
-          <option>Fabio Cardini</option>
-          <option>Daniele Schedel</option>
-          <option>Michele Poveste</option>
-          <option>Vasile Banta</option>
-          <option>Andrea Fazi</option>
-          <option>Lino Brunozzi</option>
-          <option>Rino Lenti</option>
-        </select>
+      <div class="fg" id="operaio-wrap">
+        <!-- Renderizzato dinamicamente in base al ruolo -->
       </div>
     </div>
 
@@ -219,6 +213,61 @@ function getCpUser(){
   catch{ return {}; }
 }
 
+// Ritorna true se l'utente loggato è operaio (ruolo limitato)
+function isOperaio(){
+  const u = getCpUser();
+  return (u.ruolo || '').toLowerCase() === 'operaio';
+}
+
+// Renderizza il campo "Operaio" in base al ruolo:
+// - operaio: card bloccata col proprio nome (non può scegliere)
+// - admin/capo/segretaria: dropdown libero con tutti gli operai
+function renderCampoOperaio(valoreCorrente){
+  const wrap = g('operaio-wrap');
+  const cpUser = getCpUser();
+  const mioNome = cpUser.nome || '';
+
+  if(isOperaio()){
+    // Vista bloccata
+    const iniziali = mioNome.split(' ').map(s=>s[0]).slice(0,2).join('').toUpperCase() || '?';
+    wrap.innerHTML = `
+      <label>Nome operaio</label>
+      <div class="op-locked">
+        <div class="op-locked-icon">${iniziali}</div>
+        <div style="flex:1;min-width:0">
+          <div class="op-locked-name">${mioNome || '(nome non impostato)'}</div>
+        </div>
+        <span style="font-size:16px;color:var(--muted)" title="Solo il tuo nome">🔒</span>
+      </div>
+      <div class="op-locked-hint">Caricando con il tuo account, il nome è bloccato sul tuo</div>
+      <input type="hidden" id="f-operaio" value="${mioNome}">
+    `;
+  } else {
+    // Dropdown libero per capo/admin/segretaria
+    wrap.innerHTML = `
+      <label>Nome operaio *</label>
+      <select id="f-operaio">
+        <option value="">-- seleziona --</option>
+        <option>Adrian Lup</option>
+        <option>Fabio Cardini</option>
+        <option>Daniele Schedel</option>
+        <option>Michele Poveste</option>
+        <option>Vasile Banta</option>
+        <option>Andrea Fazi</option>
+        <option>Lino Brunozzi</option>
+        <option>Rino Lenti</option>
+      </select>
+      <div class="op-locked-hint">Puoi inserire anche per altri operai</div>
+    `;
+    // Preseleziono il valore richiesto o il nome dell'utente loggato
+    const sel = g('f-operaio');
+    const valDesiderato = valoreCorrente || mioNome || '';
+    for(const opt of sel.options){
+      if(opt.value === valDesiderato){ sel.value = valDesiderato; break; }
+    }
+  }
+}
+
 // ── LISTA ──
 function renderLista(){
   const el = g('lista-container');
@@ -290,15 +339,7 @@ function nuovoRapporto(){
   currentEditId = null;
   g('form-title').textContent = 'Nuova giornata';
   g('f-data').value = new Date().toISOString().split('T')[0];
-  // Preseleziona operaio se l'utente loggato ha un nome che matcha
-  const cpUser = getCpUser();
-  const sel = g('f-operaio');
-  sel.value = '';
-  if(cpUser.nome){
-    for(const opt of sel.options){
-      if(opt.value === cpUser.nome){ sel.value = cpUser.nome; break; }
-    }
-  }
+  renderCampoOperaio();
   // Resetta righe
   g('righe-container').innerHTML = '';
   rigaCounter = 0;
@@ -314,7 +355,7 @@ function modificaRapporto(id){
   currentEditId = id;
   g('form-title').textContent = 'Modifica rapporto';
   g('f-data').value = r.data;
-  g('f-operaio').value = r.operaio || '';
+  renderCampoOperaio(r.operaio);
   g('righe-container').innerHTML = '';
   rigaCounter = 0;
   aggiungiRiga({cantiereId:r.cantiereId, ore:r.ore, descrizione:r.descrizione, subappaltatori:r.subappaltatori});
