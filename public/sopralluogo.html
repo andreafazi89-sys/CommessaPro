@@ -159,7 +159,8 @@ input[type="file"]{display:none;}
       <div class="fg"><label>Indirizzo *</label>
           <div style="display:flex;gap:8px;align-items:center">
             <input type="text" id="fi" placeholder="Via, numero, città" oninput="salva()" style="flex:1">
-            <button onclick="geoLocalizza()" title="Usa posizione attuale" style="width:46px;height:48px;background:var(--brick-dim);border:1.5px solid var(--brick);border-radius:var(--r-sm);font-size:20px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center" id="geo-btn">📍</button>
+            <button type="button" onclick="geoLocalizza()" title="Usa posizione attuale" style="width:46px;height:48px;background:var(--brick-dim);border:1.5px solid var(--brick);border-radius:var(--r-sm);font-size:20px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center" id="geo-btn">📍</button>
+            <button type="button" onclick="apriMappa()" title="Apri in Google Maps" style="width:46px;height:48px;background:var(--brick-dim);border:1.5px solid var(--brick);border-radius:var(--r-sm);font-size:20px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">🗺️</button>
           </div>
         </div>
       <div class="row2">
@@ -281,6 +282,7 @@ let foto = [], ambienti = [], noteVocali = [];
 let currentId = null, saveTimer = null;
 let mediaRecorder = null, audioChunks = [], recInterval = null;
 let recSeconds = 0, isRecording = false, currentAudio = null;
+let currentLat = null, currentLon = null;
 
 const g = id => document.getElementById(id);
 const gv = id => g(id)?.value?.trim() || '';
@@ -331,6 +333,7 @@ function eliminaSopralluogo(id){
 // ── NUOVO / APRI ──
 function nuovoSopralluogo(){
   currentId='sop_'+Date.now(); foto=[]; ambienti=[]; noteVocali=[];
+  currentLat=null; currentLon=null;
   resetForm(); g('f-data').value=new Date().toISOString().split('T')[0];
   g('form-title').textContent='Nuovo Sopralluogo';
   g('si').textContent='● nuovo'; g('si').className='save-ind';
@@ -341,6 +344,7 @@ function nuovoSopralluogo(){
 function apriSopralluogo(id){
   const s=getLista().find(x=>x.id===id); if(!s) return;
   currentId=id; foto=s.foto||[]; ambienti=s.ambienti||[];
+  currentLat=s.lat||null; currentLon=s.lon||null;
   noteVocali=(s.noteVocali||[]).map(n=>({dur:n.dur,b64:n.b64,type:n.type||'audio/webm',url:null}));
   resetForm();
   sv('f-resp',s.resp); sv('f-data',s.data); sv('f-titolo',s.titolo); sv('f-commessa',s.commessa); sv('fc',s.cliente); sv('ft',s.tel);
@@ -371,6 +375,7 @@ function salva(){
     const lista=getLista(); const idx=lista.findIndex(s=>s.id===currentId);
     const dati={id:currentId,resp:gv('f-resp'),data:gv('f-data'),titolo:gv('f-titolo'),commessa:gv('f-commessa'),cliente:gv('fc'),tel:gv('ft'),email:gv('fe'),
       indirizzo:gv('fi'),piano:gv('fp'),mq:gv('fm'),accesso:gv('facc'),lavori:gv('fl'),note:gv('fn'),
+      lat:currentLat,lon:currentLon,
       ambienti,foto,noteVocali:noteVocali.map(n=>({dur:n.dur,b64:n.b64,type:n.type})),
       cantiereId:(idx>=0?lista[idx].cantiereId:null)||null};
     if(idx>=0) lista[idx]=dati; else lista.unshift(dati);
@@ -721,37 +726,80 @@ function mostraOnboarding(){
   div.innerHTML = '<strong>📋 Sopralluogo</strong> — Crea una scheda per ogni nuovo lavoro. Inserisci cliente, indirizzo, foto e lavorazioni. Premi "Avvia Cantiere" per iniziare i lavori.<br><br><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;color:#D4511E"><input type="checkbox" onchange="if(this.checked){document.getElementById(\'ob-banner\').remove();localStorage.setItem(\'ob_sop\',\'1\');if(\''+cpUser.email+'\')localStorage.setItem(\'ob_sop_'+cpUser.email+'\',\'1\');}"> ✓ Ho capito, non mostrare più</label>';
   document.body.appendChild(div);
 }
-}
 
 // ── GEO-LOCALIZZAZIONE ──
 function geoLocalizza(){
   const btn = document.getElementById('geo-btn');
-  if(!navigator.geolocation){ toast('GPS non disponibile','err'); return; }
-  btn.textContent = '⏳';
+  if(!navigator.geolocation){ toast('GPS non supportato dal browser','err'); return; }
+  if(location.protocol!=='https:' && location.hostname!=='localhost'){
+    toast('GPS richiede HTTPS','err'); return;
+  }
+  btn.textContent = '⏳'; btn.disabled = true;
   navigator.geolocation.getCurrentPosition(
     async pos => {
       const {latitude: lat, longitude: lon} = pos.coords;
       try{
-        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=it`);
+        const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=18&addressdetails=1&accept-language=it`;
+        const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        if(!res.ok) throw new Error('HTTP '+res.status);
         const data = await res.json();
+        if(!data || !data.address) throw new Error('Nessun indirizzo trovato per queste coordinate');
         const addr = data.address;
-        const road = addr.road || addr.pedestrian || addr.footway || '';
+        const road = addr.road || addr.pedestrian || addr.footway || addr.path || '';
         const num = addr.house_number ? ' '+addr.house_number : '';
-        const city = addr.city || addr.town || addr.village || addr.municipality || '';
-        const full = (road + num + (city ? ', '+city : '')).trim();
+        const cap = addr.postcode || '';
+        const city = addr.city || addr.town || addr.village || addr.municipality || addr.hamlet || '';
+        let full = (road + num).trim();
+        if(cap || city) full += (full?', ':'') + (cap?cap+' ':'') + city;
+        full = full.trim();
         if(full){
           document.getElementById('fi').value = full;
+          currentLat = lat; currentLon = lon;
           salva();
           toast('📍 Posizione rilevata','ok');
         } else {
-          toast('Indirizzo non trovato','err');
+          // fallback: uso display_name di Nominatim
+          if(data.display_name){
+            document.getElementById('fi').value = data.display_name;
+            currentLat = lat; currentLon = lon;
+            salva();
+            toast('📍 Posizione rilevata (approssimata)','ok');
+          } else {
+            toast('Indirizzo non trovato — salvate solo coordinate','inf');
+            currentLat = lat; currentLon = lon;
+            salva();
+          }
         }
-      }catch(e){ toast('Errore geolocalizzazione','err'); }
-      finally{ btn.textContent = '📍'; }
+      }catch(e){
+        console.error('Geoloc error:', e);
+        // Anche se il reverse geocoding fallisce, salvo le coordinate
+        currentLat = lat; currentLon = lon;
+        toast('Rete lenta: salvate solo coordinate ('+e.message+')','err');
+      }
+      finally{ btn.textContent = '📍'; btn.disabled = false; }
     },
-    err => { btn.textContent = '📍'; toast('Posizione non disponibile','err'); },
-    { enableHighAccuracy: true, timeout: 10000 }
+    err => {
+      btn.textContent = '📍'; btn.disabled = false;
+      const msg = {
+        1:'Permesso negato — abilita la posizione nelle impostazioni',
+        2:'Posizione non disponibile (GPS spento?)',
+        3:'Timeout scaduto — riprova'
+      }[err.code] || 'Errore sconosciuto';
+      toast(msg,'err');
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
   );
+}
+
+function apriMappa(){
+  // Priorità: lat/lon precise, altrimenti indirizzo testuale
+  if(currentLat!=null && currentLon!=null){
+    window.open(`https://www.google.com/maps/search/?api=1&query=${currentLat},${currentLon}`,'_blank');
+    return;
+  }
+  const ind = gv('fi');
+  if(!ind){ toast('Nessun indirizzo o posizione da aprire','err'); return; }
+  window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ind)}`,'_blank');
 }
 
 // ── INIT ──
