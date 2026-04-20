@@ -73,6 +73,23 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
 .op-locked-icon{width:32px;height:32px;background:var(--brick-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--brick);font-weight:700;}
 .op-locked-name{font-size:16px;font-weight:600;flex:1;}
 .op-locked-hint{font-size:11px;color:var(--muted);margin-top:4px;}
+/* Toggle I miei / Tutti (solo admin/capo) */
+.filtro-toggle{display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:3px;}
+.filtro-toggle button{flex:1;padding:10px;background:none;border:none;border-radius:7px;font-family:Epilogue,sans-serif;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .15s;}
+.filtro-toggle button.on{background:var(--brick);color:#fff;}
+/* Card aggregata (vista Tutti) */
+.agg-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;}
+.agg-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px;}
+.agg-titolo{flex:1;min-width:0;}
+.agg-data{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;}
+.agg-cant{font-size:12px;color:var(--sand);margin-top:2px;font-weight:500;}
+.agg-tot{font-size:13px;font-weight:700;color:var(--brick);background:var(--brick-dim);padding:4px 10px;border-radius:20px;white-space:nowrap;}
+.agg-operai{border-top:1px solid var(--border);padding-top:10px;}
+.agg-riga{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:6px 0;font-size:13px;}
+.agg-riga:not(:last-child){border-bottom:1px dashed var(--border);}
+.agg-op-nome{font-weight:600;min-width:110px;}
+.agg-op-desc{flex:1;color:var(--muted);font-size:12px;line-height:1.4;}
+.agg-op-ore{font-weight:700;color:var(--brick);white-space:nowrap;}
 </style>
 </head>
 <body>
@@ -89,6 +106,7 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
     </div>
   </div>
   <div class="content">
+    <div id="filtro-bar" style="display:none;margin-bottom:12px"></div>
     <div id="lista-container"></div>
   </div>
   <div class="bottom-bar">
@@ -132,33 +150,6 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
     <button class="btn-main green" onclick="salvaRapporto()">✓ Salva</button>
   </div>
 </div>
-
-<!-- DEBUG PANEL TEMPORANEO -->
-<div id="debug-panel" style="position:fixed;bottom:80px;left:10px;right:10px;background:#1A1612;color:#fff;padding:12px;border-radius:8px;font-family:monospace;font-size:11px;z-index:9998;border:2px solid #D4511E;">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-    <strong style="color:#D4511E">🔍 DEBUG cp_user</strong>
-    <button onclick="document.getElementById('debug-panel').style.display='none'" style="background:none;border:none;color:#fff;cursor:pointer;font-size:16px">✕</button>
-  </div>
-  <div id="debug-content" style="line-height:1.6;word-break:break-all"></div>
-</div>
-
-<script>
-// Mostra contenuto cp_user per debug
-(function(){
-  const raw = localStorage.getItem('cp_user');
-  const u = raw ? JSON.parse(raw) : {};
-  const ruolo = u.ruolo || '(vuoto)';
-  const isOp = (ruolo || '').toLowerCase() === 'operaio';
-  document.getElementById('debug-content').innerHTML = `
-    <div>email: <span style="color:#8FD1A0">${u.email || '(vuoto)'}</span></div>
-    <div>nome: <span style="color:#8FD1A0">${u.nome || '(vuoto)'}</span></div>
-    <div>ruolo: <span style="color:#8FD1A0">"${ruolo}"</span></div>
-    <div>→ isOperaio(): <span style="color:${isOp?'#8FD1A0':'#FF8066'}">${isOp}</span></div>
-    <div style="margin-top:6px;font-size:10px;color:#888">JSON completo:</div>
-    <div style="font-size:10px;color:#aaa">${raw || 'null'}</div>
-  `;
-})();
-</script>
 
 <div class="toast" id="toast"></div>
 
@@ -296,31 +287,56 @@ function renderCampoOperaio(valoreCorrente){
 }
 
 // ── LISTA ──
+// Modalità vista corrente: 'miei' | 'tutti' (solo admin/capo possono usare 'tutti')
+let modVista = 'miei';
+
+// Ritorna true se l'utente può vedere la modalità "Tutti i rapporti"
+function isPrivilegiato(){
+  const r = (getCpUser().ruolo || '').toLowerCase();
+  return r === 'admin' || r === 'segretaria' || r === 'capo';
+}
+
+function renderToggle(){
+  const bar = g('filtro-bar');
+  if(!isPrivilegiato()){
+    bar.style.display = 'none';
+    return;
+  }
+  bar.style.display = 'block';
+  bar.innerHTML = `
+    <div class="filtro-toggle">
+      <button class="${modVista==='miei'?'on':''}" onclick="cambiaVista('miei')">I miei rapporti</button>
+      <button class="${modVista==='tutti'?'on':''}" onclick="cambiaVista('tutti')">Tutti i rapporti</button>
+    </div>
+  `;
+}
+
+function cambiaVista(v){
+  modVista = v;
+  renderToggle();
+  renderLista();
+}
+
 function renderLista(){
   const el = g('lista-container');
   const tutti = getRapporti();
   const cpUser = getCpUser();
-  // Filtra: se operaio, solo i propri; se admin/capo/segretaria, per ora sempre i propri (step 1)
-  // Nota: nello step 1.5 aggiungeremo toggle "tutti"
   const email = (cpUser.email || '').toLowerCase();
-  const miei = tutti.filter(r => (r.autore || '').toLowerCase() === email);
 
-  if(!miei.length){
+  // Filtro base: se non sei privilegiato OR modalità "miei", mostra solo i tuoi
+  const mostraTutti = isPrivilegiato() && modVista === 'tutti';
+  const filtrati = mostraTutti
+    ? tutti
+    : tutti.filter(r => (r.autore || '').toLowerCase() === email);
+
+  if(!filtrati.length){
     el.innerHTML = `<div class="empty-state">
       <div class="empty-icon">📋</div>
-      <div class="empty-txt">Nessun rapporto caricato</div>
-      <div class="empty-sub">Premi "➕ Nuova giornata" per iniziare</div>
+      <div class="empty-txt">Nessun rapporto ${mostraTutti?'registrato':'caricato'}</div>
+      <div class="empty-sub">${mostraTutti?'Gli operai non hanno ancora caricato nulla':'Premi "➕ Nuova giornata" per iniziare'}</div>
     </div>`;
     return;
   }
-
-  // Raggruppa per data (desc)
-  const perData = {};
-  miei.forEach(r => {
-    if(!perData[r.data]) perData[r.data] = [];
-    perData[r.data].push(r);
-  });
-  const date = Object.keys(perData).sort().reverse();
 
   const cantieri = getCantieri();
   const nomeCant = id => {
@@ -329,34 +345,92 @@ function renderLista(){
     return (c.commessa ? c.commessa + ' · ' : '') + (c.titolo || c.cliente || 'Cantiere');
   };
 
-  el.innerHTML = date.map(data => {
-    const giorno = new Date(data + 'T12:00:00').toLocaleDateString('it-IT', {day:'2-digit', month:'short', year:'numeric', weekday:'short'});
-    const record = perData[data];
-    const totGiorno = record.reduce((s,r) => s + (parseFloat(r.ore) || 0), 0);
-    return `
-      <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:14px 4px 8px">${giorno} · ${totGiorno}h totali</div>
-      ${record.map(r => `
-        <div class="rpt-card">
-          <div class="rpt-head">
-            <div style="flex:1;min-width:0">
-              <div class="rpt-data">${r.operaio || '—'}</div>
-              <div class="rpt-cant">${nomeCant(r.cantiereId)}</div>
+  if(mostraTutti){
+    // Vista AGGREGATA: raggruppa per data + cantiere
+    const gruppi = {};
+    filtrati.forEach(r => {
+      const key = r.data + '|' + r.cantiereId;
+      if(!gruppi[key]) gruppi[key] = {data:r.data, cantiereId:r.cantiereId, record:[]};
+      gruppi[key].record.push(r);
+    });
+    // Ordina gruppi per data desc, poi per cantiere
+    const arr = Object.values(gruppi).sort((a,b) => b.data.localeCompare(a.data));
+
+    // Raggruppo per data per mostrare intestazioni
+    const perData = {};
+    arr.forEach(gr => {
+      if(!perData[gr.data]) perData[gr.data] = [];
+      perData[gr.data].push(gr);
+    });
+    const date = Object.keys(perData).sort().reverse();
+
+    el.innerHTML = date.map(data => {
+      const giorno = new Date(data + 'T12:00:00').toLocaleDateString('it-IT', {day:'2-digit', month:'short', year:'numeric', weekday:'short'});
+      return `
+        <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:14px 4px 8px">${giorno}</div>
+        ${perData[data].map(gr => {
+          const totOre = gr.record.reduce((s,r) => s + (parseFloat(r.ore) || 0), 0);
+          const operaiRighe = gr.record.map(r => `
+            <div class="agg-riga">
+              <div class="agg-op-nome">${r.operaio || '—'}</div>
+              <div class="agg-op-desc">${r.descrizione || '<span style="opacity:.4">—</span>'}</div>
+              <div class="agg-op-ore">${r.ore}h</div>
             </div>
-            <div class="rpt-ore">${r.ore}h</div>
+          `).join('');
+          return `
+            <div class="agg-card">
+              <div class="agg-head">
+                <div class="agg-titolo">
+                  <div class="agg-data">${nomeCant(gr.cantiereId)}</div>
+                  <div class="agg-cant">${gr.record.length} ${gr.record.length===1?'operaio':'operai'}</div>
+                </div>
+                <div class="agg-tot">${totOre}h</div>
+              </div>
+              <div class="agg-operai">${operaiRighe}</div>
+            </div>
+          `;
+        }).join('')}
+      `;
+    }).join('');
+  } else {
+    // Vista "I miei": card individuali per ogni record
+    const perData = {};
+    filtrati.forEach(r => {
+      if(!perData[r.data]) perData[r.data] = [];
+      perData[r.data].push(r);
+    });
+    const date = Object.keys(perData).sort().reverse();
+
+    el.innerHTML = date.map(data => {
+      const giorno = new Date(data + 'T12:00:00').toLocaleDateString('it-IT', {day:'2-digit', month:'short', year:'numeric', weekday:'short'});
+      const record = perData[data];
+      const totGiorno = record.reduce((s,r) => s + (parseFloat(r.ore) || 0), 0);
+      return `
+        <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:14px 4px 8px">${giorno} · ${totGiorno}h totali</div>
+        ${record.map(r => `
+          <div class="rpt-card">
+            <div class="rpt-head">
+              <div style="flex:1;min-width:0">
+                <div class="rpt-data">${r.operaio || '—'}</div>
+                <div class="rpt-cant">${nomeCant(r.cantiereId)}</div>
+              </div>
+              <div class="rpt-ore">${r.ore}h</div>
+            </div>
+            ${r.descrizione ? `<div class="rpt-desc">${r.descrizione}</div>` : ''}
+            ${r.subappaltatori ? `<div class="rpt-sub">Sub: ${r.subappaltatori}</div>` : ''}
+            <div class="rpt-actions">
+              <button class="rpt-btn edit" onclick="modificaRapporto('${r.id}')">✏️ Modifica</button>
+              <button class="rpt-btn del" onclick="eliminaRapporto('${r.id}')">🗑 Elimina</button>
+            </div>
           </div>
-          ${r.descrizione ? `<div class="rpt-desc">${r.descrizione}</div>` : ''}
-          ${r.subappaltatori ? `<div class="rpt-sub">Sub: ${r.subappaltatori}</div>` : ''}
-          <div class="rpt-actions">
-            <button class="rpt-btn edit" onclick="modificaRapporto('${r.id}')">✏️ Modifica</button>
-            <button class="rpt-btn del" onclick="eliminaRapporto('${r.id}')">🗑 Elimina</button>
-          </div>
-        </div>
-      `).join('')}
-    `;
-  }).join('');
+        `).join('')}
+      `;
+    }).join('');
+  }
 }
 
 function tornaLista(){
+  renderToggle();
   showView('lista');
   renderLista();
 }
@@ -540,6 +614,7 @@ function salvaRapporto(){
 
 // ── INIT ──
 initDB();
+renderToggle();
 renderLista();
 // Sync in background
 setTimeout(() => forcSync().catch(()=>{}), 500);

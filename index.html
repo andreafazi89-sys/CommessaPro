@@ -166,6 +166,7 @@ function initDB(){if(window.supabase)db=window.supabase.createClient(SUPA_URL,SU
 // ── TOOLS PER RUOLO ──
 const ALL_TOOLS=[
   {key:'sopralluogo',href:'sopralluogo.html',icon:'🔍',bg:'rgba(212,81,30,0.15)',name:'Sopralluogo',desc:'Scheda cliente, foto, note, report PDF',roles:['admin','segretaria','operaio'],readonly:['operaio']},
+  {key:'rapporto',href:'rapporto.html',icon:'⏱️',bg:'rgba(212,81,30,0.15)',name:'I miei rapporti',desc:'Carica le tue ore sui cantieri del giorno',roles:['admin','segretaria','operaio']},
   {key:'cantiere',href:'cantiere.html',icon:'🏗️',bg:'rgba(58,122,76,0.15)',name:'Cantiere',desc:'Diario operai e ore lavorate',roles:['admin','segretaria','operaio']},
   {key:'sal',href:'sal.html',icon:'📸',bg:'rgba(74,120,180,0.15)',name:'S.A.L.',desc:'Storico fotografico avanzamento lavori',roles:['admin','segretaria','operaio']},
   {key:'contabilita',href:'contabilita.html',icon:'📊',bg:'rgba(58,122,76,0.15)',name:'Contabilità',desc:'Preventivi, costi e margini',roles:['admin','segretaria']},
@@ -287,6 +288,7 @@ function apriSettings(){
 // ── GESTIONE UTENTI (admin only) ──
 const TOOLS_PERM=[
   {key:'sopralluogo',label:'Sopralluogo'},
+  {key:'rapporto',label:'I miei rapporti'},
   {key:'cantiere',label:'Cantiere'},
   {key:'sal',label:'S.A.L.'},
   {key:'contabilita',label:'Contabilità'},
