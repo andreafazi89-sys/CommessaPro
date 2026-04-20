@@ -331,7 +331,7 @@ async function handleLogin(e) {
     if (!profileError && profile) {
       nome = profile.nome || '';
       ruolo = profile.ruolo || 'operatore';
-      permessi = profile.permessi || null;
+      permessi = (['segretaria','admin'].includes(ruolo)) ? {} : (profile.permessi || null);
       if (profile.attivo === false) {
         setMsg('Account disattivato. Contatta l\'amministratore.', 'error');
         setLoading(false);

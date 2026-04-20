@@ -110,7 +110,8 @@ input[type="file"]{display:none;}
       <button class="btn-top" onclick="nuovoSopralluogo()">+ Nuovo</button>
     </div>
   </div>
-  <div class="content" style="padding-bottom:40px"><div id="lista-container"></div></div>
+
+<div class="content" style="padding-bottom:40px"><div id="lista-container"></div></div>
 </div>
 
 <div id="view-form" class="view">
@@ -155,7 +156,13 @@ input[type="file"]{display:none;}
 
     <div class="section">
       <div class="sec-title"><div class="sec-icon">📍</div>Cantiere</div>
-      <div class="fg"><label>Indirizzo *</label><input type="text" id="fi" placeholder="Via, numero, città" oninput="salva()"></div>
+      <div class="fg"><label>Indirizzo *</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="text" id="fi" placeholder="Via, numero, città" oninput="salva()" style="flex:1">
+            <button type="button" onclick="geoLocalizza()" title="Usa posizione attuale" style="width:46px;height:48px;background:var(--brick-dim);border:1.5px solid var(--brick);border-radius:var(--r-sm);font-size:20px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center" id="geo-btn">📍</button>
+            <button type="button" onclick="apriMappa()" title="Apri in Google Maps" style="width:46px;height:48px;background:var(--brick-dim);border:1.5px solid var(--brick);border-radius:var(--r-sm);font-size:20px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">🗺️</button>
+          </div>
+        </div>
       <div class="row2">
         <div class="fg"><label>Piano</label><input type="text" id="fp" placeholder="Es. 2° piano" oninput="salva()"></div>
         <div class="fg"><label>Sup. totale (mq)</label><input type="number" id="fm" placeholder="Es. 75" oninput="salva()"></div>
@@ -236,8 +243,6 @@ input[type="file"]{display:none;}
 <div class="toast" id="toast"></div>
 
 <script>
-// ── AUTH ──
-(function(){try{const u=JSON.parse(localStorage.getItem('cp_user'));if(!u||!u.email)window.location.replace('login.html');}catch(e){window.location.replace('login.html');}})();
 // ── SUPABASE ──
 const SUPA_URL = 'https://iradzlocobsipjazracw.supabase.co';
 const SUPA_KEY = 'sb_publishable_zFgRrNrmYSORug8N06heow_6vjl0fhH';
@@ -262,10 +267,12 @@ async function dbCarica(chiave){
 async function forcSync(){
   toast('🔄 Sincronizzazione...','inf');
   const remoto = await dbCarica(LIST_KEY);
-  if(remoto && Array.isArray(remoto)){
-    localStorage.setItem(LIST_KEY, JSON.stringify(remoto));
+  if(remoto && Array.isArray(remoto) && remoto.length > 0){
+    const locale = getLista();
+    const remIds = new Set(remoto.map(x=>x.id));
+    const extra = locale.filter(x=>!remIds.has(x.id));
+    salveLista([...remoto,...extra]);
     renderLista();
-    if(currentId && !remoto.some(s=>s.id===currentId)) tornaLista();
   }
   toast('✓ Sincronizzato','ok');
 }
@@ -275,6 +282,7 @@ let foto = [], ambienti = [], noteVocali = [];
 let currentId = null, saveTimer = null;
 let mediaRecorder = null, audioChunks = [], recInterval = null;
 let recSeconds = 0, isRecording = false, currentAudio = null;
+let currentLat = null, currentLon = null;
 
 const g = id => document.getElementById(id);
 const gv = id => g(id)?.value?.trim() || '';
@@ -294,7 +302,7 @@ function getLista(){ try{return JSON.parse(localStorage.getItem(LIST_KEY))||[];}
 function salveLista(l){
   localStorage.setItem(LIST_KEY,JSON.stringify(l));
   // Supabase: versione senza foto/audio (troppo pesanti per singola riga)
-  const lLight=l.map(s=>({...s,foto:(s.foto||[]).filter(f=>f.url&&f.url.startsWith('https://')),noteVocali:[]}));
+  const lLight=l.map(s=>({...s,foto:[],noteVocali:[]}));
   dbSalva(LIST_KEY,lLight);
 }
 
@@ -316,22 +324,16 @@ function renderLista(){
     </div>`).join('');
 }
 
-async function eliminaSopralluogo(id){
+function eliminaSopralluogo(id){
   if(!confirm('Eliminare questo sopralluogo?')) return;
-  const sop=getLista().find(s=>s.id===id);
-  if(sop&&db){
-    const paths=(sop.foto||[]).filter(f=>f.url&&f.url.startsWith('https://')).map(f=>f.url.split('/object/public/Foto/')[1]).filter(Boolean);
-    if(paths.length) await db.storage.from('Foto').remove(paths).catch(()=>{});
-  }
-  const newList=getLista().filter(s=>s.id!==id);
-  salveLista(newList);
-  dbSalva(LIST_KEY, newList.map(s=>({...s,foto:(s.foto||[]).filter(f=>f.url&&f.url.startsWith('https://')),noteVocali:[]})));
+  salveLista(getLista().filter(s=>s.id!==id));
   renderLista(); toast('Eliminato','inf');
 }
 
 // ── NUOVO / APRI ──
 function nuovoSopralluogo(){
   currentId='sop_'+Date.now(); foto=[]; ambienti=[]; noteVocali=[];
+  currentLat=null; currentLon=null;
   resetForm(); g('f-data').value=new Date().toISOString().split('T')[0];
   g('form-title').textContent='Nuovo Sopralluogo';
   g('si').textContent='● nuovo'; g('si').className='save-ind';
@@ -342,6 +344,7 @@ function nuovoSopralluogo(){
 function apriSopralluogo(id){
   const s=getLista().find(x=>x.id===id); if(!s) return;
   currentId=id; foto=s.foto||[]; ambienti=s.ambienti||[];
+  currentLat=s.lat||null; currentLon=s.lon||null;
   noteVocali=(s.noteVocali||[]).map(n=>({dur:n.dur,b64:n.b64,type:n.type||'audio/webm',url:null}));
   resetForm();
   sv('f-resp',s.resp); sv('f-data',s.data); sv('f-titolo',s.titolo); sv('f-commessa',s.commessa); sv('fc',s.cliente); sv('ft',s.tel);
@@ -372,6 +375,7 @@ function salva(){
     const lista=getLista(); const idx=lista.findIndex(s=>s.id===currentId);
     const dati={id:currentId,resp:gv('f-resp'),data:gv('f-data'),titolo:gv('f-titolo'),commessa:gv('f-commessa'),cliente:gv('fc'),tel:gv('ft'),email:gv('fe'),
       indirizzo:gv('fi'),piano:gv('fp'),mq:gv('fm'),accesso:gv('facc'),lavori:gv('fl'),note:gv('fn'),
+      lat:currentLat,lon:currentLon,
       ambienti,foto,noteVocali:noteVocali.map(n=>({dur:n.dur,b64:n.b64,type:n.type})),
       cantiereId:(idx>=0?lista[idx].cantiereId:null)||null};
     if(idx>=0) lista[idx]=dati; else lista.unshift(dati);
@@ -398,15 +402,6 @@ function aggiornaCantiere(sop){
   cantieri[idx].titolo = sop.titolo;
   localStorage.setItem('cantieri_v1', JSON.stringify(cantieri));
   dbSalva('cantieri_v1', cantieri);
-}
-
-function aggiornaSopralluogoFoto(){
-  if(!currentId) return;
-  const lista=getLista(); const idx=lista.findIndex(s=>s.id===currentId);
-  if(idx<0) return;
-  lista[idx].foto=[...foto];
-  localStorage.setItem(LIST_KEY,JSON.stringify(lista));
-  dbSalva(LIST_KEY,lista.map(s=>({...s,foto:(s.foto||[]).filter(f=>f.url&&f.url.startsWith('https://')),noteVocali:[]})));
 }
 
 function aggiornaProg(){
@@ -492,43 +487,25 @@ function playVoce(i){
 function delVoce(i){noteVocali.splice(i,1);renderNoteVocali();salva();}
 
 // ── FOTO ──
-async function caricaFoto(input){
-  const files=[...input.files]; input.value='';
-  for(const file of files){
-    await new Promise(resolve=>{
-      const reader=new FileReader();
-      reader.onload=e=>{
-        const img=new Image();
-        img.onload=async()=>{
-          const canvas=document.createElement('canvas');
-          const MAX=480; let w=img.width,h=img.height;
-          if(w>h){if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}}else{if(h>MAX){w=Math.round(w*MAX/h);h=MAX;}}
-          canvas.width=w; canvas.height=h;
-          canvas.getContext('2d').drawImage(img,0,0,w,h);
-          const b64=canvas.toDataURL('image/jpeg',0.50);
-          let url=b64; // fallback base64
-          console.log('db:', db, 'currentId:', currentId);
-          if(db&&currentId){
-            try{
-              const path=`sopralluoghi/${currentId}/${Date.now()}.jpg`;
-              console.log('uploading to path:', path, 'bucket: Foto');
-              const blob=await new Promise(res=>canvas.toBlob(res,'image/jpeg',0.50));
-              const {error}=await db.storage.from('Foto').upload(path,blob,{contentType:'image/jpeg',upsert:false});
-              console.log('upload result:', JSON.stringify(error));
-              if(!error){
-                const {data:pub}=db.storage.from('Foto').getPublicUrl(path);
-                url=pub.publicUrl;
-              } else { console.log('Upload error:', error); }
-            }catch(err){ console.log('Upload exception:', err); /* mantieni fallback base64 */}
-          }
-          foto.push({url});
-          renderFoto(); aggiornaSopralluogoFoto(); salva(); resolve();
-        };
-        img.src=e.target.result;
+function caricaFoto(input){
+  [...input.files].forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const img=new Image();
+      img.onload=()=>{
+        const canvas=document.createElement('canvas');
+        const MAX=480; let w=img.width,h=img.height;
+        if(w>h){if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}}else{if(h>MAX){w=Math.round(w*MAX/h);h=MAX;}}
+        canvas.width=w; canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        foto.push({url:canvas.toDataURL('image/jpeg',0.50)});
+        renderFoto(); salva();
       };
-      reader.readAsDataURL(file);
-    });
-  }
+      img.src=e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+  input.value='';
 }
 
 function renderFoto(){
@@ -555,16 +532,9 @@ function muoviFoto(i, dir){
   const j = i+dir;
   if(j<0||j>=foto.length) return;
   [foto[i],foto[j]]=[foto[j],foto[i]];
-  renderFoto(); aggiornaSopralluogoFoto(); salva();
+  renderFoto(); salva();
 }
-async function delFoto(i){
-  const f=foto[i]; foto.splice(i,1); renderFoto();
-  if(f&&f.url&&f.url.startsWith('https://')&&db){
-    const path=f.url.split('/object/public/Foto/')[1];
-    if(path) await db.storage.from('Foto').remove([path]).catch(()=>{});
-  }
-  aggiornaSopralluogoFoto(); salva();
-}
+function delFoto(i){foto.splice(i,1);renderFoto();}
 
 // ── AVVIA CANTIERE ──
 function aggiornaBottoneAvvia(cantiereId){
@@ -655,6 +625,7 @@ ${gv('fn')?`<div class="sec"><div class="stitle">📝 Note aggiuntive</div><div 
 ${audioHtml?`<div class="sec"><div class="stitle">🎙️ Note vocali (${noteVocali.length})</div>${audioHtml}</div>`:''}
 ${foto.length?`<div class="sec foto-sec"><div class="stitle">📷 Foto (${foto.length})</div>${fotoRows}</div>`:''}
 <div class="firma-box"><div class="fl"><strong>${resp}</strong><div>Responsabile sopralluogo</div><div class="fline"></div><div style="margin-top:3px">Firma</div></div><div class="fl"><strong>${cliente}</strong><div>Cliente — presa visione</div><div class="fline"></div><div style="margin-top:3px">Firma</div></div></div>
+
 </body></html>`;
 
   const frame=g('report-frame'); const overlay=g('report-overlay'); overlay.classList.add('show');
@@ -740,13 +711,103 @@ function selezionaCliente(id){
 
 function chiudiRubrica(){ g('rubrica-modal').style.display='none'; }
 
+
+
+// ── ONBOARDING BANNER ──
+function mostraOnboarding(){
+  const cpUser = JSON.parse(localStorage.getItem('cp_user')||'{}');
+  const key = 'ob_sop';
+  if(localStorage.getItem(key)==='1') return;
+  if(cpUser.email && localStorage.getItem(key+'_'+cpUser.email)==='1') return;
+  
+  const div = document.createElement('div');
+  div.id = 'ob-banner';
+  div.style.cssText = 'position:fixed;bottom:80px;left:12px;right:12px;background:#FFF3ED;border:1.5px solid #D4511E;border-radius:12px;padding:14px;font-size:13px;color:#1A1612;line-height:1.6;font-family:Epilogue,sans-serif;z-index:999;box-shadow:0 4px 20px rgba(212,81,30,0.2)';
+  div.innerHTML = '<strong>📋 Sopralluogo</strong> — Crea una scheda per ogni nuovo lavoro. Inserisci cliente, indirizzo, foto e lavorazioni. Premi "Avvia Cantiere" per iniziare i lavori.<br><br><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;color:#D4511E"><input type="checkbox" onchange="if(this.checked){document.getElementById(\'ob-banner\').remove();localStorage.setItem(\'ob_sop\',\'1\');if(\''+cpUser.email+'\')localStorage.setItem(\'ob_sop_'+cpUser.email+'\',\'1\');}"> ✓ Ho capito, non mostrare più</label>';
+  document.body.appendChild(div);
+}
+
+// ── GEO-LOCALIZZAZIONE ──
+function geoLocalizza(){
+  const btn = document.getElementById('geo-btn');
+  if(!navigator.geolocation){ toast('GPS non supportato dal browser','err'); return; }
+  if(location.protocol!=='https:' && location.hostname!=='localhost'){
+    toast('GPS richiede HTTPS','err'); return;
+  }
+  btn.textContent = '⏳'; btn.disabled = true;
+  navigator.geolocation.getCurrentPosition(
+    async pos => {
+      const {latitude: lat, longitude: lon} = pos.coords;
+      try{
+        const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=18&addressdetails=1&accept-language=it`;
+        const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        if(!res.ok) throw new Error('HTTP '+res.status);
+        const data = await res.json();
+        if(!data || !data.address) throw new Error('Nessun indirizzo trovato per queste coordinate');
+        const addr = data.address;
+        const road = addr.road || addr.pedestrian || addr.footway || addr.path || '';
+        const num = addr.house_number ? ' '+addr.house_number : '';
+        const cap = addr.postcode || '';
+        const city = addr.city || addr.town || addr.village || addr.municipality || addr.hamlet || '';
+        let full = (road + num).trim();
+        if(cap || city) full += (full?', ':'') + (cap?cap+' ':'') + city;
+        full = full.trim();
+        if(full){
+          document.getElementById('fi').value = full;
+          currentLat = lat; currentLon = lon;
+          salva();
+          toast('📍 Posizione rilevata','ok');
+        } else {
+          // fallback: uso display_name di Nominatim
+          if(data.display_name){
+            document.getElementById('fi').value = data.display_name;
+            currentLat = lat; currentLon = lon;
+            salva();
+            toast('📍 Posizione rilevata (approssimata)','ok');
+          } else {
+            toast('Indirizzo non trovato — salvate solo coordinate','inf');
+            currentLat = lat; currentLon = lon;
+            salva();
+          }
+        }
+      }catch(e){
+        console.error('Geoloc error:', e);
+        // Anche se il reverse geocoding fallisce, salvo le coordinate
+        currentLat = lat; currentLon = lon;
+        toast('Rete lenta: salvate solo coordinate ('+e.message+')','err');
+      }
+      finally{ btn.textContent = '📍'; btn.disabled = false; }
+    },
+    err => {
+      btn.textContent = '📍'; btn.disabled = false;
+      const msg = {
+        1:'Permesso negato — abilita la posizione nelle impostazioni',
+        2:'Posizione non disponibile (GPS spento?)',
+        3:'Timeout scaduto — riprova'
+      }[err.code] || 'Errore sconosciuto';
+      toast(msg,'err');
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+  );
+}
+
+function apriMappa(){
+  // Priorità: lat/lon precise, altrimenti indirizzo testuale
+  if(currentLat!=null && currentLon!=null){
+    window.open(`https://www.google.com/maps/search/?api=1&query=${currentLat},${currentLon}`,'_blank');
+    return;
+  }
+  const ind = gv('fi');
+  if(!ind){ toast('Nessun indirizzo o posizione da aprire','err'); return; }
+  window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ind)}`,'_blank');
+}
+
 // ── INIT ──
 initDB();
 renderLista();
+mostraOnboarding();
 // Sync da Supabase in background
 setTimeout(()=>forcSync().catch(()=>{}), 500);
-setInterval(()=>{ if(!document.hidden) forcSync().catch(()=>{}); }, 30000);
-document.addEventListener('visibilitychange',()=>{ if(!document.hidden) forcSync().catch(()=>{}); });
 </script>
 
 <!-- RUBRICA MODAL -->
@@ -771,5 +832,6 @@ document.addEventListener('visibilitychange',()=>{ if(!document.hidden) forcSync
     <div id="rubrica-lista" style="overflow-y:auto;max-height:60vh"></div>
   </div>
 </div>
+
 </body>
 </html>

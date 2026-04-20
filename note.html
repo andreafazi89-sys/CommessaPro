@@ -99,8 +99,6 @@ html,body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--whi
 <div class="toast" id="toast"></div>
 
 <script>
-// ── AUTH ──
-(function(){try{const u=JSON.parse(localStorage.getItem('cp_user'));if(!u||!u.email)window.location.replace('login.html');}catch(e){window.location.replace('login.html');}})();
 // ── SUPABASE ──
 const SUPA_URL='https://iradzlocobsipjazracw.supabase.co';
 const SUPA_KEY='sb_publishable_zFgRrNrmYSORug8N06heow_6vjl0fhH';
@@ -112,11 +110,10 @@ async function forcSync(){
   toast('🔄 Sincronizzazione...','inf');
   if(!db){toast('Nessuna connessione','inf');return;}
   try{
-    const {data}=await db.from('dati').select('valore,ts').eq('chiave',NOTE_KEY).maybeSingle();
-    if(data&&data.valore){
-      localStorage.setItem(NOTE_KEY,JSON.stringify(data.valore));
-      if(data.ts) localStorage.setItem(NOTE_KEY+'_ts',data.ts);
-      render();
+    const {data}=await db.from('dati').select('valore').eq('chiave',NOTE_KEY).maybeSingle();
+    if(data&&data.valore&&data.valore.length>0){
+      const loc=getDati(),ids=new Set(data.valore.map(x=>x.id)),ex=loc.filter(x=>!ids.has(x.id));
+      salvaDati([...data.valore,...ex]); render();
     }
     toast('✓ Sincronizzato','ok');
   }catch(e){toast('Sync ok (offline)','inf');}
@@ -135,7 +132,7 @@ const g=id=>document.getElementById(id);
 function toast(msg,tipo='ok'){const t=g('toast');t.textContent=msg;t.className='toast '+tipo+' show';clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2500);}
 
 function getDati(){try{return JSON.parse(localStorage.getItem(NOTE_KEY))||[];}catch{return[];}}
-function salvaDati(d){const ts=new Date().toISOString();localStorage.setItem(NOTE_KEY,JSON.stringify(d));localStorage.setItem(NOTE_KEY+'_ts',ts);dbSalva(NOTE_KEY,d);}
+function salvaDati(d){localStorage.setItem(NOTE_KEY,JSON.stringify(d));dbSalva(NOTE_KEY,d);}
 
 function cambiaMese(delta){
   meseVis+=delta;
@@ -211,11 +208,25 @@ function salva(){
   render();toast('✓ Aggiunto');
 }
 
+
+
+// ── ONBOARDING BANNER ──
+function mostraOnboarding(){
+  const cpUser = JSON.parse(localStorage.getItem('cp_user')||'{}');
+  const key = 'ob_note';
+  if(localStorage.getItem(key)==='1') return;
+  if(cpUser.email && localStorage.getItem(key+'_'+cpUser.email)==='1') return;
+  const div = document.createElement('div');
+  div.id = 'ob-banner';
+  div.style.cssText = 'position:fixed;bottom:80px;left:12px;right:12px;background:#FFF3ED;border:1.5px solid #D4511E;border-radius:12px;padding:14px;font-size:13px;color:#1A1612;line-height:1.6;font-family:Epilogue,sans-serif;z-index:999;box-shadow:0 4px 20px rgba(212,81,30,0.2)';
+  div.innerHTML = '<strong>📝 Note & Agenda</strong> — Usa l'agenda giornaliera per tenere traccia delle cose da fare. Premi + su ogni giorno per aggiungere attività, tocca il cerchio per segnarle come fatte.<br><br><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;color:#D4511E"><input type="checkbox" onchange="if(this.checked){document.getElementById(\'ob-banner\').remove();localStorage.setItem(\'ob_note\',\'1\');if(cpUser.email)localStorage.setItem(\'ob_note_\'+cpUser.email,\'1\');}"> ✓ Ho capito, non mostrare più</label>';
+  document.body.appendChild(div);
+}
+}
 // ── INIT ──
 initDB();render();
+mostraOnboarding();
 setTimeout(()=>forcSync().catch(()=>{}),500);
-setInterval(()=>{ if(!document.hidden) forcSync().catch(()=>{}); },30000);
-document.addEventListener('visibilitychange',()=>{ if(!document.hidden) forcSync().catch(()=>{}); });
 </script>
 </body>
 </html>

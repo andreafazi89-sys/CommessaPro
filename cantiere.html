@@ -93,7 +93,8 @@ textarea{resize:none;min-height:80px;line-height:1.6;}
     </div>
     <span id="det-stato" style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;background:var(--green-dim);color:var(--green)">In corso</span>
   </div>
-  <div class="content">
+
+<div class="content">
     <div class="section">
       <div class="sec-title"><div class="sec-icon">📍</div>Dati cantiere</div>
       <div id="det-info"></div>
@@ -140,8 +141,6 @@ textarea{resize:none;min-height:80px;line-height:1.6;}
 <div class="toast" id="toast"></div>
 
 <script>
-// ── AUTH ──
-(function(){try{const u=JSON.parse(localStorage.getItem('cp_user'));if(!u||!u.email)window.location.replace('login.html');}catch(e){window.location.replace('login.html');}})();
 // ── SUPABASE ──
 const SUPA_URL='https://iradzlocobsipjazracw.supabase.co';
 const SUPA_KEY='sb_publishable_zFgRrNrmYSORug8N06heow_6vjl0fhH';
@@ -156,7 +155,10 @@ async function forcSync(){
   if(!db){toast('Nessuna connessione','err');return;}
   try{
     const {data}=await db.from('dati').select('valore').eq('chiave',CANT_KEY).maybeSingle();
-    if(data&&data.valore){ localStorage.setItem(CANT_KEY,JSON.stringify(data.valore)); renderLista(); }
+    if(data&&data.valore&&data.valore.length>0){
+      const loc=getCantieri(),ids=new Set(data.valore.map(x=>x.id)),ex=loc.filter(x=>!ids.has(x.id));
+      salvaCantieri([...data.valore,...ex]); renderLista();
+    }
     toast('✓ Sincronizzato','ok');
   }catch(e){toast('Errore sync','err');}
 }
@@ -168,14 +170,10 @@ function getCantieri(){try{return JSON.parse(localStorage.getItem(CANT_KEY))||[]
 function salvaCantieri(l){localStorage.setItem(CANT_KEY,JSON.stringify(l));dbSalva(CANT_KEY,l);}
 function showView(n){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));g('view-'+n).classList.add('active');window.scrollTo(0,0);}
 
-async function eliminaCantiere(id){
+function eliminaCantiere(id){
   if(!confirm('Eliminare questo cantiere?')) return;
-  const cant = getCantieri().find(c=>c.id===id);
-  if(cant&&db){
-    const paths=(cant.sal||[]).flatMap(s=>(s.foto||[]).filter(url=>typeof url==='string'&&url.startsWith('https://')).map(url=>url.split('/object/public/Foto/')[1])).filter(Boolean);
-    if(paths.length) await db.storage.from('Foto').remove(paths).catch(()=>{});
-  }
   // Rimuovi il cantiereId dal sopralluogo collegato
+  const cant = getCantieri().find(c=>c.id===id);
   if(cant&&cant.sopralluogoId){
     const sops = JSON.parse(localStorage.getItem('sopralluoghi_v3')||'[]');
     const sopIdx = sops.findIndex(s=>s.id===cant.sopralluogoId);
@@ -329,6 +327,21 @@ function scaricaRapporto(idx){
   toast('📥 Rapporto scaricato!','ok');
 }
 
+
+
+// ── ONBOARDING BANNER ──
+function mostraOnboarding(){
+  const cpUser = JSON.parse(localStorage.getItem('cp_user')||'{}');
+  const key = 'ob_cant';
+  if(localStorage.getItem(key)==='1') return;
+  if(cpUser.email && localStorage.getItem(key+'_'+cpUser.email)==='1') return;
+  const div = document.createElement('div');
+  div.id = 'ob-banner';
+  div.style.cssText = 'position:fixed;bottom:80px;left:12px;right:12px;background:#FFF3ED;border:1.5px solid #D4511E;border-radius:12px;padding:14px;font-size:13px;color:#1A1612;line-height:1.6;font-family:Epilogue,sans-serif;z-index:999;box-shadow:0 4px 20px rgba(212,81,30,0.2)';
+  div.innerHTML = '<strong>🏗️ Cantiere</strong> — Registra ogni giornata lavorativa con gli operai presenti, le ore e i lavori svolti. Puoi scaricare il rapporto giornaliero in PDF con il pulsante 📥.<br><br><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;color:#D4511E"><input type="checkbox" onchange="if(this.checked){document.getElementById(\'ob-banner\').remove();localStorage.setItem(\'ob_cant\',\'1\');if(cpUser.email)localStorage.setItem(\'ob_cant_\'+cpUser.email,\'1\');}"> ✓ Ho capito, non mostrare più</label>';
+  document.body.appendChild(div);
+}
+}
 // ── INIT ──
 initDB();
 // Migrazione: popola titolo dai sopralluoghi collegati
@@ -347,7 +360,7 @@ initDB();
 const params=new URLSearchParams(window.location.search);
 const idParam=params.get('id');
 if(idParam){const c=getCantieri().find(x=>x.id===idParam);if(c)apriCantiere(idParam);else renderLista();}
-else{renderLista();setTimeout(()=>forcSync().catch(()=>{}),500);setInterval(()=>{ if(!document.hidden) forcSync().catch(()=>{}); },30000);document.addEventListener('visibilitychange',()=>{ if(!document.hidden) forcSync().catch(()=>{}); });}
+else{renderLista();setTimeout(()=>forcSync().catch(()=>{}),500);}
 </script>
 </body>
 </html>

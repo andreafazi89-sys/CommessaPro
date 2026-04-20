@@ -165,9 +165,9 @@ function initDB(){if(window.supabase)db=window.supabase.createClient(SUPA_URL,SU
 
 // ── TOOLS PER RUOLO ──
 const ALL_TOOLS=[
-  {key:'sopralluogo',href:'sopralluogo.html',icon:'🔍',bg:'rgba(212,81,30,0.15)',name:'Sopralluogo',desc:'Scheda cliente, foto, note, report PDF',roles:['admin','segretaria','operaio'],readonly:['segretaria','operaio']},
-  {key:'cantiere',href:'cantiere.html',icon:'🏗️',bg:'rgba(58,122,76,0.15)',name:'Cantiere',desc:'Diario operai e ore lavorate',roles:['admin','operaio']},
-  {key:'sal',href:'sal.html',icon:'📸',bg:'rgba(74,120,180,0.15)',name:'S.A.L.',desc:'Storico fotografico avanzamento lavori',roles:['admin','operaio']},
+  {key:'sopralluogo',href:'sopralluogo.html',icon:'🔍',bg:'rgba(212,81,30,0.15)',name:'Sopralluogo',desc:'Scheda cliente, foto, note, report PDF',roles:['admin','segretaria','operaio'],readonly:['operaio']},
+  {key:'cantiere',href:'cantiere.html',icon:'🏗️',bg:'rgba(58,122,76,0.15)',name:'Cantiere',desc:'Diario operai e ore lavorate',roles:['admin','segretaria','operaio']},
+  {key:'sal',href:'sal.html',icon:'📸',bg:'rgba(74,120,180,0.15)',name:'S.A.L.',desc:'Storico fotografico avanzamento lavori',roles:['admin','segretaria','operaio']},
   {key:'contabilita',href:'contabilita.html',icon:'📊',bg:'rgba(58,122,76,0.15)',name:'Contabilità',desc:'Preventivi, costi e margini',roles:['admin','segretaria']},
   {key:'note',href:'note.html',icon:'📝',bg:'rgba(212,81,30,0.12)',name:'Note & Agenda',desc:'Attività giornaliere per mese',roles:['admin','segretaria']},
   {key:'rubrica',href:'rubrica.html',icon:'👥',bg:'rgba(58,122,76,0.12)',name:'Rubrica Clienti',desc:'Anagrafica nome, telefono, email',roles:['admin','segretaria']},
@@ -175,19 +175,19 @@ const ALL_TOOLS=[
 function renderTools(){
   const user=getUser();
   const ruolo=(user?.ruolo||'operatore').toLowerCase();
-  const isAdmin=ruolo==='admin';
+  const isPrivileged=ruolo==='admin'||ruolo==='segretaria';
   const permessi=user?.permessi||null;
   const list=document.getElementById('tools-list');
   list.innerHTML=ALL_TOOLS
     .filter(t=>{
-      if(isAdmin) return true;
+      if(isPrivileged) return true;
       if(permessi&&t.key in permessi) return permessi[t.key]!=='hidden';
       return t.roles.includes(ruolo);
     })
     .map(t=>{
       let ro;
-      if(!isAdmin&&permessi&&t.key in permessi) ro=permessi[t.key]==='readonly';
-      else ro=!isAdmin&&t.readonly&&t.readonly.includes(ruolo);
+      if(!isPrivileged&&permessi&&t.key in permessi) ro=permessi[t.key]==='readonly';
+      else ro=!isPrivileged&&t.readonly&&t.readonly.includes(ruolo);
       return `<a href="${t.href}" class="tool-card">
         <div class="tool-icon" style="background:${t.bg}">${t.icon}</div>
         <div class="tool-info">

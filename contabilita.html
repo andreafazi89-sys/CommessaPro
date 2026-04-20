@@ -114,8 +114,7 @@ input::placeholder{color:var(--muted);}
 <div class="toast" id="toast"></div>
 
 <script>
-// ── AUTH ──
-(function(){try{const u=JSON.parse(localStorage.getItem('cp_user'));if(!u||!u.email)window.location.replace('login.html');}catch(e){window.location.replace('login.html');}})();
+
 // ── SUPABASE ──
 const SUPA_URL='https://iradzlocobsipjazracw.supabase.co';
 const SUPA_KEY='sb_publishable_zFgRrNrmYSORug8N06heow_6vjl0fhH';
@@ -127,7 +126,10 @@ async function forcSync(){
   if(!db){ render(); return; }
   try{
     const {data}=await db.from('dati').select('valore').eq('chiave',CANT_KEY).maybeSingle();
-    if(data&&data.valore){ localStorage.setItem(CANT_KEY,JSON.stringify(data.valore)); }
+    if(data&&data.valore&&data.valore.length>0){
+      const loc=getCantieri(),ids=new Set(data.valore.map(x=>x.id)),ex=loc.filter(x=>!ids.has(x.id));
+      localStorage.setItem(CANT_KEY, JSON.stringify([...data.valore,...ex]));
+    }
   }catch(e){}
   render();
 }
@@ -406,9 +408,8 @@ function render(){
 
 initDB();
 render();
+mostraOnboarding();
 setTimeout(()=>forcSync().catch(e=>render()),300);
-setInterval(()=>{ if(!document.hidden) forcSync().catch(()=>{}); },30000);
-document.addEventListener('visibilitychange',()=>{ if(!document.hidden) forcSync().catch(()=>{}); });
 </script>
 </body>
 </html>
