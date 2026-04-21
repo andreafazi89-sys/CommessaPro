@@ -104,6 +104,11 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
 .agg-op-nome{font-weight:600;min-width:110px;}
 .agg-op-desc{flex:1;color:var(--muted);font-size:12px;line-height:1.4;}
 .agg-op-ore{font-weight:700;color:var(--brick);white-space:nowrap;}
+/* Intestazione data (con bottone/i rapportino giornaliero) */
+.data-head{margin:18px 4px 8px;display:flex;flex-wrap:wrap;align-items:center;gap:6px;}
+.data-head-txt{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-right:6px;}
+.data-head-pdf{background:var(--green-dim);color:var(--green);border:1px solid var(--green);border-radius:20px;padding:5px 12px;font-family:Epilogue,sans-serif;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.data-head-pdf:active{transform:scale(0.97);}
 </style>
 </head>
 <body>
@@ -391,8 +396,19 @@ function renderLista(){
 
     el.innerHTML = date.map(data => {
       const giorno = new Date(data + 'T12:00:00').toLocaleDateString('it-IT', {day:'2-digit', month:'short', year:'numeric', weekday:'short'});
+      // Raccogli tutti gli operai che hanno lavorato quel giorno (su qualsiasi cantiere)
+      const operaiDelGiorno = [...new Set(
+        perData[data].flatMap(gr => gr.record.map(r => r.operaio)).filter(Boolean)
+      )].sort();
       return `
-        <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:14px 4px 8px">${giorno}</div>
+        <div class="data-head">
+          <div class="data-head-txt">${giorno}</div>
+          ${operaiDelGiorno.map(op => `
+            <button class="data-head-pdf" onclick="generaRapportoGiornaliero('${op.replace(/'/g,"\\'")}', '${data}')" title="Rapportino giornaliero di ${op}">
+              📥 ${op.split(' ')[0]}
+            </button>
+          `).join('')}
+        </div>
         ${perData[data].map(gr => {
           const totOre = gr.record.reduce((s,r) => s + (parseFloat(r.ore) || 0), 0);
           const operaiRighe = gr.record.map(r => `
@@ -401,7 +417,7 @@ function renderLista(){
               <div class="agg-op-desc">${r.descrizione || '<span style="opacity:.4">—</span>'}</div>
               <div class="agg-riga-row">
                 <div class="agg-op-ore">${r.ore}h</div>
-                <button class="agg-riga-pdf" onclick="generaRapportoPDF('${r.id}')" title="Scarica rapportino">📥</button>
+                <button class="agg-riga-pdf" onclick="generaRapportoContributo('${r.id}')" title="Scarica rapportino di questa lavorazione">📥</button>
               </div>
             </div>
           `).join('');
@@ -433,8 +449,18 @@ function renderLista(){
       const giorno = new Date(data + 'T12:00:00').toLocaleDateString('it-IT', {day:'2-digit', month:'short', year:'numeric', weekday:'short'});
       const record = perData[data];
       const totGiorno = record.reduce((s,r) => s + (parseFloat(r.ore) || 0), 0);
+      // L'operaio di questi record (potrebbe essere diverso se admin, ma in "I miei" è sempre il proprio)
+      // Raggruppo per operaio (anche se nella vista "I miei" è sempre il caricatore)
+      const operaiGiorno = [...new Set(record.map(r => r.operaio).filter(Boolean))];
       return `
-        <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:14px 4px 8px">${giorno} · ${totGiorno}h totali</div>
+        <div class="data-head">
+          <div class="data-head-txt">${giorno} · ${totGiorno}h totali</div>
+          ${operaiGiorno.map(op => `
+            <button class="data-head-pdf" onclick="generaRapportoGiornaliero('${op.replace(/'/g,"\\'")}', '${data}')" title="Rapportino giornaliero di ${op}">
+              📥 Rapportino giornaliero${operaiGiorno.length > 1 ? ' · '+op.split(' ')[0] : ''}
+            </button>
+          `).join('')}
+        </div>
         ${record.map(r => `
           <div class="rpt-card">
             <div class="rpt-head">
@@ -447,9 +473,8 @@ function renderLista(){
             ${r.descrizione ? `<div class="rpt-desc">${r.descrizione}</div>` : ''}
             ${r.subappaltatori ? `<div class="rpt-sub">Sub: ${r.subappaltatori}</div>` : ''}
             <div class="rpt-actions">
-              <button class="rpt-btn pdf" onclick="generaRapportoPDF('${r.id}')">📥 Rapportino</button>
-              <button class="rpt-btn edit" onclick="modificaRapporto('${r.id}')">✏️</button>
-              <button class="rpt-btn del" onclick="eliminaRapporto('${r.id}')">🗑</button>
+              <button class="rpt-btn edit" onclick="modificaRapporto('${r.id}')">✏️ Modifica</button>
+              <button class="rpt-btn del" onclick="eliminaRapporto('${r.id}')">🗑 Elimina</button>
             </div>
           </div>
         `).join('')}
@@ -658,42 +683,31 @@ function puoScaricareRapporto(record){
   return false;
 }
 
-function generaRapportoPDF(id){
-  const record = getRapporti().find(r => r.id === id);
-  if(!record){ toast('Record non trovato','err'); return; }
-  if(!puoScaricareRapporto(record)){
-    toast('⛔ Non puoi scaricare il rapportino di un altro operaio','err');
-    return;
-  }
-  const cant = getCantieri().find(c => c.id === record.cantiereId);
-  if(!cant){ toast('Cantiere non trovato','err'); return; }
-
-  const dataFmt = new Date(record.data + 'T12:00:00').toLocaleDateString('it-IT');
-  const commessa = cant.commessa || '';
-  const nomeCantiere = commessa
-    ? commessa + ' — ' + (cant.titolo || cant.cliente || '')
-    : (cant.titolo || cant.cliente || '');
-  const resp = (cant.resp || '').toUpperCase();
-  const subs = record.subappaltatori
-    ? record.subappaltatori.split(',').map(s => s.trim()).filter(Boolean)
-    : [];
-
-  // Righe operai interni: 8 slot, solo la prima compilata con l'operaio del record
+// Costruisce l'HTML del PDF dato un set di lavorazioni (righe operai) + dati comuni.
+// Parametri:
+//   operai: array di {nome, ore, desc, commessa} (1..8)
+//   subs: array di stringhe subappaltatori (0..5)
+//   dataFmt: 'DD/MM/YYYY'
+//   nomeCantiere: stringa in intestazione CANTIERE (vuota per rapportino giornaliero)
+//   firma: nome da mostrare nel box FIRMA
+//   totOre: totale ore da mostrare in riga "Totale ore"
+//   commTot: commessa da mostrare nell'ultima cella (usare '' se multi-commessa)
+function renderPDFHtml({operai, subs, dataFmt, nomeCantiere, firma, totOre, commTot}){
+  // Righe operai: sempre 8 slot, compilo secondo operai[]
   let opRows = '';
   for(let i = 0; i < 8; i++){
-    const isFirst = (i === 0);
+    const op = operai[i];
     opRows += `<tr>
-      <td class="cell cell-name">${isFirst ? (record.operaio || '&nbsp;') : '&nbsp;'}</td>
-      <td class="cell cell-ore">${isFirst ? record.ore : '&nbsp;'}</td>
-      <td class="cell cell-desc">${isFirst ? (record.descrizione || '&nbsp;') : '&nbsp;'}</td>
-      <td class="cell cell-comm">${isFirst ? (commessa || '&nbsp;') : '&nbsp;'}</td>
+      <td class="cell cell-name">${op ? (op.nome || '&nbsp;') : '&nbsp;'}</td>
+      <td class="cell cell-ore">${op ? op.ore : '&nbsp;'}</td>
+      <td class="cell cell-desc">${op ? (op.desc || '&nbsp;') : '&nbsp;'}</td>
+      <td class="cell cell-comm">${op ? (op.commessa || '&nbsp;') : '&nbsp;'}</td>
     </tr>`;
   }
-
-  // Righe subappaltatori: 5 slot
+  // Righe subappaltatori: sempre 5 slot
   let subRows = '';
   for(let i = 0; i < 5; i++){
-    const s = subs[i] || '';
+    const s = (subs && subs[i]) || '';
     subRows += `<tr>
       <td class="cell cell-name">${s || '&nbsp;'}</td>
       <td class="cell cell-ore">&nbsp;</td>
@@ -701,9 +715,8 @@ function generaRapportoPDF(id){
       <td class="cell cell-comm">&nbsp;</td>
     </tr>`;
   }
-
-  const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
-<title>Rapporto — ${record.operaio} — ${dataFmt}</title>
+  return `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
+<title>Rapporto di Cantiere — ${dataFmt}</title>
 <style>
   @page { size: A4 landscape; margin: 1.2cm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -744,7 +757,7 @@ function generaRapportoPDF(id){
     </tr>
     <tr>
       <td class="lbl">CANTIERE</td>
-      <td class="val-cant">${nomeCantiere}</td>
+      <td class="val-cant">${nomeCantiere || '&nbsp;'}</td>
       <td class="lbl-data">Data:</td>
       <td class="val-data">${dataFmt}</td>
     </tr>
@@ -764,29 +777,128 @@ function generaRapportoPDF(id){
     ${subRows}
     <tr>
       <td class="tot-lbl">Totale ore</td>
-      <td class="tot-val">${record.ore}</td>
+      <td class="tot-val">${totOre}</td>
       <td class="cell-desc">&nbsp;</td>
-      <td class="cell-comm">${commessa || '&nbsp;'}</td>
+      <td class="cell-comm">${commTot || '&nbsp;'}</td>
     </tr>
   </table>
   <div class="firma-wrap">
     <div class="firma-box">
       <div class="firma-top">FIRMA</div>
-      <div class="firma-bot">${resp || '&nbsp;'}</div>
+      <div class="firma-bot">${firma || '&nbsp;'}</div>
     </div>
   </div>
 </div>
 </body></html>`;
+}
 
+// Mostra il PDF HTML nell'overlay e imposta il nome file suggerito
+function mostraPDFOverlay(html, filename){
   const frame = g('report-frame');
   const overlay = g('report-overlay');
   overlay.classList.add('show');
   const doc = frame.contentDocument || frame.contentWindow.document;
   doc.open(); doc.write(html); doc.close();
-  // Nome file: Rapporto_NomeOperaio_Commessa_DD-MM-YYYY.pdf
+  frame._filename = filename;
+}
+
+// ── Rapportino SINGOLO CONTRIBUTO (una lavorazione) ──
+// Usato dalla vista "Tutti" e dal diario cantiere per il download singolo
+function generaRapportoContributo(id){
+  const record = getRapporti().find(r => r.id === id);
+  if(!record){ toast('Record non trovato','err'); return; }
+  if(!puoScaricareRapporto(record)){
+    toast('⛔ Non puoi scaricare il rapportino di un altro operaio','err');
+    return;
+  }
+  const cant = getCantieri().find(c => c.id === record.cantiereId);
+  if(!cant){ toast('Cantiere non trovato','err'); return; }
+
+  const dataFmt = new Date(record.data + 'T12:00:00').toLocaleDateString('it-IT');
+  const commessa = cant.commessa || '';
+  const nomeCantiere = commessa
+    ? commessa + ' — ' + (cant.titolo || cant.cliente || '')
+    : (cant.titolo || cant.cliente || '');
+  const subs = record.subappaltatori
+    ? record.subappaltatori.split(',').map(s => s.trim()).filter(Boolean)
+    : [];
+
+  const html = renderPDFHtml({
+    operai: [{nome: record.operaio, ore: record.ore, desc: record.descrizione || '', commessa}],
+    subs,
+    dataFmt,
+    nomeCantiere,
+    firma: (record.operaio || '').toUpperCase(),
+    totOre: record.ore,
+    commTot: commessa
+  });
+
   const clean = s => (s || '').replace(/[^a-zA-Z0-9_-]/g, '_');
   const dataStr = dataFmt.replace(/\//g, '-');
-  frame._filename = `Rapporto_${clean(record.operaio)}_${clean(commessa || 'cantiere')}_${dataStr}`;
+  const filename = `Rapporto_${clean(record.operaio)}_${clean(commessa || 'cantiere')}_${dataStr}`;
+  mostraPDFOverlay(html, filename);
+}
+
+// ── Rapportino GIORNALIERO dell'operaio ──
+// Aggrega tutte le lavorazioni di un operaio in una data su più cantieri
+function generaRapportoGiornaliero(operaio, data){
+  const tutti = getRapporti().filter(r =>
+    r.operaio === operaio && r.data === data
+  );
+  if(!tutti.length){ toast('Nessuna lavorazione per quella giornata','err'); return; }
+
+  // Permesso: se sono operaio, posso farlo solo per me stesso
+  if(!isPrivilegiato()){
+    const cpUser = getCpUser();
+    const mioNome = cpUser.nome || '';
+    if(operaio !== mioNome){
+      toast('⛔ Non puoi scaricare il rapportino di un altro operaio','err');
+      return;
+    }
+  }
+
+  const cantieri = getCantieri();
+  const dataFmt = new Date(data + 'T12:00:00').toLocaleDateString('it-IT');
+
+  // Una riga per ogni lavorazione: Adrian/4h/P0066 - Adrian/4h/P0067 ...
+  const operai = tutti.map(r => {
+    const cant = cantieri.find(c => c.id === r.cantiereId);
+    const commessa = cant ? (cant.commessa || '') : '';
+    return {
+      nome: r.operaio,
+      ore: r.ore,
+      desc: r.descrizione || '',
+      commessa
+    };
+  });
+
+  // Subappaltatori unici da tutte le lavorazioni
+  const subsSet = new Set();
+  tutti.forEach(r => {
+    if(r.subappaltatori){
+      r.subappaltatori.split(',').map(s => s.trim()).filter(Boolean).forEach(s => subsSet.add(s));
+    }
+  });
+  const subs = [...subsSet];
+
+  // Totale ore
+  const totOre = tutti.reduce((s, r) => s + (parseFloat(r.ore) || 0), 0);
+
+  // CANTIERE in alto: vuoto (scelta utente: ogni lavorazione ha la sua commessa nella tabella)
+  const html = renderPDFHtml({
+    operai,
+    subs,
+    dataFmt,
+    nomeCantiere: '',
+    firma: (operaio || '').toUpperCase(),
+    totOre,
+    commTot: '' // multi-commessa, lascio vuoto
+  });
+
+  const clean = s => (s || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const dataStr = dataFmt.replace(/\//g, '-');
+  const filename = `Rapporto_${clean(operaio)}_Giornaliero_${dataStr}`;
+  mostraPDFOverlay(html, filename);
 }
 
 function chiudiRapporto(){
@@ -804,13 +916,18 @@ function stampaRapporto(){
   frame.contentWindow.print();
 }
 
-// Permette di aprire un rapportino da link esterno: rapporto.html?pdf=ID_RECORD
+// Permette di aprire rapportini da link esterno:
+//   rapporto.html?pdf=ID_RECORD   → rapportino singolo contributo
+//   rapporto.html?daily=NOME&date=YYYY-MM-DD  → rapportino giornaliero
 (function apriDaQuery(){
   const qs = new URLSearchParams(window.location.search);
   const pdfId = qs.get('pdf');
+  const daily = qs.get('daily');
+  const date = qs.get('date');
   if(pdfId){
-    // attendi init
-    setTimeout(() => generaRapportoPDF(pdfId), 300);
+    setTimeout(() => generaRapportoContributo(pdfId), 300);
+  } else if(daily && date){
+    setTimeout(() => generaRapportoGiornaliero(daily, date), 300);
   }
 })();
 
