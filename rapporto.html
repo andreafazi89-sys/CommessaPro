@@ -60,6 +60,20 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
 .rpt-btn{flex:1;padding:8px;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:Epilogue,sans-serif;}
 .rpt-btn.edit{background:var(--sand-dim);color:var(--sand);}
 .rpt-btn.del{background:rgba(200,68,26,.12);color:#C8441A;}
+.rpt-btn.pdf{background:var(--green-dim);color:var(--green);border:1px solid var(--green);}
+/* Bottoncino PDF sulla card aggregata (singolo contributo) */
+.agg-riga-row{display:flex;align-items:center;gap:8px;}
+.agg-riga-pdf{background:var(--green-dim);color:var(--green);border:1px solid var(--green);border-radius:6px;padding:4px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:Epilogue,sans-serif;white-space:nowrap;}
+/* Overlay anteprima PDF */
+.report-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:999;background:#fff;display:none;flex-direction:column;}
+.report-overlay.show{display:flex;}
+.report-topbar{background:#1A1612;color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.rep-title{font-family:'Syne',sans-serif;font-weight:700;font-size:15px;}
+.rep-actions{display:flex;gap:8px;}
+.rep-btn{border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:Epilogue,sans-serif;}
+.rep-btn.close{background:rgba(255,255,255,.15);color:#fff;}
+.rep-btn.print{background:#D4511E;color:#fff;}
+.report-frame{flex:1;border:none;width:100%;background:#fff;}
 /* Riga cantiere nel form (multi-riga) */
 .riga-cant{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px;margin-bottom:10px;position:relative;}
 .riga-cant .rc-num{position:absolute;top:8px;right:10px;font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;}
@@ -149,6 +163,17 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
     <button class="btn-main sec" onclick="tornaLista()">Annulla</button>
     <button class="btn-main green" onclick="salvaRapporto()">✓ Salva</button>
   </div>
+</div>
+
+<div class="report-overlay" id="report-overlay">
+  <div class="report-topbar">
+    <div class="rep-title">📄 Rapporto di Cantiere</div>
+    <div class="rep-actions">
+      <button class="rep-btn close" onclick="chiudiRapporto()">✕ Chiudi</button>
+      <button class="rep-btn print" onclick="stampaRapporto()">🖨️ PDF</button>
+    </div>
+  </div>
+  <iframe id="report-frame" class="report-frame"></iframe>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -374,7 +399,10 @@ function renderLista(){
             <div class="agg-riga">
               <div class="agg-op-nome">${r.operaio || '—'}</div>
               <div class="agg-op-desc">${r.descrizione || '<span style="opacity:.4">—</span>'}</div>
-              <div class="agg-op-ore">${r.ore}h</div>
+              <div class="agg-riga-row">
+                <div class="agg-op-ore">${r.ore}h</div>
+                <button class="agg-riga-pdf" onclick="generaRapportoPDF('${r.id}')" title="Scarica rapportino">📥</button>
+              </div>
             </div>
           `).join('');
           return `
@@ -419,8 +447,9 @@ function renderLista(){
             ${r.descrizione ? `<div class="rpt-desc">${r.descrizione}</div>` : ''}
             ${r.subappaltatori ? `<div class="rpt-sub">Sub: ${r.subappaltatori}</div>` : ''}
             <div class="rpt-actions">
-              <button class="rpt-btn edit" onclick="modificaRapporto('${r.id}')">✏️ Modifica</button>
-              <button class="rpt-btn del" onclick="eliminaRapporto('${r.id}')">🗑 Elimina</button>
+              <button class="rpt-btn pdf" onclick="generaRapportoPDF('${r.id}')">📥 Rapportino</button>
+              <button class="rpt-btn edit" onclick="modificaRapporto('${r.id}')">✏️</button>
+              <button class="rpt-btn del" onclick="eliminaRapporto('${r.id}')">🗑</button>
             </div>
           </div>
         `).join('')}
@@ -611,6 +640,180 @@ function salvaRapporto(){
   toast(currentEditId ? '✓ Rapporto aggiornato' : `✓ Salvate ${righe.length} righe`, 'ok');
   setTimeout(() => tornaLista(), 600);
 }
+
+// ── PDF RAPPORTINO ──
+// Logo Pierantoni incorporato (JPEG base64, ~5.6KB)
+const LOGO_PIERANTONI = 'data:image/jpeg;base64,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';
+
+// Ritorna true se l'utente può scaricare il rapportino dell'operaio indicato
+function puoScaricareRapporto(record){
+  if(!record) return false;
+  if(isPrivilegiato()) return true; // admin/capo/segretaria: sempre ok
+  const cpUser = getCpUser();
+  const emailUtente = (cpUser.email || '').toLowerCase();
+  const nomeUtente = cpUser.nome || '';
+  // Operaio: può scaricare solo i record dove lui è l'operaio O dove è l'autore
+  if((record.autore || '').toLowerCase() === emailUtente) return true;
+  if((record.operaio || '') === nomeUtente) return true;
+  return false;
+}
+
+function generaRapportoPDF(id){
+  const record = getRapporti().find(r => r.id === id);
+  if(!record){ toast('Record non trovato','err'); return; }
+  if(!puoScaricareRapporto(record)){
+    toast('⛔ Non puoi scaricare il rapportino di un altro operaio','err');
+    return;
+  }
+  const cant = getCantieri().find(c => c.id === record.cantiereId);
+  if(!cant){ toast('Cantiere non trovato','err'); return; }
+
+  const dataFmt = new Date(record.data + 'T12:00:00').toLocaleDateString('it-IT');
+  const commessa = cant.commessa || '';
+  const nomeCantiere = commessa
+    ? commessa + ' — ' + (cant.titolo || cant.cliente || '')
+    : (cant.titolo || cant.cliente || '');
+  const resp = (cant.resp || '').toUpperCase();
+  const subs = record.subappaltatori
+    ? record.subappaltatori.split(',').map(s => s.trim()).filter(Boolean)
+    : [];
+
+  // Righe operai interni: 8 slot, solo la prima compilata con l'operaio del record
+  let opRows = '';
+  for(let i = 0; i < 8; i++){
+    const isFirst = (i === 0);
+    opRows += `<tr>
+      <td class="cell cell-name">${isFirst ? (record.operaio || '&nbsp;') : '&nbsp;'}</td>
+      <td class="cell cell-ore">${isFirst ? record.ore : '&nbsp;'}</td>
+      <td class="cell cell-desc">${isFirst ? (record.descrizione || '&nbsp;') : '&nbsp;'}</td>
+      <td class="cell cell-comm">${isFirst ? (commessa || '&nbsp;') : '&nbsp;'}</td>
+    </tr>`;
+  }
+
+  // Righe subappaltatori: 5 slot
+  let subRows = '';
+  for(let i = 0; i < 5; i++){
+    const s = subs[i] || '';
+    subRows += `<tr>
+      <td class="cell cell-name">${s || '&nbsp;'}</td>
+      <td class="cell cell-ore">&nbsp;</td>
+      <td class="cell cell-desc">&nbsp;</td>
+      <td class="cell cell-comm">&nbsp;</td>
+    </tr>`;
+  }
+
+  const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
+<title>Rapporto — ${record.operaio} — ${dataFmt}</title>
+<style>
+  @page { size: A4 landscape; margin: 1.2cm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Aptos Narrow', 'Arial Narrow', Arial, sans-serif; font-size: 12pt; color: #000; background: #fff; padding: 10px; }
+  .report { width: 100%; max-width: 27cm; margin: 0 auto; }
+  table.rpt { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  table.rpt td { border: 1px solid #000; padding: 4px 6px; vertical-align: middle; font-size: 12pt; font-family: 'Aptos Narrow','Arial Narrow',Arial,sans-serif; height: 22px; }
+  .logo-cell { width: 31%; height: 50px; padding: 4px 8px !important; text-align: left; vertical-align: middle; }
+  .logo-cell img { max-height: 38px; max-width: 100%; object-fit: contain; }
+  .title-cell { width: 69%; font-weight: bold; text-align: center; font-size: 14pt; }
+  .lbl { font-weight: bold; width: 8%; white-space: nowrap; }
+  .val-cant { width: 46%; }
+  .lbl-data { font-weight: bold; width: 7%; white-space: nowrap; }
+  .val-data { width: 39%; }
+  .hdr { font-weight: bold; background: #fafafa; }
+  .cell-name { width: 31%; }
+  .cell-ore { width: 8%; text-align: center; }
+  .cell-desc { width: 46%; }
+  .cell-comm { width: 15%; }
+  .sub-hdr { font-weight: bold; background: #fafafa; }
+  .tot-lbl { font-weight: bold; }
+  .tot-val { font-weight: bold; text-align: center; }
+  .firma-wrap { margin-top: 8px; display: flex; justify-content: flex-end; }
+  .firma-box { width: 22%; border: 1px solid #000; }
+  .firma-top { text-align: center; padding: 4px; border-bottom: 1px solid #000; height: 24px; font-weight: bold; }
+  .firma-bot { height: 50px; padding: 4px; text-align: center; font-size: 11pt; }
+  @media print {
+    body { padding: 0; }
+    .report { max-width: none; }
+  }
+</style>
+</head><body>
+<div class="report">
+  <table class="rpt">
+    <tr>
+      <td class="logo-cell"><img src="${LOGO_PIERANTONI}" alt="Pierantoni"></td>
+      <td class="title-cell" colspan="3">RAPPORTO DI CANTIERE</td>
+    </tr>
+    <tr>
+      <td class="lbl">CANTIERE</td>
+      <td class="val-cant">${nomeCantiere}</td>
+      <td class="lbl-data">Data:</td>
+      <td class="val-data">${dataFmt}</td>
+    </tr>
+    <tr class="hdr">
+      <td class="cell-name">Operai interni</td>
+      <td class="cell-ore">Ore</td>
+      <td class="cell-desc">Descrizione Lavori Eseguiti</td>
+      <td class="cell-comm">Commessa</td>
+    </tr>
+    ${opRows}
+    <tr class="sub-hdr">
+      <td class="cell-name">Subappaltatori</td>
+      <td class="cell-ore">&nbsp;</td>
+      <td class="cell-desc">&nbsp;</td>
+      <td class="cell-comm">&nbsp;</td>
+    </tr>
+    ${subRows}
+    <tr>
+      <td class="tot-lbl">Totale ore</td>
+      <td class="tot-val">${record.ore}</td>
+      <td class="cell-desc">&nbsp;</td>
+      <td class="cell-comm">${commessa || '&nbsp;'}</td>
+    </tr>
+  </table>
+  <div class="firma-wrap">
+    <div class="firma-box">
+      <div class="firma-top">FIRMA</div>
+      <div class="firma-bot">${resp || '&nbsp;'}</div>
+    </div>
+  </div>
+</div>
+</body></html>`;
+
+  const frame = g('report-frame');
+  const overlay = g('report-overlay');
+  overlay.classList.add('show');
+  const doc = frame.contentDocument || frame.contentWindow.document;
+  doc.open(); doc.write(html); doc.close();
+  // Nome file: Rapporto_NomeOperaio_Commessa_DD-MM-YYYY.pdf
+  const clean = s => (s || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const dataStr = dataFmt.replace(/\//g, '-');
+  frame._filename = `Rapporto_${clean(record.operaio)}_${clean(commessa || 'cantiere')}_${dataStr}`;
+}
+
+function chiudiRapporto(){
+  g('report-overlay').classList.remove('show');
+}
+
+function stampaRapporto(){
+  const frame = g('report-frame');
+  if(!frame) return;
+  try{
+    const doc = frame.contentDocument || frame.contentWindow.document;
+    if(frame._filename) doc.title = frame._filename;
+  }catch(e){}
+  frame.contentWindow.focus();
+  frame.contentWindow.print();
+}
+
+// Permette di aprire un rapportino da link esterno: rapporto.html?pdf=ID_RECORD
+(function apriDaQuery(){
+  const qs = new URLSearchParams(window.location.search);
+  const pdfId = qs.get('pdf');
+  if(pdfId){
+    // attendi init
+    setTimeout(() => generaRapportoPDF(pdfId), 300);
+  }
+})();
+
 
 // ── INIT ──
 initDB();
