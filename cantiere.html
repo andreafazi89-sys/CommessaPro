@@ -45,6 +45,20 @@ textarea{resize:none;min-height:80px;line-height:1.6;}
 .g-operai{font-size:12px;color:var(--sand);margin-bottom:4px;}
 .g-note{font-size:13px;line-height:1.5;}
 .g-del{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:4px;}
+/* Contributi individuali nel diario (vista aggregata) */
+.g-contributi{margin-top:8px;border-top:1px solid var(--border);padding-top:8px;}
+.g-contributo{padding:8px 0;border-bottom:1px dashed var(--border);position:relative;padding-right:70px;}
+.g-contributo:last-child{border-bottom:none;}
+.g-c-nome{font-size:13px;font-weight:600;color:var(--white);display:flex;justify-content:space-between;align-items:center;gap:8px;}
+.g-c-ore{font-size:12px;font-weight:700;color:var(--brick);background:var(--brick-dim);padding:2px 8px;border-radius:12px;}
+.g-c-desc{font-size:12px;color:var(--muted);line-height:1.4;margin-top:3px;}
+.g-c-mig{font-size:10px;color:#C8441A;font-weight:700;margin-top:2px;letter-spacing:0.5px;}
+.g-c-actions{position:absolute;top:6px;right:0;display:flex;gap:2px;align-items:center;}
+.g-c-pdf{background:var(--green-dim);color:var(--green);border:1px solid var(--green);border-radius:6px;padding:3px 7px;font-size:12px;text-decoration:none;cursor:pointer;line-height:1;}
+.g-c-pdf:active{transform:scale(0.95);}
+.g-c-del{background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:4px 6px;opacity:.5;}
+.g-c-del:hover{opacity:1;}
+.g-sub-line{font-size:12px;color:var(--sand);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
 .bottom-bar{position:fixed;bottom:0;left:0;right:0;padding:12px 16px;padding-bottom:max(12px,env(safe-area-inset-bottom));background:linear-gradient(to top,var(--bg) 70%,transparent);z-index:100;}
 .btn-main{width:100%;padding:16px;background:var(--green);color:#fff;border:none;border-radius:var(--r);font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;-webkit-appearance:none;}
 .btn-main:active{transform:scale(.98);}
@@ -62,15 +76,6 @@ textarea{resize:none;min-height:80px;line-height:1.6;}
 .empty-state{text-align:center;padding:48px 20px;color:var(--muted);}
 .empty-icon{font-size:48px;margin-bottom:12px;}
 .empty-txt{font-size:15px;font-weight:500;color:var(--sand);margin-bottom:6px;}
-.report-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:999;background:#fff;display:none;flex-direction:column;}
-.report-overlay.show{display:flex;}
-.report-topbar{background:#1A1612;color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
-.rep-title{font-family:'Syne',sans-serif;font-weight:700;font-size:15px;}
-.rep-actions{display:flex;gap:8px;}
-.rep-btn{border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:Epilogue,sans-serif;}
-.rep-btn.close{background:rgba(255,255,255,.15);color:#fff;}
-.rep-btn.print{background:#D4511E;color:#fff;}
-.report-frame{flex:1;border:none;width:100%;background:#fff;}
 </style>
 
 </head>
@@ -147,17 +152,6 @@ textarea{resize:none;min-height:80px;line-height:1.6;}
   </div>
 </div>
 
-<div class="report-overlay" id="report-overlay">
-  <div class="report-topbar">
-    <div class="rep-title">📄 Rapporto di Cantiere</div>
-    <div class="rep-actions">
-      <button class="rep-btn close" onclick="chiudiRapporto()">✕ Chiudi</button>
-      <button class="rep-btn print" onclick="stampaRapporto()">🖨️ PDF</button>
-    </div>
-  </div>
-  <iframe id="report-frame" class="report-frame"></iframe>
-</div>
-
 <div class="toast" id="toast"></div>
 
 <script>
@@ -174,10 +168,20 @@ async function forcSync(){
   toast('🔄 Sincronizzazione...','inf');
   if(!db){toast('Nessuna connessione','err');return;}
   try{
+    // Sync cantieri
     const {data}=await db.from('dati').select('valore').eq('chiave',CANT_KEY).maybeSingle();
     if(data&&data.valore&&data.valore.length>0){
       const loc=getCantieri(),ids=new Set(data.valore.map(x=>x.id)),ex=loc.filter(x=>!ids.has(x.id));
       salvaCantieri([...data.valore,...ex]); renderLista();
+    }
+    // Sync rapporti
+    const resR = await db.from('dati').select('valore').eq('chiave',RPT_KEY).maybeSingle();
+    if(resR.data && Array.isArray(resR.data.valore)){
+      const locR = getRapporti();
+      const idsR = new Set(resR.data.valore.map(x=>x.id));
+      const exR = locR.filter(x => !idsR.has(x.id));
+      salvaRapporti([...resR.data.valore, ...exR]);
+      if(currentCant) renderDiario();
     }
     toast('✓ Sincronizzato','ok');
   }catch(e){toast('Errore sync','err');}
@@ -188,6 +192,92 @@ const gv=id=>g(id)?.value?.trim()||'';
 function toast(msg,tipo){const t=g('toast');t.textContent=msg;t.className='toast '+tipo+' show';clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),3000);}
 function getCantieri(){try{return JSON.parse(localStorage.getItem(CANT_KEY))||[];}catch{return[];}}
 function salvaCantieri(l){localStorage.setItem(CANT_KEY,JSON.stringify(l));dbSalva(CANT_KEY,l);}
+
+// ── RAPPORTI (nuova tabella v1) ──
+const RPT_KEY = 'rapporti_v1';
+const MIGR_FLAG = 'migrazione_rapporti_v1_done';
+function getRapporti(){try{return JSON.parse(localStorage.getItem(RPT_KEY))||[];}catch{return[];}}
+function salvaRapporti(l){localStorage.setItem(RPT_KEY,JSON.stringify(l));dbSalva(RPT_KEY,l);}
+function getRapportiCantiere(cantiereId){
+  return getRapporti().filter(r => r.cantiereId === cantiereId);
+}
+// Raggruppa i rapporti di un cantiere per data (YYYY-MM-DD)
+function getGiornateCantiere(cantiereId){
+  const rpt = getRapportiCantiere(cantiereId);
+  const perData = {};
+  rpt.forEach(r => {
+    if(!perData[r.data]) perData[r.data] = [];
+    perData[r.data].push(r);
+  });
+  return Object.keys(perData).sort().reverse().map(data => ({
+    data,
+    record: perData[data],
+    totOre: perData[data].reduce((s,r) => s + (parseFloat(r.ore)||0), 0),
+    numOperai: new Set(perData[data].map(r => r.operaio)).size
+  }));
+}
+
+// ── MIGRAZIONE: vecchie giornate[] → record rapporti_v1 ──
+// Eseguita una sola volta al primo caricamento dopo l'aggiornamento.
+function migraVecchieGiornate(){
+  if(localStorage.getItem(MIGR_FLAG) === '1') return; // già fatto
+  const cantieri = getCantieri();
+  // Verifica se c'è qualcosa da migrare
+  const daMigrare = cantieri.filter(c => Array.isArray(c.giornate) && c.giornate.length > 0);
+  if(!daMigrare.length){
+    localStorage.setItem(MIGR_FLAG, '1'); // niente da fare, marca come done
+    return;
+  }
+  // Backup di sicurezza
+  const backupKey = 'cantieri_v1_backup_premig_' + new Date().toISOString().replace(/[:.]/g,'-');
+  try{ localStorage.setItem(backupKey, JSON.stringify(cantieri)); }catch(e){ console.warn('Backup migrazione fallito:',e); }
+
+  const rapporti = getRapporti();
+  const esistenti = new Set(rapporti.map(r => r.id));
+  const cpUser = (()=>{try{return JSON.parse(localStorage.getItem('cp_user')||'{}');}catch{return{};}})();
+  const autoreMig = '[MIGRATO]' + (cpUser.email ? ' ' + cpUser.email : '');
+  let contatore = 0;
+
+  daMigrare.forEach(cant => {
+    (cant.giornate||[]).forEach((g2, idxGiorno) => {
+      const operai = Array.isArray(g2.operai) ? g2.operai : [];
+      const ore = parseFloat(g2.ore) || 0;
+      const note = g2.note || '';
+      const sub = g2.sub || '';
+      const data = g2.data || '';
+      if(!data || !operai.length || ore <= 0) return; // giornata malformata, skippo
+
+      operai.forEach((op, i) => {
+        // Moltiplico: ogni operaio ha le ore intere della giornata (scelta utente)
+        const id = `rpt_MIG_${cant.id}_${data}_${idxGiorno}_${i}`;
+        if(esistenti.has(id)) return;
+        rapporti.push({
+          id,
+          cantiereId: cant.id,
+          data,
+          operaio: op,
+          operaioEmail: null,
+          ore,
+          // La nota originale va SOLO sul primo operaio (è testo condiviso della giornata)
+          descrizione: (i === 0) ? note : '',
+          subappaltatori: sub,
+          tipo: 'operaio',
+          autore: autoreMig,
+          timestamp: new Date().toISOString(),
+          _migrato: true
+        });
+        contatore++;
+      });
+    });
+  });
+
+  if(contatore > 0){
+    salvaRapporti(rapporti);
+    console.log(`[MIGRAZIONE] ${contatore} record creati da ${daMigrare.length} cantieri. Backup: ${backupKey}`);
+  }
+  localStorage.setItem(MIGR_FLAG, '1');
+}
+
 function showView(n){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));g('view-'+n).classList.add('active');window.scrollTo(0,0);}
 
 function eliminaCantiere(id){
@@ -235,23 +325,95 @@ function toggleOp(nome,el){const i=operaiSel.indexOf(nome);if(i>=0)operaiSel.spl
 function aggiungiGiornata(){
   if(!operaiSel.length){toast('Seleziona almeno un operaio','err');return;}
   const ore=parseFloat(gv('g-ore'))||8;
-  if(!currentCant.giornate)currentCant.giornate=[];
-  currentCant.giornate.push({data:gv('g-data')||new Date().toISOString().split('T')[0],operai:[...operaiSel],ore,note:gv('g-note'),sub:gv('g-sub')});
-  salvaCantiere();g('g-note').value='';g('g-sub').value='';operaiSel=[];renderChips();renderDiario();toast('✓ Giornata salvata','ok');
+  const data = gv('g-data') || new Date().toISOString().split('T')[0];
+  const note = gv('g-note');
+  const sub = gv('g-sub');
+  const cpUser = (()=>{try{return JSON.parse(localStorage.getItem('cp_user')||'{}');}catch{return{};}})();
+  const autore = (cpUser.email || '').toLowerCase();
+  const now = new Date().toISOString();
+
+  // Crea un record per ogni operaio selezionato
+  const rapporti = getRapporti();
+  operaiSel.forEach((op, i) => {
+    rapporti.push({
+      id: 'rpt_' + Date.now() + '_' + i,
+      cantiereId: currentCant.id,
+      data,
+      operaio: op,
+      operaioEmail: null,
+      ore,
+      // Nota applicata solo al primo operaio (è descrizione condivisa della giornata)
+      descrizione: (i === 0) ? note : '',
+      subappaltatori: sub,
+      tipo: 'operaio',
+      autore,
+      timestamp: now
+    });
+  });
+  salvaRapporti(rapporti);
+
+  const numOp = operaiSel.length;
+  g('g-note').value='';g('g-sub').value='';operaiSel=[];renderChips();renderDiario();
+  toast(`✓ Giornata salvata (${numOp} ${numOp===1?'operaio':'operai'})`, 'ok');
 }
 
 function renderDiario(){
-  const el=g('diario-list');const gg=currentCant.giornate||[];
-  g('tot-giorni').textContent=gg.length+(gg.length===1?' giornata':' giornate');
-  if(!gg.length){el.innerHTML='<div style="font-size:13px;color:var(--muted);padding:4px 0">Nessuna giornata registrata</div>';return;}
-  el.innerHTML=[...gg].reverse().map((g2,ri)=>{
-    const i=gg.length-1-ri;
-    const d=new Date(g2.data).toLocaleDateString('it-IT',{day:'2-digit',month:'short',year:'numeric'});
-    return `<div class="giornata-card"><div class="g-header"><div><div class="g-data">${d}</div><div class="g-ore">${g2.ore}h × ${g2.operai.length} op. = ${g2.ore*g2.operai.length}h totali</div></div><div style="display:flex;gap:6px"><button onclick="generaRapporto(${i})" style="background:var(--green-dim);color:var(--green);border:1px solid var(--green);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer">📥 Rapporto</button><button class="g-del" onclick="delGiornata(${i})">🗑</button></div></div><div class="g-operai">${g2.operai.map(o=>o.split(' ')[0]).join(', ')}</div>${g2.note?`<div class="g-note">${g2.note}</div>`:''}</div>`;
+  const el = g('diario-list');
+  const giornate = getGiornateCantiere(currentCant.id);
+  const tot = giornate.length;
+  g('tot-giorni').textContent = tot + (tot === 1 ? ' giornata' : ' giornate');
+  if(!giornate.length){
+    el.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:4px 0">Nessuna giornata registrata</div>';
+    return;
+  }
+  el.innerHTML = giornate.map((gr, idx) => {
+    const d = new Date(gr.data + 'T12:00:00').toLocaleDateString('it-IT',{day:'2-digit',month:'short',year:'numeric'});
+    // Riga per ogni contributo individuale (con bottone 📥 rapportino personale)
+    const righe = gr.record.map(r => `
+      <div class="g-contributo">
+        <div class="g-c-nome">${r.operaio || '—'} <span class="g-c-ore">${r.ore}h</span></div>
+        ${r.descrizione ? `<div class="g-c-desc">${r.descrizione}</div>` : ''}
+        ${r._migrato ? '<div class="g-c-mig">[migrato]</div>' : ''}
+        <div class="g-c-actions">
+          <a class="g-c-pdf" href="rapporto.html?pdf=${r.id}" target="_blank" title="Scarica rapportino di ${r.operaio}">📥</a>
+          <button class="g-c-del" onclick="delContributo('${r.id}')" title="Elimina questo contributo">🗑</button>
+        </div>
+      </div>
+    `).join('');
+    const subs = [...new Set(gr.record.map(r => r.subappaltatori).filter(Boolean))].join(' · ');
+    return `
+      <div class="giornata-card">
+        <div class="g-header">
+          <div>
+            <div class="g-data">${d}</div>
+            <div class="g-ore">${gr.totOre}h totali · ${gr.numOperai} ${gr.numOperai===1?'operaio':'operai'}</div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button class="g-del" onclick="delGiornata('${gr.data}')" title="Elimina intera giornata">🗑</button>
+          </div>
+        </div>
+        <div class="g-contributi">${righe}</div>
+        ${subs ? `<div class="g-sub-line">🛠 Sub: ${subs}</div>` : ''}
+      </div>
+    `;
   }).join('');
 }
 
-function delGiornata(i){if(!confirm('Eliminare questa giornata?'))return;currentCant.giornate.splice(i,1);salvaCantiere();renderDiario();}
+function delGiornata(data){
+  if(!confirm('Eliminare tutta la giornata? Tutti i contributi degli operai di quel giorno saranno rimossi.')) return;
+  const lista = getRapporti().filter(r => !(r.cantiereId === currentCant.id && r.data === data));
+  salvaRapporti(lista);
+  renderDiario();
+  toast('Giornata eliminata','inf');
+}
+
+function delContributo(id){
+  if(!confirm('Eliminare solo questo contributo?')) return;
+  const lista = getRapporti().filter(r => r.id !== id);
+  salvaRapporti(lista);
+  renderDiario();
+  toast('Contributo eliminato','inf');
+}
 
 function chiudiCantiere(){
   if(!confirm('Chiudere il cantiere?'))return;
@@ -283,146 +445,6 @@ function salvaTariffa(){
 
 
 
-// ── RAPPORTO DI CANTIERE (HTML/PDF) ──
-function generaRapporto(idx){
-  const g2 = currentCant.giornate[idx];
-  if(!g2){ toast('Giornata non trovata','err'); return; }
-
-  const dataFmt = new Date(g2.data+'T12:00:00').toLocaleDateString('it-IT');
-  const commessa = currentCant.commessa||'';
-  const nomeCantiere = commessa ? commessa+' — '+(currentCant.titolo||currentCant.cliente||'') : (currentCant.titolo||currentCant.cliente||'');
-  const operai = g2.operai||[];
-  const subs = g2.sub ? g2.sub.split(',').map(s=>s.trim()).filter(Boolean) : [];
-  const ore = g2.ore||0;
-  const totOre = operai.length * ore;
-  const note = g2.note||'';
-  const resp = (currentCant.resp||'').toUpperCase();
-
-  // Costruisce righe operai (8 slot: righe 7-14)
-  let opRows = '';
-  for(let i=0;i<8;i++){
-    const op = operai[i]||'';
-    const oreR = op ? ore : '';
-    const descR = (i===0) ? note : '';
-    const commR = op ? commessa : '';
-    opRows += `<tr>
-      <td class="cell cell-name">${op||'&nbsp;'}</td>
-      <td class="cell cell-ore">${oreR!==''?oreR:'&nbsp;'}</td>
-      <td class="cell cell-desc">${descR||'&nbsp;'}</td>
-      <td class="cell cell-comm">${commR||'&nbsp;'}</td>
-    </tr>`;
-  }
-
-  // Righe subappaltatori (5 slot: righe 16-20)
-  let subRows = '';
-  for(let i=0;i<5;i++){
-    const s = subs[i]||'';
-    subRows += `<tr>
-      <td class="cell cell-name">${s||'&nbsp;'}</td>
-      <td class="cell cell-ore">&nbsp;</td>
-      <td class="cell cell-desc">&nbsp;</td>
-      <td class="cell cell-comm">&nbsp;</td>
-    </tr>`;
-  }
-
-  const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
-<title>Rapporto Cantiere — ${nomeCantiere}</title>
-<style>
-  @page { size: A4 landscape; margin: 1.2cm; }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Aptos Narrow', 'Arial Narrow', Arial, sans-serif; font-size: 12pt; color: #000; background: #fff; padding: 10px; }
-  .report { width: 100%; max-width: 27cm; margin: 0 auto; }
-  table.rpt { width: 100%; border-collapse: collapse; table-layout: fixed; }
-  table.rpt td { border: 1px solid #000; padding: 4px 6px; vertical-align: middle; font-size: 12pt; font-family: 'Aptos Narrow','Arial Narrow',Arial,sans-serif; height: 22px; }
-  .logo-cell { width: 31%; height: 44px; }
-  .title-cell { width: 69%; font-weight: bold; text-align: center; font-size: 14pt; }
-  .lbl { font-weight: bold; width: 8%; white-space: nowrap; }
-  .val-cant { width: 46%; }
-  .lbl-data { font-weight: bold; width: 7%; white-space: nowrap; }
-  .val-data { width: 39%; }
-  .hdr { font-weight: bold; }
-  .cell-name { width: 31%; }
-  .cell-ore { width: 8%; text-align: center; }
-  .cell-desc { width: 46%; }
-  .cell-comm { width: 15%; }
-  .sub-hdr { font-weight: bold; }
-  .tot-lbl { font-weight: bold; }
-  .tot-val { font-weight: bold; text-align: center; }
-  .spacer td { border: none; height: 10px; }
-  .firma-wrap { margin-top: 8px; display: flex; justify-content: flex-end; }
-  .firma-box { width: 22%; border: 1px solid #000; }
-  .firma-top { text-align: center; padding: 4px; border-bottom: 1px solid #000; height: 24px; }
-  .firma-bot { height: 50px; padding: 4px; }
-  @media print {
-    body { padding: 0; }
-    .report { max-width: none; }
-  }
-</style>
-</head><body>
-<div class="report">
-  <table class="rpt">
-    <tr>
-      <td class="logo-cell" rowspan="1">&nbsp;</td>
-      <td class="title-cell" colspan="3">RAPPORTO DI CANTIERE</td>
-    </tr>
-    <tr>
-      <td class="lbl">CANTIERE</td>
-      <td class="val-cant" colspan="1">${nomeCantiere}</td>
-      <td class="lbl-data">Data:</td>
-      <td class="val-data">${dataFmt}</td>
-    </tr>
-    <tr class="hdr">
-      <td class="cell-name">Operai interni</td>
-      <td class="cell-ore">Ore</td>
-      <td class="cell-desc">Descrizione Lavori Eseguiti</td>
-      <td class="cell-comm">Commessa</td>
-    </tr>
-    ${opRows}
-    <tr class="sub-hdr">
-      <td class="cell-name">Subappaltatori</td>
-      <td class="cell-ore">&nbsp;</td>
-      <td class="cell-desc">&nbsp;</td>
-      <td class="cell-comm">&nbsp;</td>
-    </tr>
-    ${subRows}
-    <tr>
-      <td class="tot-lbl">Totale ore</td>
-      <td class="cell-ore">&nbsp;</td>
-      <td class="tot-val">${totOre}</td>
-      <td class="cell-comm">${commessa||'&nbsp;'}</td>
-    </tr>
-  </table>
-  <div class="firma-wrap">
-    <div class="firma-box">
-      <div class="firma-top">FIRMA</div>
-      <div class="firma-bot">${resp||'&nbsp;'}</div>
-    </div>
-  </div>
-</div>
-</body></html>`;
-
-  const frame = g('report-frame');
-  const overlay = g('report-overlay');
-  overlay.classList.add('show');
-  const doc = frame.contentDocument || frame.contentWindow.document;
-  doc.open(); doc.write(html); doc.close();
-  // Memorizza nome file per download
-  frame._filename = `Rapporto_${(commessa||'cantiere').replace(/[^a-zA-Z0-9_-]/g,'_')}_${dataFmt.replace(/\//g,'-')}`;
-}
-
-function chiudiRapporto(){ g('report-overlay').classList.remove('show'); }
-
-function stampaRapporto(){
-  const frame = g('report-frame');
-  if(!frame) return;
-  // imposta il titolo del documento dell'iframe -> diventa il nome file PDF suggerito dal browser
-  try{
-    const doc = frame.contentDocument || frame.contentWindow.document;
-    if(frame._filename) doc.title = frame._filename;
-  }catch(e){}
-  frame.contentWindow.focus();
-  frame.contentWindow.print();
-}
 
 
 
@@ -456,6 +478,28 @@ initDB();
   });
   if(changed){ localStorage.setItem('cantieri_v1',JSON.stringify(cantieri)); dbSalva('cantieri_v1',cantieri); }
 })();
+
+// Migrazione Step 2: vecchie giornate[] → record rapporti_v1 (solo prima volta)
+// Sync di rapporti remoti PRIMA della migrazione, per evitare duplicati
+(async function(){
+  // Carica rapporti remoti se esistono, così la migrazione può saltare quelli già esistenti
+  if(db){
+    try{
+      const {data} = await db.from('dati').select('valore').eq('chiave','rapporti_v1').maybeSingle();
+      if(data && Array.isArray(data.valore)){
+        const locali = getRapporti();
+        const ids = new Set(locali.map(r=>r.id));
+        const extra = data.valore.filter(r => !ids.has(r.id));
+        if(extra.length){
+          localStorage.setItem('rapporti_v1', JSON.stringify([...locali, ...extra]));
+        }
+      }
+    }catch(e){ console.warn('Sync rapporti pre-migrazione fallito',e); }
+  }
+  // Ora esegui migrazione
+  migraVecchieGiornate();
+})();
+
 const params=new URLSearchParams(window.location.search);
 const idParam=params.get('id');
 if(idParam){const c=getCantieri().find(x=>x.id===idParam);if(c)apriCantiere(idParam);else renderLista();}
