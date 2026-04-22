@@ -183,7 +183,6 @@ function mostraOnboarding(){
   div.innerHTML = '<strong>👥 Rubrica Clienti</strong> — Salva i tuoi clienti con nome, telefono e email. Potrai selezionarli direttamente quando crei un nuovo sopralluogo.<br><br><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;color:#D4511E"><input type="checkbox" onchange="if(this.checked){document.getElementById(\'ob-banner\').remove();localStorage.setItem(\'ob_rub\',\'1\');if(cpUser.email)localStorage.setItem(\'ob_rub_\'+cpUser.email,\'1\');}"> ✓ Ho capito, non mostrare più</label>';
   document.body.appendChild(div);
 }
-}
 // ── INIT ──
 initDB();renderLista();
 mostraOnboarding();
