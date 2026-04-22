@@ -269,12 +269,44 @@ async function forcSync(){
   const remoto = await dbCarica(LIST_KEY);
   if(remoto && Array.isArray(remoto) && remoto.length > 0){
     const locale = getLista();
-    const remIds = new Set(remoto.map(x=>x.id));
-    const extra = locale.filter(x=>!remIds.has(x.id));
-    salveLista([...remoto,...extra]);
+    const locMap = new Map(locale.map(x => [x.id, x]));
+    // FIX: merge intelligente
+    // Per ogni sopralluogo remoto: se esiste una versione locale, manteniamo il LOCALE
+    // (potrebbe avere foto che il remoto non ha ancora). Questo impedisce la perdita
+    // di foto recenti quando il remoto è stato svuotato da versioni vecchie del codice.
+    // Se il sopralluogo è solo remoto (mai visto in locale), lo prendiamo tal quale.
+    const merged = remoto.map(r => {
+      const l = locMap.get(r.id);
+      if(!l) return r; // nuovo da remoto
+      // Se il locale ha foto e il remoto no, tieni il locale (protezione perdita foto)
+      const locFoto = (l.foto || []).length;
+      const remFoto = (r.foto || []).length;
+      if(locFoto > 0 && remFoto === 0) return l;
+      // Altrimenti preferiamo i metadati più recenti del remoto
+      // ma FONDENDO foto e noteVocali (unione senza duplicati per url)
+      const foto = mergeArrayByKey(l.foto || [], r.foto || [], 'url');
+      const noteVocali = mergeArrayByKey(l.noteVocali || [], r.noteVocali || [], 'url');
+      return {...r, foto, noteVocali};
+    });
+    // Aggiungi sopralluoghi solo locali (mai visti in remoto)
+    const remIds = new Set(remoto.map(x => x.id));
+    const extra = locale.filter(x => !remIds.has(x.id));
+    salveLista([...merged, ...extra]);
     renderLista();
   }
   toast('✓ Sincronizzato','ok');
+}
+
+// Utility: unisce due array di oggetti deduplicando per una chiave
+function mergeArrayByKey(a, b, key){
+  const seen = new Set();
+  const out = [];
+  [...a, ...b].forEach(item => {
+    const v = item?.[key];
+    if(v && !seen.has(v)){ seen.add(v); out.push(item); }
+    else if(!v){ out.push(item); } // se manca la chiave, lo teniamo lo stesso
+  });
+  return out;
 }
 
 // ── STATE ──
@@ -301,9 +333,22 @@ function showView(name){
 function getLista(){ try{return JSON.parse(localStorage.getItem(LIST_KEY))||[];}catch{return[];} }
 function salveLista(l){
   localStorage.setItem(LIST_KEY,JSON.stringify(l));
-  // Supabase: versione senza foto/audio (troppo pesanti per singola riga)
-  const lLight=l.map(s=>({...s,foto:[],noteVocali:[]}));
-  dbSalva(LIST_KEY,lLight);
+  // FIX: d'ora in poi foto e note vocali vengono salvate SU SUPABASE come URL (non base64).
+  // Quindi il record è leggero anche se ha foto. Non svuotiamo più nulla.
+  // Però se c'è ancora qualche foto base64 vecchia (data:image/...), la rimuoviamo
+  // prima del sync per evitare payload giganti.
+  const lLight = l.map(s => {
+    const fotoOk = (s.foto || []).filter(f => {
+      const u = f?.url || '';
+      return typeof u === 'string' && u.startsWith('http'); // tiene solo URL cloud
+    });
+    const noteOk = (s.noteVocali || []).filter(n => {
+      const u = n?.url || n?.b64 || '';
+      return typeof u === 'string' && u.startsWith('http');
+    });
+    return {...s, foto: fotoOk, noteVocali: noteOk};
+  });
+  dbSalva(LIST_KEY, lLight);
 }
 
 function renderLista(){
@@ -488,36 +533,98 @@ function delVoce(i){noteVocali.splice(i,1);renderNoteVocali();salva();}
 
 // ── FOTO ──
 function caricaFoto(input){
-  [...input.files].forEach(file=>{
-    const reader=new FileReader();
-    reader.onload=e=>{
-      const img=new Image();
-      img.onload=()=>{
-        const canvas=document.createElement('canvas');
-        const MAX=480; let w=img.width,h=img.height;
-        if(w>h){if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}}else{if(h>MAX){w=Math.round(w*MAX/h);h=MAX;}}
-        canvas.width=w; canvas.height=h;
-        canvas.getContext('2d').drawImage(img,0,0,w,h);
-        foto.push({url:canvas.toDataURL('image/jpeg',0.50)});
-        renderFoto(); salva();
+  const files = [...input.files];
+  input.value = '';
+  files.forEach(file => processaFoto(file));
+}
+
+async function processaFoto(file){
+  // 1) Comprimi l'immagine in locale (canvas → jpeg ~60% qualità, max 1600px)
+  const compressedBlob = await comprimiImmagine(file, 1600, 0.65);
+  // 2) Carica su Supabase Storage (bucket "Foto", cartella sopralluoghi/<sopId>)
+  const fileName = Date.now() + '.jpg';
+  const sopId = currentId || 'sop_' + Date.now();
+  if(!currentId) currentId = sopId; // nel caso stia iniziando un nuovo sopralluogo
+  const path = `sopralluoghi/${sopId}/${fileName}`;
+  // Placeholder locale (base64) mostrato subito in UI durante upload
+  const tempUrl = URL.createObjectURL(compressedBlob);
+  const placeholder = {url: tempUrl, uploading: true, localPath: path};
+  foto.push(placeholder);
+  renderFoto();
+
+  try{
+    if(!db){ throw new Error('No Supabase client'); }
+    const {error} = await db.storage.from('Foto').upload(path, compressedBlob, {
+      contentType: 'image/jpeg',
+      upsert: false
+    });
+    if(error){ throw error; }
+    // Ricava URL pubblico definitivo
+    const {data} = db.storage.from('Foto').getPublicUrl(path);
+    const publicUrl = data.publicUrl;
+    // Sostituisci il placeholder con l'URL vero
+    const idx = foto.findIndex(f => f === placeholder);
+    if(idx >= 0){
+      foto[idx] = {url: publicUrl};
+    }
+    URL.revokeObjectURL(tempUrl);
+    renderFoto();
+    salva();
+  }catch(e){
+    console.error('Upload foto fallito:', e);
+    // Rimuovi placeholder
+    const idx = foto.findIndex(f => f === placeholder);
+    if(idx >= 0) foto.splice(idx, 1);
+    URL.revokeObjectURL(tempUrl);
+    renderFoto();
+    toast('⚠️ Foto non caricata (rete?)', 'inf');
+  }
+}
+
+// Comprimi file immagine usando canvas, ritorna Blob JPEG
+function comprimiImmagine(file, maxSide = 1600, quality = 0.65){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Lettura file fallita'));
+    reader.onload = e => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Immagine non valida'));
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if(w > h){ if(w > maxSide){ h = Math.round(h * maxSide / w); w = maxSide; } }
+        else    { if(h > maxSide){ w = Math.round(w * maxSide / h); h = maxSide; } }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.toBlob(b => b ? resolve(b) : reject(new Error('Compressione fallita')),
+                      'image/jpeg', quality);
       };
-      img.src=e.target.result;
+      img.src = e.target.result;
     };
     reader.readAsDataURL(file);
   });
-  input.value='';
 }
 
 function renderFoto(){
-  const totalKB = Math.round(foto.reduce((s,f)=>s+(f.url.length*0.75/1024),0));
-  g('fnum').textContent=foto.length+' foto · '+totalKB+'KB';
-  if(totalKB>800) g('fnum').style.color='#E05252';
-  else g('fnum').style.color='var(--muted)';
-  const grid=g('foto-grid');
-  if(!foto.length){grid.innerHTML='';aggiornaProg();return;}
-  grid.innerHTML=foto.map((f,i)=>`
-    <div class="foto-item">
+  const totalKB = Math.round(foto.reduce((s,f) => {
+    const u = f?.url || '';
+    if(u.startsWith('data:')) return s + (u.length * 0.75 / 1024); // base64 legacy
+    return s; // URL cloud non pesano localmente
+  }, 0));
+  const nf = foto.length;
+  const uploading = foto.filter(f => f.uploading).length;
+  let txt = nf + ' foto';
+  if(totalKB > 0) txt += ' · ' + totalKB + 'KB';
+  if(uploading > 0) txt += ' · ⏳ ' + uploading + ' in upload';
+  g('fnum').textContent = txt;
+  if(totalKB > 800) g('fnum').style.color = '#E05252';
+  else g('fnum').style.color = 'var(--muted)';
+  const grid = g('foto-grid');
+  if(!foto.length){ grid.innerHTML = ''; aggiornaProg(); return; }
+  grid.innerHTML = foto.map((f,i) => `
+    <div class="foto-item" ${f.uploading ? 'style="opacity:0.6"' : ''}>
       <img src="${f.url}">
+      ${f.uploading ? '<div style="position:absolute;top:4px;left:4px;background:rgba(0,0,0,0.6);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px">⏳ Upload…</div>' : ''}
       <button class="foto-del" onclick="delFoto(${i})">✕</button>
       <span class="foto-num">${i+1}</span>
       <div class="foto-order">
@@ -534,7 +641,21 @@ function muoviFoto(i, dir){
   [foto[i],foto[j]]=[foto[j],foto[i]];
   renderFoto(); salva();
 }
-function delFoto(i){foto.splice(i,1);renderFoto();}
+async function delFoto(i){
+  const f = foto[i];
+  foto.splice(i, 1);
+  renderFoto();
+  salva();
+  // Se era una foto su Storage, prova a eliminarla anche lì (best-effort)
+  if(f?.url?.includes('/storage/v1/object/public/Foto/')){
+    try{
+      const path = f.url.split('/storage/v1/object/public/Foto/')[1];
+      if(path && db){
+        await db.storage.from('Foto').remove([path]);
+      }
+    }catch(e){ /* ignoriamo errori di eliminazione, la foto è rimossa dal record comunque */ }
+  }
+}
 
 // ── AVVIA CANTIERE ──
 function aggiornaBottoneAvvia(cantiereId){
