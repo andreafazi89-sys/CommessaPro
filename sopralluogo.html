@@ -702,12 +702,15 @@ function getCantieri(){try{return JSON.parse(localStorage.getItem('cantieri_v1')
 
 // ── AVVISA SEGRETARIA (WhatsApp) ──
 function avvisaSegretariaSopralluogo(){
-  const cliente = gv('fc'), indirizzo = gv('fi');
+  const titolo = gv('f-titolo'), cliente = gv('fc'), indirizzo = gv('fi');
   if(!cliente || !indirizzo){ toast('Inserisci cliente e indirizzo prima di avvisare', 'err'); return; }
   if(!SEGRETARIA.whatsapp || SEGRETARIA.whatsapp.includes('X')){
     toast('Numero segretaria non configurato', 'err'); return;
   }
-  const msg = `Nuovo sopralluogo - ${cliente} - ${indirizzo}. Aprire commessa.`;
+  const parts = ['Nuovo sopralluogo'];
+  if(titolo) parts.push(titolo);
+  parts.push(cliente, indirizzo);
+  const msg = parts.join(' - ') + '. Aprire commessa.';
   const url = `https://wa.me/${SEGRETARIA.whatsapp}?text=${encodeURIComponent(msg)}`;
   window.open(url, '_blank');
 }
