@@ -148,7 +148,7 @@ textarea{resize:none;min-height:80px;line-height:1.6;}
     </div>
   </div>
   <div class="bottom-bar">
-    <button class="btn-main" onclick="chiudiCantiere()">✓ Chiudi Cantiere</button>
+    <button class="btn-main" onclick="chiudiCantiere()">✓ Fine Cantiere</button>
   </div>
 </div>
 
@@ -159,6 +159,11 @@ textarea{resize:none;min-height:80px;line-height:1.6;}
 const SUPA_URL='https://iradzlocobsipjazracw.supabase.co';
 const SUPA_KEY='sb_publishable_zFgRrNrmYSORug8N06heow_6vjl0fhH';
 const CANT_KEY='cantieri_v1';
+// ── SEGRETARIA: configura qui email (e in futuro WhatsApp) ──
+const SEGRETARIA = {
+  email: 'info@pierantonicm.com',
+  whatsapp: '39XXXXXXXXXX'  // ← SOSTITUIRE con numero reale, formato '393331234567'
+};
 const OPERAI=['Adrian Lup','Fabio Cardini','Daniele Schedel','Michele Poveste','Vasile Banta'];
 let db=null, currentCant=null, operaiSel=[];
 
@@ -416,9 +421,37 @@ function delContributo(id){
 }
 
 function chiudiCantiere(){
-  if(!confirm('Chiudere il cantiere?'))return;
+  if(!confirm('Chiudere il cantiere e avvisare la segretaria per la fattura?'))return;
   currentCant.stato='Completato';currentCant.dataFine=new Date().toISOString().split('T')[0];
-  salvaCantiere();g('det-stato').textContent='Completato';g('det-stato').style.background='rgba(200,184,154,.1)';g('det-stato').style.color='var(--muted)';toast('Cantiere chiuso','ok');
+  salvaCantiere();g('det-stato').textContent='Completato';g('det-stato').style.background='rgba(200,184,154,.1)';g('det-stato').style.color='var(--muted)';
+  // Notifica segretaria via mail per emissione fattura
+  notificaFineCantiere();
+  toast('Cantiere chiuso','ok');
+}
+
+function notificaFineCantiere(){
+  if(!SEGRETARIA.email){ return; }
+  const c = currentCant;
+  const rif = c.commessa || c.titolo || c.cliente || 'cantiere';
+  const subject = `Fine cantiere ${rif} - emettere fattura`;
+  const lines = [
+    'Ciao Antonella,',
+    '',
+    'il cantiere e stato chiuso. Procedere con emissione fattura.',
+    '',
+    `Commessa: ${c.commessa || '—'}`,
+    `Lavoro: ${c.titolo || '—'}`,
+    `Cliente: ${c.cliente || '—'}`,
+    `Indirizzo: ${c.indirizzo || '—'}`,
+    `Responsabile: ${c.resp || '—'}`,
+    `Data inizio: ${c.dataInizio || '—'}`,
+    `Data fine: ${c.dataFine || '—'}`,
+    '',
+    'Grazie.'
+  ];
+  const body = lines.join('\n');
+  const url = `mailto:${SEGRETARIA.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.location.href = url;
 }
 
 function importaCantieri(input){
