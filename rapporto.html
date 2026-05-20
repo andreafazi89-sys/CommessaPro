@@ -79,6 +79,12 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
 .riga-cant .rc-num{position:absolute;top:8px;right:10px;font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;}
 .riga-cant .rc-del{position:absolute;top:6px;right:6px;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:4px 8px;}
 .btn-add-riga{width:100%;padding:12px;background:transparent;color:var(--brick);border:2px dashed var(--brick);border-radius:var(--r-sm);font-family:Epilogue,sans-serif;font-size:13px;font-weight:600;cursor:pointer;margin-top:6px;}
+/* Chip colleghi (per riga) — stesso pattern di cantiere.html */
+.op-grid{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px;}
+.op-chip{padding:8px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:18px;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;-webkit-user-select:none;}
+.op-chip.on{background:var(--brick-dim);border-color:var(--brick);color:var(--brick);}
+.op-empty-hint{font-size:11px;color:var(--muted);font-style:italic;padding:4px 0;}
+.rpt-colleghi{font-size:12px;color:var(--sand);margin-top:6px;}
 /* Badge totale ore nel form */
 .tot-bar{background:var(--brick-dim);border:1px solid var(--brick);border-radius:var(--r-sm);padding:10px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:600;color:var(--brick);}
 .tot-bar .tot-val{font-family:'Syne',sans-serif;font-size:16px;}
@@ -192,6 +198,10 @@ const CANT_KEY = 'cantieri_v1';
 let db = null;
 let currentEditId = null;  // null = nuovo, altrimenti id del record in modifica
 let rigaCounter = 0;       // contatore incrementale per le righe del form
+// Elenco operai disponibili come "colleghi" (allineato con la select #f-operaio)
+const OPERAI = ['Adrian Lup','Fabio Cardini','Daniele Schedel','Michele Poveste','Vasile Banta','Andrea Fazi','Lino Brunozzi','Rino Lenti'];
+// Mappa rigaN -> array di nomi colleghi selezionati per quella riga
+let colleghiPerRiga = {};
 
 function initDB(){ if(window.supabase) db = window.supabase.createClient(SUPA_URL, SUPA_KEY); }
 
@@ -294,7 +304,7 @@ function renderCampoOperaio(valoreCorrente){
     // Dropdown libero per capo/admin/segretaria
     wrap.innerHTML = `
       <label>Nome operaio *</label>
-      <select id="f-operaio">
+      <select id="f-operaio" onchange="renderColleghiTutteRighe()">
         <option value="">-- seleziona --</option>
         <option>Adrian Lup</option>
         <option>Fabio Cardini</option>
@@ -472,6 +482,7 @@ function renderLista(){
             </div>
             ${r.descrizione ? `<div class="rpt-desc">${r.descrizione}</div>` : ''}
             ${r.subappaltatori ? `<div class="rpt-sub">Sub: ${r.subappaltatori}</div>` : ''}
+            ${(Array.isArray(r.colleghi) && r.colleghi.length) ? `<div class="rpt-colleghi">👥 Con: ${r.colleghi.map(c => c.split(' ')[0]).join(', ')}</div>` : ''}
             <div class="rpt-actions">
               <button class="rpt-btn edit" onclick="modificaRapporto('${r.id}')">✏️ Modifica</button>
               <button class="rpt-btn del" onclick="eliminaRapporto('${r.id}')">🗑 Elimina</button>
@@ -498,6 +509,7 @@ function nuovoRapporto(){
   // Resetta righe
   g('righe-container').innerHTML = '';
   rigaCounter = 0;
+  colleghiPerRiga = {};
   aggiungiRiga();
   showView('form');
 }
@@ -513,7 +525,8 @@ function modificaRapporto(id){
   renderCampoOperaio(r.operaio);
   g('righe-container').innerHTML = '';
   rigaCounter = 0;
-  aggiungiRiga({cantiereId:r.cantiereId, ore:r.ore, descrizione:r.descrizione, subappaltatori:r.subappaltatori});
+  colleghiPerRiga = {};
+  aggiungiRiga({cantiereId:r.cantiereId, ore:r.ore, descrizione:r.descrizione, subappaltatori:r.subappaltatori, colleghi:r.colleghi || []});
   showView('form');
 }
 
@@ -561,8 +574,16 @@ function aggiungiRiga(preset){
       <label>Subappaltatori (opzionale)</label>
       <input type="text" id="rc-sub-${n}" placeholder="Es. Ditta Rossi">
     </div>
+    <div class="fg">
+      <label>Colleghi presenti (opzionale)</label>
+      <div class="op-grid" id="rc-coll-${n}"></div>
+    </div>
   `;
   g('righe-container').appendChild(div);
+
+  // Inizializza stato colleghi della riga (eventuale preset in modifica)
+  colleghiPerRiga[n] = (preset && Array.isArray(preset.colleghi)) ? [...preset.colleghi] : [];
+  renderColleghiChips(n);
 
   if(preset){
     g('rc-cant-'+n).value = preset.cantiereId || '';
@@ -580,7 +601,43 @@ function rimuoviRiga(n){
   const tot = document.querySelectorAll('.riga-cant').length;
   if(tot <= 1){ toast('Deve esserci almeno una riga','err'); return; }
   el.remove();
+  delete colleghiPerRiga[n];
   aggiornaTotale();
+}
+
+// ── Colleghi per riga (chip selezionabili) ──
+function renderColleghiChips(n){
+  const cont = g('rc-coll-'+n);
+  if(!cont) return;
+  const principale = gv('f-operaio');
+  const disponibili = OPERAI.filter(o => o !== principale);
+  // Rimuovo dalla selezione eventuali nomi non più disponibili (es. è diventato l'operaio principale)
+  const sel = (colleghiPerRiga[n] || []).filter(o => disponibili.includes(o));
+  colleghiPerRiga[n] = sel;
+  if(!disponibili.length){
+    cont.innerHTML = '<div class="op-empty-hint">Nessun collega disponibile</div>';
+    return;
+  }
+  cont.innerHTML = disponibili.map(op => {
+    const on = sel.includes(op);
+    return `<div class="op-chip ${on?'on':''}" onclick="toggleCollega(${n}, '${op.replace(/'/g,"\\'")}', this)">${op.split(' ')[0]}</div>`;
+  }).join('');
+}
+
+function toggleCollega(n, nome, el){
+  if(!colleghiPerRiga[n]) colleghiPerRiga[n] = [];
+  const i = colleghiPerRiga[n].indexOf(nome);
+  if(i >= 0) colleghiPerRiga[n].splice(i, 1);
+  else colleghiPerRiga[n].push(nome);
+  el.classList.toggle('on');
+}
+
+// Rigenera le chip in tutte le righe (utile quando cambia l'operaio principale)
+function renderColleghiTutteRighe(){
+  document.querySelectorAll('.riga-cant').forEach(div => {
+    const n = parseInt(div.id.replace('riga-',''));
+    if(!isNaN(n)) renderColleghiChips(n);
+  });
 }
 
 function aggiornaTotale(){
@@ -601,7 +658,8 @@ function raccogliRighe(){
     const ore = parseFloat(g('rc-ore-'+n)?.value || 0);
     const desc = g('rc-desc-'+n)?.value?.trim() || '';
     const sub = g('rc-sub-'+n)?.value?.trim() || '';
-    if(cant || ore > 0 || desc) out.push({cantiereId:cant, ore, descrizione:desc, subappaltatori:sub});
+    const colleghi = Array.isArray(colleghiPerRiga[n]) ? [...colleghiPerRiga[n]] : [];
+    if(cant || ore > 0 || desc) out.push({cantiereId:cant, ore, descrizione:desc, subappaltatori:sub, colleghi});
   });
   return out;
 }
@@ -641,6 +699,7 @@ function salvaRapporto(){
       ore: r0.ore,
       descrizione: r0.descrizione,
       subappaltatori: r0.subappaltatori,
+      colleghi: Array.isArray(r0.colleghi) ? r0.colleghi : [],
       timestamp: now
     };
   } else {
@@ -654,6 +713,7 @@ function salvaRapporto(){
         ore: r.ore,
         descrizione: r.descrizione,
         subappaltatori: r.subappaltatori,
+        colleghi: Array.isArray(r.colleghi) ? r.colleghi : [],
         tipo: 'operaio',
         autore,
         timestamp: now
@@ -823,8 +883,17 @@ function generaRapportoContributo(id){
     ? record.subappaltatori.split(',').map(s => s.trim()).filter(Boolean)
     : [];
 
+  // Compilatore in cima, poi i colleghi sotto (stesse ore + commessa, desc condivisa solo sul compilatore)
+  const colleghi = Array.isArray(record.colleghi) ? record.colleghi.filter(c => c && c !== record.operaio) : [];
+  const operai = [
+    {nome: record.operaio, ore: record.ore, desc: record.descrizione || '', commessa},
+    ...colleghi.map(c => ({nome: c, ore: record.ore, desc: '', commessa}))
+  ];
+  // ⚠️ DEBUG TEMPORANEO — da rimuovere dopo la verifica
+  alert('DEBUG singolo contributo\nrecord.colleghi = ' + JSON.stringify(record.colleghi) + '\nNomi nel PDF: ' + operai.map(o => o.nome).join(' | '));
+
   const html = renderPDFHtml({
-    operai: [{nome: record.operaio, ore: record.ore, desc: record.descrizione || '', commessa}],
+    operai,
     subs,
     dataFmt,
     nomeCantiere,
@@ -860,17 +929,19 @@ function generaRapportoGiornaliero(operaio, data){
   const cantieri = getCantieri();
   const dataFmt = new Date(data + 'T12:00:00').toLocaleDateString('it-IT');
 
-  // Una riga per ogni lavorazione: Adrian/4h/P0066 - Adrian/4h/P0067 ...
-  const operai = tutti.map(r => {
+  // Per ogni lavorazione: prima il compilatore, poi i suoi colleghi (stesse ore + commessa, desc vuota)
+  const operai = [];
+  tutti.forEach(r => {
     const cant = cantieri.find(c => c.id === r.cantiereId);
     const commessa = cant ? (cant.commessa || '') : '';
-    return {
-      nome: r.operaio,
-      ore: r.ore,
-      desc: r.descrizione || '',
-      commessa
-    };
+    operai.push({ nome: r.operaio, ore: r.ore, desc: r.descrizione || '', commessa });
+    const colleghi = Array.isArray(r.colleghi) ? r.colleghi.filter(c => c && c !== r.operaio) : [];
+    colleghi.forEach(c => {
+      operai.push({ nome: c, ore: r.ore, desc: '', commessa });
+    });
   });
+  // ⚠️ DEBUG TEMPORANEO — da rimuovere dopo la verifica
+  alert('DEBUG giornaliero\nRecord trovati: ' + tutti.length + '\nColleghi per record: ' + JSON.stringify(tutti.map(r => r.colleghi||[])) + '\nNomi nel PDF: ' + operai.map(o => o.nome).join(' | '));
 
   // Subappaltatori unici da tutte le lavorazioni
   const subsSet = new Set();
