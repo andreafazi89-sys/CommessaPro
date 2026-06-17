@@ -889,16 +889,13 @@ function generaRapportoContributo(id){
     {nome: record.operaio, ore: record.ore, desc: record.descrizione || '', commessa},
     ...colleghi.map(c => ({nome: c, ore: record.ore, desc: '', commessa}))
   ];
-  // ⚠️ DEBUG TEMPORANEO — da rimuovere dopo la verifica
-  alert('DEBUG singolo contributo\nrecord.colleghi = ' + JSON.stringify(record.colleghi) + '\nNomi nel PDF: ' + operai.map(o => o.nome).join(' | '));
-
   const html = renderPDFHtml({
     operai,
     subs,
     dataFmt,
     nomeCantiere,
     firma: (record.operaio || '').toUpperCase(),
-    totOre: record.ore,
+    totOre: operai.reduce((s, o) => s + (parseFloat(o.ore) || 0), 0),
     commTot: commessa
   });
 
@@ -940,9 +937,6 @@ function generaRapportoGiornaliero(operaio, data){
       operai.push({ nome: c, ore: r.ore, desc: '', commessa });
     });
   });
-  // ⚠️ DEBUG TEMPORANEO — da rimuovere dopo la verifica
-  alert('DEBUG giornaliero\nRecord trovati: ' + tutti.length + '\nColleghi per record: ' + JSON.stringify(tutti.map(r => r.colleghi||[])) + '\nNomi nel PDF: ' + operai.map(o => o.nome).join(' | '));
-
   // Subappaltatori unici da tutte le lavorazioni
   const subsSet = new Set();
   tutti.forEach(r => {
@@ -952,8 +946,8 @@ function generaRapportoGiornaliero(operaio, data){
   });
   const subs = [...subsSet];
 
-  // Totale ore
-  const totOre = tutti.reduce((s, r) => s + (parseFloat(r.ore) || 0), 0);
+  // Totale ore: somma tutti gli operai (compilatori + colleghi)
+  const totOre = operai.reduce((s, o) => s + (parseFloat(o.ore) || 0), 0);
 
   // CANTIERE in alto: vuoto (scelta utente: ogni lavorazione ha la sua commessa nella tabella)
   const html = renderPDFHtml({
