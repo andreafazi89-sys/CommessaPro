@@ -199,7 +199,7 @@ let db = null;
 let currentEditId = null;  // null = nuovo, altrimenti id del record in modifica
 let rigaCounter = 0;       // contatore incrementale per le righe del form
 // Elenco operai disponibili come "colleghi" (allineato con la select #f-operaio)
-const OPERAI = ['Adrian Lup','Fabio Cardini','Daniele Schedel','Michele Poveste','Vasile Banta','Andrea Fazi','Lino Brunozzi','Rino Lenti'];
+const OPERAI = ['Adrian Lup','Fabio Cardini','Daniele Schedel','Michele Poveste','Vasile Banta'];
 // Mappa rigaN -> array di nomi colleghi selezionati per quella riga
 let colleghiPerRiga = {};
 
@@ -311,9 +311,6 @@ function renderCampoOperaio(valoreCorrente){
         <option>Daniele Schedel</option>
         <option>Michele Poveste</option>
         <option>Vasile Banta</option>
-        <option>Andrea Fazi</option>
-        <option>Lino Brunozzi</option>
-        <option>Rino Lenti</option>
       </select>
       <div class="op-locked-hint">Puoi inserire anche per altri operai</div>
     `;
