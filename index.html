@@ -173,6 +173,8 @@ const ALL_TOOLS=[
   {key:'note',href:'note.html',icon:'📝',bg:'rgba(212,81,30,0.12)',name:'Note & Agenda',desc:'Attività giornaliere per mese',roles:['admin','segretaria']},
   {key:'rubrica',href:'rubrica.html',icon:'👥',bg:'rgba(58,122,76,0.12)',name:'Rubrica Clienti',desc:'Anagrafica nome, telefono, email',roles:['admin','segretaria']},
 ];
+// Flag per attivare/disattivare le tab: 1 = visibile, 0 = spenta per tutti
+const TOOLS_ATTIVI={sopralluogo:1,rapporto:1,cantiere:1,sal:1,contabilita:0,note:0,rubrica:1};
 function renderTools(){
   const user=getUser();
   const ruolo=(user?.ruolo||'operatore').toLowerCase();
@@ -180,6 +182,7 @@ function renderTools(){
   const permessi=user?.permessi||null;
   const list=document.getElementById('tools-list');
   list.innerHTML=ALL_TOOLS
+    .filter(t=>TOOLS_ATTIVI[t.key])
     .filter(t=>{
       if(isPrivileged) return true;
       if(permessi&&t.key in permessi) return permessi[t.key]!=='hidden';
@@ -319,7 +322,7 @@ async function caricaUtenti(){
           <button class="edit-btn" id="ebtn-${u.id}" onclick="toggleEditor('${u.id}')" title="Modifica permessi">✏️ Modifica</button>
         </div>
         <div class="utente-editor" id="uedit-${u.id}" style="display:none">
-          ${TOOLS_PERM.map(t=>{
+          ${TOOLS_PERM.filter(t=>TOOLS_ATTIVI[t.key]).map(t=>{
             const v=permessiCache[u.id][t.key]||'full';
             return `<div class="perm-row" data-uid="${u.id}" data-tool="${t.key}">
               <span class="perm-lbl">${t.label}</span>
@@ -413,8 +416,14 @@ function aggiornaRiepilogo(){
     if(parseFloat(c.preventivo)>0)fat+=parseFloat(c.preventivo);
   });
   const m=fat-cos,el=document.getElementById('st-margine');
-  el.textContent=(m>=0?'+':'')+new Intl.NumberFormat('it-IT',{minimumFractionDigits:0}).format(Math.round(m))+'€';
-  el.className='stat-val '+(m>=0?'pos':'neg');
+  const ruoloU=(getUser()?.ruolo||'').toLowerCase();
+  if(ruoloU!=='admin'&&ruoloU!=='segretaria'){
+    // Dato economico: mai visibile ai non privilegiati (regola non negoziabile 1)
+    el.closest('.stat-box').style.display='none';
+  } else {
+    el.textContent=(m>=0?'+':'')+new Intl.NumberFormat('it-IT',{minimumFractionDigits:0}).format(Math.round(m))+'€';
+    el.className='stat-val '+(m>=0?'pos':'neg');
+  }
 }
 
 async function syncData(){
