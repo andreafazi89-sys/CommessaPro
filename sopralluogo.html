@@ -48,7 +48,7 @@ textarea{resize:none;min-height:90px;line-height:1.6;}
 .rec-btn.idle{background:var(--surface2);color:var(--sand);border:1px solid var(--border);}
 .rec-btn.recording{background:#C84040;color:#fff;animation:pulse-rec 1s infinite;}
 @keyframes pulse-rec{0%,100%{opacity:1}50%{opacity:.7}}
-.foto-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+.foto-btns{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
 .foto-btn{padding:14px;background:var(--surface2);border:1.5px dashed var(--border);border-radius:var(--r-sm);text-align:center;cursor:pointer;}
 .foto-btn:active{border-color:var(--brick);}
 .foto-btn-icon{font-size:22px;margin-bottom:4px;}.foto-btn-lbl{font-size:12px;font-weight:500;color:var(--sand);}
@@ -57,6 +57,7 @@ input[type="file"]{display:none;}
 .foto-item{position:relative;border-radius:8px;overflow:hidden;aspect-ratio:1;background:var(--surface2);}
 .foto-item img{width:100%;height:100%;object-fit:cover;display:block;}
 .foto-del{position:absolute;top:3px;right:3px;width:22px;height:22px;background:rgba(0,0,0,.75);color:#fff;border:none;border-radius:50%;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.foto-edit{position:absolute;top:3px;right:28px;width:22px;height:22px;background:rgba(0,0,0,.75);color:#fff;border:none;border-radius:50%;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
 .foto-num{position:absolute;bottom:3px;left:5px;font-size:9px;font-weight:700;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.9);}
 .foto-order{position:absolute;bottom:3px;right:3px;display:flex;gap:2px;}
 .foto-order button{width:20px;height:20px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:4px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
@@ -76,6 +77,14 @@ input[type="file"]{display:none;}
 .rep-btn.close{background:rgba(255,255,255,.1);color:#fff;}
 .rep-btn.print{background:var(--brick);color:#fff;}
 .report-frame{flex:1;border:none;width:100%;}
+.sketch-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:999;background:#1A1612;display:none;flex-direction:column;}
+.sketch-overlay.show{display:flex;}
+.sketch-topbar{padding:10px 12px;display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.sk-tools{flex:1;display:flex;gap:6px;justify-content:center;flex-wrap:wrap;}
+.sk-tool{width:34px;height:34px;border-radius:8px;border:2px solid transparent;cursor:pointer;background:rgba(255,255,255,.1);color:#fff;font-size:15px;display:flex;align-items:center;justify-content:center;padding:0;}
+.sk-tool.active{border-color:#fff;}
+.sketch-wrap{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:8px;}
+#sketch-canvas{background:#fff;touch-action:none;border-radius:4px;}
 .toast{position:fixed;top:70px;left:16px;right:16px;padding:14px 16px;border-radius:var(--r-sm);font-size:14px;font-weight:500;text-align:center;z-index:9999;opacity:0;transform:translateY(-8px);transition:all .3s;pointer-events:none;}
 .toast.show{opacity:1;transform:translateY(0);}
 .toast.ok{background:var(--green);color:#fff;}
@@ -212,6 +221,9 @@ input[type="file"]{display:none;}
         <div class="foto-btn" onclick="document.getElementById('fi-lib').click()">
           <div class="foto-btn-icon">🖼️</div><div class="foto-btn-lbl">Dalla libreria</div>
         </div>
+        <div class="foto-btn" onclick="apriSketchNuovo()">
+          <div class="foto-btn-icon">✏️</div><div class="foto-btn-lbl">Schizzo</div>
+        </div>
       </div>
       <input type="file" id="fi-cam" accept="image/*" capture="environment" multiple onchange="caricaFoto(this)">
       <input type="file" id="fi-lib" accept="image/*" multiple onchange="caricaFoto(this)">
@@ -237,6 +249,23 @@ input[type="file"]{display:none;}
     </div>
   </div>
   <iframe id="report-frame" class="report-frame"></iframe>
+</div>
+
+<div class="sketch-overlay" id="sketch-overlay">
+  <div class="sketch-topbar">
+    <button class="rep-btn close" onclick="chiudiSketch()">✕ Chiudi</button>
+    <div class="sk-tools">
+      <button class="sk-tool sk-col active" style="background:#111111" onclick="skSetColore('#111111',this)" title="Nero"></button>
+      <button class="sk-tool sk-col" style="background:#C81E1E" onclick="skSetColore('#C81E1E',this)" title="Rosso"></button>
+      <button class="sk-tool sk-col" style="background:#1D4ED8" onclick="skSetColore('#1D4ED8',this)" title="Blu"></button>
+      <button class="sk-tool sk-siz active" style="font-size:10px" onclick="skSetSpessore(3,this)" title="Tratto fine">●</button>
+      <button class="sk-tool sk-siz" style="font-size:20px" onclick="skSetSpessore(8,this)" title="Tratto grosso">●</button>
+      <button class="sk-tool" id="sk-gomma" onclick="skToggleGomma()" title="Gomma">🧽</button>
+      <button class="sk-tool" onclick="skAnnulla()" title="Annulla ultimo tratto">↩️</button>
+    </div>
+    <button class="rep-btn print" onclick="salvaSketch()">💾 Salva</button>
+  </div>
+  <div class="sketch-wrap" id="sketch-wrap"><canvas id="sketch-canvas"></canvas></div>
 </div>
 
 <input type="file" id="import-input" accept=".json" style="display:none" onchange="leggiImport(this)">
@@ -548,6 +577,18 @@ function caricaFoto(input){
   files.forEach(file => processaFoto(file));
 }
 
+// Carica un blob sul bucket "Foto" e ritorna il publicUrl (o lancia errore)
+async function caricaBlobSuStorage(blob, path, contentType){
+  if(!db){ throw new Error('No Supabase client'); }
+  const {error} = await db.storage.from('Foto').upload(path, blob, {
+    contentType: contentType,
+    upsert: false
+  });
+  if(error){ throw error; }
+  const {data} = db.storage.from('Foto').getPublicUrl(path);
+  return data.publicUrl;
+}
+
 async function processaFoto(file){
   // 1) Comprimi l'immagine in locale (canvas → jpeg ~85% qualità, max 2000px)
   const compressedBlob = await comprimiImmagine(file, 2000, 0.85);
@@ -563,15 +604,7 @@ async function processaFoto(file){
   renderFoto();
 
   try{
-    if(!db){ throw new Error('No Supabase client'); }
-    const {error} = await db.storage.from('Foto').upload(path, compressedBlob, {
-      contentType: 'image/jpeg',
-      upsert: false
-    });
-    if(error){ throw error; }
-    // Ricava URL pubblico definitivo
-    const {data} = db.storage.from('Foto').getPublicUrl(path);
-    const publicUrl = data.publicUrl;
+    const publicUrl = await caricaBlobSuStorage(compressedBlob, path, 'image/jpeg');
     // Sostituisci il placeholder con l'URL vero
     const idx = foto.findIndex(f => f === placeholder);
     if(idx >= 0){
@@ -636,6 +669,7 @@ function renderFoto(){
       <img src="${f.url}">
       ${f.uploading ? '<div style="position:absolute;top:4px;left:4px;background:rgba(0,0,0,0.6);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px">⏳ Upload…</div>' : ''}
       <button class="foto-del" onclick="delFoto(${i})">✕</button>
+      ${!f.uploading ? `<button class="foto-edit" onclick="apriSketchFoto(${i})" title="Disegna sulla foto">✏️</button>` : ''}
       <span class="foto-num">${i+1}</span>
       <div class="foto-order">
         ${i>0?`<button onclick="muoviFoto(${i},-1)">◀</button>`:'<span></span>'}
@@ -661,9 +695,227 @@ async function delFoto(i){
     try{
       const path = f.url.split('/storage/v1/object/public/Foto/')[1];
       if(path && db){
-        await db.storage.from('Foto').remove([path]);
+        const paths = [path];
+        // Gli schizzi hanno anche il JSON dei tratti: eliminiamo pure quello
+        if(f.strokesPath) paths.push(f.strokesPath);
+        await db.storage.from('Foto').remove(paths);
       }
     }catch(e){ /* ignoriamo errori di eliminazione, la foto è rimossa dal record comunque */ }
+  }
+}
+
+// ── SCHIZZI A PENNA (canvas) ──
+let skCanvas=null, skCtx=null, skLayer=null, skLayerCtx=null;
+let skStrokes=[], skCurrent=null, skLastDrawn=0;
+let skColor='#111111', skSize=3, skEraser=false;
+let skPenSeen=false, skDrawing=false, skPointerId=null;
+let skBgImg=null, skBgUrl=null, skInit=false;
+
+function skSetupListeners(){
+  if(skInit) return;
+  skInit=true;
+  skCanvas=g('sketch-canvas');
+  skCtx=skCanvas.getContext('2d');
+  skCanvas.addEventListener('pointerdown',skDown);
+  skCanvas.addEventListener('pointermove',skMove);
+  skCanvas.addEventListener('pointerup',skUp);
+  skCanvas.addEventListener('pointercancel',skUp);
+}
+
+function apriSketchNuovo(){ apriSketch(null,null); }
+
+function apriSketchFoto(i){
+  const f=foto[i];
+  if(!f||!f.url||f.uploading) return;
+  const img=new Image();
+  img.crossOrigin='anonymous';
+  img.onload=()=>apriSketch(img,f.url);
+  img.onerror=()=>toast('⚠️ Foto non caricabile per lo schizzo','err');
+  img.src=f.url;
+}
+
+function apriSketch(bgImg,bgUrl){
+  skSetupListeners();
+  skBgImg=bgImg; skBgUrl=bgUrl;
+  skStrokes=[]; skCurrent=null; skPenSeen=false; skDrawing=false; skPointerId=null;
+  skEraser=false; g('sk-gomma').classList.remove('active');
+  g('sketch-overlay').classList.add('show');
+  // Il canvas va dimensionato quando l'overlay ha gia un layout
+  requestAnimationFrame(skDimensiona);
+}
+
+function skDimensiona(){
+  const wrap=g('sketch-wrap');
+  const dpr=window.devicePixelRatio||1;
+  const maxW=wrap.clientWidth-16, maxH=wrap.clientHeight-16;
+  let w=maxW, h=maxH;
+  if(skBgImg){
+    const sc=Math.min(maxW/skBgImg.width, maxH/skBgImg.height);
+    w=Math.round(skBgImg.width*sc); h=Math.round(skBgImg.height*sc);
+  }
+  skCanvas.style.width=w+'px'; skCanvas.style.height=h+'px';
+  skCanvas.width=Math.round(w*dpr); skCanvas.height=Math.round(h*dpr);
+  skLayer=document.createElement('canvas');
+  skLayer.width=skCanvas.width; skLayer.height=skCanvas.height;
+  skLayerCtx=skLayer.getContext('2d');
+  skRidisegna();
+}
+
+// Compone il canvas visibile: fondo bianco + eventuale foto + layer tratti
+function skComponi(){
+  skCtx.fillStyle='#fff';
+  skCtx.fillRect(0,0,skCanvas.width,skCanvas.height);
+  if(skBgImg) skCtx.drawImage(skBgImg,0,0,skCanvas.width,skCanvas.height);
+  skCtx.drawImage(skLayer,0,0);
+}
+
+// Ridisegna da zero il layer tratti (dopo undo o ridimensionamento)
+function skRidisegna(){
+  skLayerCtx.clearRect(0,0,skLayer.width,skLayer.height);
+  skStrokes.forEach(s=>skTracciaStroke(skLayerCtx,s));
+  skComponi();
+}
+
+function skTracciaStroke(ctx2,s){
+  if(!s.points.length) return;
+  if(s.points.length===1){ skTracciaPunto(ctx2,s); return; }
+  for(let i=1;i<s.points.length;i++) skTracciaSegmento(ctx2,s,i);
+}
+
+function skTracciaPunto(ctx2,s){
+  const [x,y,p]=s.points[0];
+  ctx2.save();
+  ctx2.globalCompositeOperation=s.eraser?'destination-out':'source-over';
+  ctx2.fillStyle=s.color;
+  ctx2.beginPath();
+  ctx2.arc(x,y,Math.max(1,s.size*((p||0.5)*2)/2),0,Math.PI*2);
+  ctx2.fill();
+  ctx2.restore();
+}
+
+// Disegna il segmento che arriva al punto i, smussato con curva quadratica tra i punti medi
+function skTracciaSegmento(ctx2,s,i){
+  const pts=s.points;
+  const [x0,y0,p0]=pts[i-1], [x1,y1,p1]=pts[i];
+  const mx0=i>1?(pts[i-2][0]+x0)/2:x0, my0=i>1?(pts[i-2][1]+y0)/2:y0;
+  const mx1=(x0+x1)/2, my1=(y0+y1)/2;
+  ctx2.save();
+  ctx2.globalCompositeOperation=s.eraser?'destination-out':'source-over';
+  ctx2.strokeStyle=s.color;
+  ctx2.lineCap='round'; ctx2.lineJoin='round';
+  ctx2.lineWidth=Math.max(1,s.size*(((p0+p1)/2||0.5)*2));
+  ctx2.beginPath();
+  ctx2.moveTo(mx0,my0);
+  ctx2.quadraticCurveTo(x0,y0,mx1,my1);
+  ctx2.stroke();
+  ctx2.restore();
+}
+
+// Coordinate in pixel del buffer canvas + pressione (0.5 se non disponibile)
+function skPunto(e){
+  const r=skCanvas.getBoundingClientRect();
+  const x=(e.clientX-r.left)*(skCanvas.width/r.width);
+  const y=(e.clientY-r.top)*(skCanvas.height/r.height);
+  const p=e.pointerType==='pen'?(e.pressure||0.5):0.5;
+  return [Math.round(x*10)/10, Math.round(y*10)/10, Math.round(p*100)/100];
+}
+
+function skDown(e){
+  if(e.pointerType==='pen') skPenSeen=true;
+  // Palm rejection: se in questa sessione c'e stata una penna, il touch non disegna
+  if(e.pointerType==='touch'&&skPenSeen) return;
+  if(skDrawing) return;
+  e.preventDefault();
+  skDrawing=true; skPointerId=e.pointerId;
+  try{ skCanvas.setPointerCapture(e.pointerId); }catch(err){}
+  skCurrent={color:skColor,size:skSize*(window.devicePixelRatio||1),eraser:skEraser,points:[skPunto(e)]};
+  skLastDrawn=0;
+  skTracciaPunto(skLayerCtx,skCurrent);
+  skComponi();
+}
+
+function skMove(e){
+  if(!skDrawing||e.pointerId!==skPointerId||!skCurrent) return;
+  e.preventDefault();
+  const coalesced=e.getCoalescedEvents?e.getCoalescedEvents():[];
+  const evts=coalesced.length?coalesced:[e];
+  evts.forEach(ev=>skCurrent.points.push(skPunto(ev)));
+  for(let i=skLastDrawn+1;i<skCurrent.points.length;i++) skTracciaSegmento(skLayerCtx,skCurrent,i);
+  skLastDrawn=skCurrent.points.length-1;
+  skComponi();
+}
+
+function skUp(e){
+  if(!skDrawing||e.pointerId!==skPointerId) return;
+  skDrawing=false; skPointerId=null;
+  if(skCurrent&&skCurrent.points.length) skStrokes.push(skCurrent);
+  skCurrent=null;
+}
+
+function skSetColore(c,btn){
+  skColor=c; skEraser=false;
+  g('sk-gomma').classList.remove('active');
+  document.querySelectorAll('.sk-col').forEach(b=>b.classList.toggle('active',b===btn));
+}
+
+function skSetSpessore(n,btn){
+  skSize=n;
+  document.querySelectorAll('.sk-siz').forEach(b=>b.classList.toggle('active',b===btn));
+}
+
+function skToggleGomma(){
+  skEraser=!skEraser;
+  g('sk-gomma').classList.toggle('active',skEraser);
+}
+
+function skAnnulla(){
+  if(!skStrokes.length) return;
+  skStrokes.pop();
+  skRidisegna();
+}
+
+function chiudiSketch(){
+  if(skStrokes.length&&!confirm('Chiudere senza salvare lo schizzo?')) return;
+  g('sketch-overlay').classList.remove('show');
+}
+
+async function salvaSketch(){
+  if(!skStrokes.length){ toast('Nessun tratto da salvare','inf'); return; }
+  skComponi();
+  const blob=await new Promise(res=>skCanvas.toBlob(res,'image/png'));
+  if(!blob){ toast('⚠️ Errore nella creazione dello schizzo','err'); return; }
+  const ts=Date.now();
+  const sopId=currentId||'sop_'+ts;
+  if(!currentId) currentId=sopId;
+  const pngPath=`sopralluoghi/${sopId}/sketch_${ts}.png`;
+  const jsonPath=`sopralluoghi/${sopId}/sketch_${ts}.json`;
+  const strokesJson=new Blob(
+    [JSON.stringify({w:skCanvas.width,h:skCanvas.height,bgUrl:skBgUrl||null,strokes:skStrokes})],
+    {type:'application/json'});
+  g('sketch-overlay').classList.remove('show');
+  skStrokes=[];
+  // Placeholder in griglia durante upload, come processaFoto
+  const tempUrl=URL.createObjectURL(blob);
+  const placeholder={url:tempUrl,uploading:true,localPath:pngPath,sketch:true};
+  foto.push(placeholder);
+  renderFoto();
+  try{
+    const [publicUrl]=await Promise.all([
+      caricaBlobSuStorage(blob,pngPath,'image/png'),
+      caricaBlobSuStorage(strokesJson,jsonPath,'application/json')
+    ]);
+    const idx=foto.findIndex(f=>f===placeholder);
+    if(idx>=0) foto[idx]={url:publicUrl,sketch:true,strokesPath:jsonPath};
+    URL.revokeObjectURL(tempUrl);
+    renderFoto();
+    salva();
+  }catch(e){
+    console.error('Upload schizzo fallito:',e);
+    const idx=foto.findIndex(f=>f===placeholder);
+    if(idx>=0) foto.splice(idx,1);
+    URL.revokeObjectURL(tempUrl);
+    renderFoto();
+    toast('⚠️ Schizzo non caricato (rete?)','inf');
   }
 }
 
