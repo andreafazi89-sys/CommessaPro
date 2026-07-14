@@ -114,6 +114,15 @@ input::placeholder{color:var(--muted);}
 <div class="toast" id="toast"></div>
 
 <script>
+// ── GUARD AUTH + RUOLO: gira prima di qualsiasi lettura dati o render ──
+(function(){
+  let u=null; try{u=JSON.parse(localStorage.getItem('cp_user'))||null;}catch{}
+  if(!u||!u.email){ window.location.replace('login.html'); return; }
+  const ruolo=(u.ruolo||'').toLowerCase();
+  const permessi=u.permessi||{};
+  if((ruolo!=='admin'&&ruolo!=='segretaria')||permessi['contabilita']==='hidden')
+    window.location.replace('index.html');
+})();
 
 // ── SUPABASE ──
 const SUPA_URL='https://iradzlocobsipjazracw.supabase.co';
