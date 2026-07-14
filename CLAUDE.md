@@ -1,125 +1,47 @@
-# CommessaPro
+# CommessaPro - Regole di progetto
 
-App gestione cantieri per **Andrea Fazi** (Pierantoni SRL), in ottica SaaS futura.
+## Cos'e l'app
+Web app di gestione cantieri per Pierantoni SRL (impresa edile, Roma).
+Flusso: Sopralluogo -> Preventivo -> Cantiere -> Rapportini -> SAL.
+Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
 
-## Stack & deploy
+## Architettura (NON cambiarla senza chiedere)
+- Pagine HTML single-file (HTML + CSS + JS inline), una per funzione, nella root del repo.
+- Hosting: GitHub Pages, branch main, root. Push su main = deploy in produzione.
+- Backend: Supabase (project `iradzlocobsipjazracw`).
+  - Tabella `dati`: chiave/valore JSON (legacy, in dismissione graduale).
+  - Tabella `utenti`: id, nome, email, ruolo, attivo, permessi (JSON).
+  - `rapporti_v1`: fonte di verita per le ore lavorate.
+  - Storage bucket `Foto`, pattern: `sopralluoghi/sop_<id>/<timestamp>.jpg`
+- Dati locali: localStorage con chiavi `sopralluoghi_v3`, `cantieri_v1`, `note_v1`, `rubrica_v1`, `cp_user`, `cp_settings`.
+- Nessun build step, nessun framework, nessun npm. Librerie solo via CDN (gia presente supabase-js).
 
-- **Repo**: github.com/andreafazi89-sys/CommessaPro
-- **Live**: https://andreafazi89-sys.github.io/CommessaPro
-- **Hosting**: GitHub Pages da `main/(root)` — tutti i file HTML in root (non più in `public/`)
-- **Backend**: Supabase project `iradzlocobsipjazracw`
-- **Storage**: bucket `Foto` con pattern `sopralluoghi/sop_<id>/<timestamp>.jpg`
+## Ruoli
+- admin, segretaria: accesso completo.
+- operaio: solo Sopralluogo (sola lettura), I miei rapporti, Cantiere, SAL.
 
-## Persone
+## Regole NON negoziabili
+1. La sezione Contabilita e i dati economici (margini, preventivi, tariffe, costi)
+   NON devono MAI essere visibili o raggiungibili dagli operai. Ne via UI, ne
+   navigando direttamente agli URL delle pagine.
+2. MAI credenziali, password o chiavi segrete nel codice o nei commit.
+   (La publishable key Supabase nel sorgente e ammessa: e pubblica per design.)
+3. Prima di qualsiasi operazione distruttiva sui dati (migrazioni, delete di massa):
+   dry-run + backup automatico. Mai eseguire direttamente.
+4. Ogni fix o feature = un commit separato con messaggio chiaro in italiano.
+   Mai accorpare modifiche non correlate nello stesso commit.
 
-### Utenti
-- **Admin**: Andrea Fazi — `andreafazi89@gmail.com`
-- **Segretaria**: Antonella Ventrella — `a.ventrella@pierantonicm.com` (NON Annalisa)
-- **Operaio (esempio)**: Adrian Lup — `a.lup@pierantonicm.com`
+## Check obbligatori dopo OGNI edit a un file HTML
+1. Cercare doppi `}` accidentali, in particolare prima del blocco `// ── INIT ──`.
+2. Cercare apostrofi italiani non escapati dentro stringhe JS single-quoted
+   (es. 'l'agenda' -> 'l\'agenda'). Nei template literal non serve escape.
+3. Verificare che il file si apra senza errori in console (SyntaxError).
+4. Verificare che id HTML non siano duplicati nel file.
 
-### Operai censiti
-Adrian Lup, Fabio Cardini, Daniele Schedel, Michele Poveste, Vasile Banta
-
-### Capi cantiere
-Andrea Fazi, Rino Lenti
-
-> Lino Brunozzi ha lasciato l'azienda — rimosso dalle liste selezionabili.
-
-## Struttura dati (localStorage + Supabase)
-
-| Chiave | Contenuto |
-|---|---|
-| `sopralluoghi_v3` | Sopralluoghi. Foto come `[{url: "https://.../storage/.../Foto/sopralluoghi/sop_<id>/<ts>.jpg"}]` |
-| `cantieri_v1` | Cantieri (i nuovi non hanno più `giornate[]`) |
-| `rapporti_v1` | **Fonte di verità**: record individuali operaio/giornata/cantiere |
-| `note_v1` | Note |
-| `rubrica_v1` | Rubrica clienti |
-| `migrazione_rapporti_v1_done` | Flag `=1` quando migrazione completa |
-
-## Tab operative
-
-- **sopralluogo** — geoloc + upload foto Storage, bottone "📱 Apri commessa" (WhatsApp segretaria)
-- **cantiere** — diario letto da `rapporti_v1`, bottone "✓ Fine Cantiere" (mail segretaria per fattura)
-- **rapporto** ("I miei rapporti") — multi-riga multi-operaio
-- **sal**
-- **contabilita**
-- **note**
-- **rubrica**
-
-### Rapportino PDF
-- Singolo contributo + giornaliero aggregato
-- Logo Pierantoni
-- Firma = operaio
-
-### Permessi
-- **Operai**: vedono solo i propri rapporti
-- **Admin/segretaria**: vedono tutto
-
-### Onboarding
-Banner in ogni tab.
-
-## 🚨 REGOLE FERREE 🚨
-
-1. **Contabilità MAI visibile agli operai**
-2. **Niente credenziali in chat** (numeri WhatsApp, password, ecc. — usa placeholder tipo `39XXXXXXXXXX` e chiedi all'utente di sostituirli)
-3. **Sempre dry-run prima di operazioni distruttive** sui dati
-4. **Backup automatici prima di migrazioni**
-5. **Stile risposta**: italiano, tono pratico, step-by-step
-
-## ⚠️ BUG RICORRENTI da verificare dopo OGNI modifica HTML
-
-Dopo qualsiasi `Edit` su file HTML, controllare con DevTools Console (`SyntaxError` = bug):
-
-1. **Doppia `}` prima di `// ── INIT ──`** — accade quando si chiude una funzione ma c'è già la `}` finale
-2. **Apostrofi non escapati in stringhe `'...'` con testo italiano** — es. `'l'agenda'`, `'l'avanzamento'`, `'l'utente'`
-   - Soluzione: scrivere senza apostrofo (`"agenda"`, `"avanzamento"`) o usare doppi apici / template literals
-
-Spesso questi bug si generano quando si modifica in serie l'onboarding o si scrivono toast/alert in italiano.
-
-### Verifica rapida in shell
-```bash
-# Bug 1: doppia } prima di INIT
-grep -B1 "// ── INIT" file.html | head -5
-
-# Bug 2: apostrofi italiani in stringhe singole
-grep -n "'[^']*l'[a-zà-ù]" file.html
-```
-
-## Configurazione SEGRETARIA (per messaggi)
-
-In testa allo `<script>` di ogni file che la coinvolge:
-
-```js
-const SEGRETARIA = {
-  email: 'a.ventrella@pierantonicm.com',
-  whatsapp: '39XXXXXXXXXX'  // ← formato internazionale, no + né spazi
-};
-```
-
-Trigger attivi:
-- **Sopralluogo salvato** → WhatsApp: "Nuovo sopralluogo - {cliente} - {indirizzo}. Aprire commessa." (`avvisaSegretariaSopralluogo()` in `sopralluogo.html`)
-- **Fine cantiere** → Email: oggetto "Fine cantiere {rif} - emettere fattura" + dettagli (`notificaFineCantiere()` in `cantiere.html`)
-
-## Backlog (priorità)
-
-- 🔴 **Contabilità deve leggere da `rapporti_v1`** invece di `cantieri[].giornate[]`
-- 🟡 Foto SAL su Storage (stesso pattern sopralluogo)
-- 🟡 Bolla materiali allegabile alla giornata cantiere
-- 🟡 Mappa cantieri in home (lat/lon già salvate nei sopralluoghi)
-
-## Workflow git
-
-Per ogni feature/fix:
-1. Modifica file in root del repo
-2. Verifica sintassi (vedi sezione bug ricorrenti)
-3. `git add <file>`
-4. `git commit -m "tipo: descrizione breve"`
-5. `git push origin main`
-6. Aspetta ~30-60s deploy GitHub Pages
-7. Hard refresh sul live (`Cmd+Shift+R`) per evitare cache
-
-## Note tecniche utili
-
-- **Reverse geocoding**: usa Nominatim OSM. Se manca `addr.road`, fallback su `pedestrian/footway/path/cycleway/neighbourhood/suburb/hamlet`. Se nessuno disponibile, usa `data.display_name` (no solo CAP).
-- **Compressione foto upload**: `comprimiImmagine(file, 2000, 0.85)` — canvas → JPEG max 2000px lato lungo, qualità 0.85
-- **Foto in report PDF**: `object-fit: contain` (foto intere, no taglio), height 280px, sfondo `#FAFAF7`
+## Stile
+- Lingua: italiano (codice, commenti, commit, UI).
+- Date formato gg/mm/aaaa, valuta euro.
+- Niente em dash nei testi: usare virgola, due punti o trattino breve.
+- Niente emoji nei commenti del codice (nella UI sono gia usate, ok mantenerle).
+- Rispettare lo stile esistente del file che si modifica (naming italiano,
+  funzioni brevi, CSS con variabili :root).
