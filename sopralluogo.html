@@ -372,6 +372,7 @@ function showView(name){
 function getLista(){ try{return JSON.parse(localStorage.getItem(LIST_KEY))||[];}catch{return[];} }
 function salveLista(l){
   localStorage.setItem(LIST_KEY,JSON.stringify(l));
+  exportAutoDebounced();
   // FIX: d'ora in poi foto e note vocali vengono salvate SU SUPABASE come URL (non base64).
   // Quindi il record è leggero anche se ha foto. Non svuotiamo più nulla.
   // Però se c'è ancora qualche foto base64 vecchia (data:image/...), la rimuoviamo
@@ -1204,6 +1205,50 @@ function apriMappa(){
   const ind = gv('fi');
   if(!ind){ toast('Nessun indirizzo o posizione da aprire','err'); return; }
   window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ind)}`,'_blank');
+}
+
+// ── EXPORT AUTOMATICO (smistamento foto) ──
+// Ad ogni salvataggio di un sopralluogo riscrive cantieri_export.json nella
+// cartella configurata dalla home (card "Esporta dati"). Silenzioso: se la
+// cartella non e configurata o il permesso non e attivo, non fa nulla.
+const EXPORT_FILENAME='cantieri_export.json';
+let exportTimer=null;
+function exportAutoDebounced(){
+  clearTimeout(exportTimer);
+  exportTimer=setTimeout(()=>{tentaExportAuto();},2000);
+}
+function idbExportHandle(){
+  return new Promise((resolve,reject)=>{
+    const req=indexedDB.open('cp_export',1);
+    req.onupgradeneeded=()=>req.result.createObjectStore('h');
+    req.onerror=()=>reject(req.error);
+    req.onsuccess=()=>{
+      const tx=req.result.transaction('h','readonly');
+      const r=tx.objectStore('h').get('dir');
+      r.onsuccess=()=>resolve(r.result);
+      r.onerror=()=>reject(r.error);
+    };
+  });
+}
+async function tentaExportAuto(){
+  let u=null; try{u=JSON.parse(localStorage.getItem('cp_user'))||null;}catch{}
+  const ruolo=(u?.ruolo||'').toLowerCase();
+  if(ruolo!=='admin'&&ruolo!=='segretaria')return;
+  if(!window.showDirectoryPicker)return;
+  try{
+    const dir=await idbExportHandle();
+    if(!dir)return;
+    if(await dir.queryPermission({mode:'readwrite'})!=='granted')return;
+    const payload=JSON.stringify({
+      aggiornato_il:new Date().toISOString(),
+      cantieri:getCantieri(),
+      sopralluoghi:getLista()
+    },null,1);
+    const fh=await dir.getFileHandle(EXPORT_FILENAME,{create:true});
+    const w=await fh.createWritable();
+    await w.write(payload);
+    await w.close();
+  }catch(e){}
 }
 
 // ── INIT ──
