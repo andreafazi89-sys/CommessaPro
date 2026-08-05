@@ -410,7 +410,7 @@ function getCantieri(){try{return JSON.parse(localStorage.getItem('cantieri_v1')
 function getSopralluoghi(){try{return JSON.parse(localStorage.getItem('sopralluoghi_v3'))||[];}catch{return[];}}
 
 function aggiornaRiepilogo(){
-  const cantieri=getCantieri(), sops=getSopralluoghi(), oggi=new Date();
+  const cantieri=getCantieri().filter(c=>!c.archiviato), sops=getSopralluoghi(), oggi=new Date();
   const ora=oggi.getHours();
   const nomeUtente=getUser()?.nome||getUser()?.email?.split('@')[0]||'';
   document.getElementById('greeting').textContent=(ora<12?'Buongiorno':ora<18?'Buon pomeriggio':'Buonasera')+(nomeUtente?', '+nomeUtente:'')+' 👋';
@@ -460,7 +460,7 @@ function isPrivilegedUser(){
 function exportPayload(){
   return JSON.stringify({
     aggiornato_il:new Date().toISOString(),
-    cantieri:getCantieri(),
+    cantieri:getCantieri().filter(c=>!c.archiviato),
     sopralluoghi:getSopralluoghi()
   },null,1);
 }

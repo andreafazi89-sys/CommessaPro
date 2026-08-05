@@ -353,7 +353,7 @@ th:not(:first-child){text-align:right;}
 }
 
 function render(){
-  const lista=getCantieri();
+  const lista=getCantieri().filter(c=>!c.archiviato);
 
   if(!lista.length){
     g('cantieri-container').innerHTML=`<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-txt">Nessun cantiere attivo</div><div style="font-size:13px;color:var(--muted)">Avvia un cantiere dalla scheda Sopralluogo per vedere qui la contabilità</div></div>`;

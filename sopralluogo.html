@@ -1241,7 +1241,7 @@ async function tentaExportAuto(){
     if(await dir.queryPermission({mode:'readwrite'})!=='granted')return;
     const payload=JSON.stringify({
       aggiornato_il:new Date().toISOString(),
-      cantieri:getCantieri(),
+      cantieri:getCantieri().filter(c=>!c.archiviato),
       sopralluoghi:getLista()
     },null,1);
     const fh=await dir.getFileHandle(EXPORT_FILENAME,{create:true});

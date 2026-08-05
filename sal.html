@@ -160,7 +160,7 @@ function salvaCantieri(l){localStorage.setItem(CANT_KEY,JSON.stringify(l));dbSal
 function showView(n){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));g('view-'+n).classList.add('active');window.scrollTo(0,0);}
 
 function renderLista(){
-  const lista=getCantieri();const el=g('lista-cantieri');
+  const lista=getCantieri().filter(c=>!c.archiviato);const el=g('lista-cantieri');
   if(!lista.length){el.innerHTML=`<div class="empty-state"><div class="empty-icon">📸</div><div class="empty-txt">Nessun cantiere</div><div style="font-size:13px;color:var(--muted)">Avvia un cantiere dalla scheda Sopralluogo</div></div>`;return;}
   el.innerHTML=lista.map(c=>{
     const n=(c.sal||[]).length;
