@@ -292,9 +292,38 @@ function initDB(){
   if(window.supabase) db = window.supabase.createClient(SUPA_URL, SUPA_KEY);
 }
 async function dbSalva(chiave, valore){
-  if(!db) return;
-  try{ await db.from('dati').upsert({chiave, valore, ts:new Date().toISOString()},{onConflict:'chiave'}); }
-  catch(e){ console.warn('sync err',e); }
+  if(!db){ toast('\u26a0\ufe0f Non sincronizzato: server non raggiungibile','err'); return false; }
+  const { data:s } = await db.auth.getSession();
+  if(!s || !s.session){
+    toast('\u26a0\ufe0f Sessione scaduta: salvato solo su questo dispositivo','err');
+    return false;
+  }
+  const { error } = await db.from('dati').upsert({chiave, valore, ts:new Date().toISOString()},{onConflict:'chiave'});
+  if(error){
+    console.error('dbSalva', chiave, error);
+    toast('\u26a0\ufe0f Non sincronizzato: ' + error.message,'err');
+    return false;
+  }
+  return true;
+}
+// Salvataggio cantieri anti sovrascrittura: rilegge l'elenco dal server e lo
+// unisce al locale prima di riscrivere, cosi' un cantiere creato da un altro
+// dispositivo non viene cancellato. Nota: le eliminazioni non si propagano.
+async function salvaCantieriSicuro(lista){
+  localStorage.setItem('cantieri_v1', JSON.stringify(lista));
+  if(!db) return false;
+  const { data, error } = await db.from('dati').select('valore').eq('chiave','cantieri_v1').maybeSingle();
+  if(error){
+    console.error('salvaCantieriSicuro lettura', error);
+    toast('\u26a0\ufe0f Non sincronizzato: ' + error.message,'err');
+    return false;
+  }
+  const remoti = (data && Array.isArray(data.valore)) ? data.valore : [];
+  const idLocali = new Set(lista.map(c => c.id));
+  const unione = [...lista, ...remoti.filter(c => !idLocali.has(c.id))];
+  const ok = await dbSalva('cantieri_v1', unione);
+  if(ok) localStorage.setItem('cantieri_v1', JSON.stringify(unione));
+  return ok;
 }
 async function dbCarica(chiave){
   if(!db) return null;
@@ -485,8 +514,7 @@ function aggiornaCantiere(sop){
   cantieri[idx].mq = sop.mq;
   cantieri[idx].commessa = sop.commessa;
   cantieri[idx].titolo = sop.titolo;
-  localStorage.setItem('cantieri_v1', JSON.stringify(cantieri));
-  dbSalva('cantieri_v1', cantieri);
+  salvaCantieriSicuro(cantieri);
 }
 
 function aggiornaProg(){
@@ -929,18 +957,18 @@ function aggiornaBottoneAvvia(cantiereId){
   if(esiste){
     btn.textContent='🏗️ Vai al Cantiere';
     btn.onclick=()=>{window.location.href='cantiere.html?id='+cantiereId;};
+  } else if(cantiereId){
+    // Il cantiere collegato non e' nell'elenco di QUESTO dispositivo: non
+    // cancello il collegamento, potrebbe essere solo un elenco non aggiornato
+    btn.textContent='⚠️ Cantiere non trovato, sincronizza';
+    btn.onclick=()=>toast('Il cantiere collegato non risulta su questo dispositivo. Sincronizza e riprova.','err');
   } else {
-    // Cantiere non esiste - pulisci il cantiereId dal sopralluogo
-    if(cantiereId && !esiste){
-      const lista=getLista(); const idx=lista.findIndex(s=>s.id===currentId);
-      if(idx>=0){lista[idx].cantiereId=null; salveLista(lista);}
-    }
     btn.textContent='🏗️ Avvia Cantiere';
     btn.onclick=avviaCantiere;
   }
 }
 
-function avviaCantiere(){
+async function avviaCantiere(){
   if(!gv('fc')||!gv('fi')){toast('Inserisci cliente e indirizzo prima','err');return;}
   if(!confirm(`Avviare il cantiere per ${gv('fc')}?`)) return;
   const cantiereId='cant_'+Date.now();
@@ -948,12 +976,15 @@ function avviaCantiere(){
   cantieri.unshift({id:cantiereId,sopralluogoId:currentId,commessa:gv('f-commessa'),titolo:gv('f-titolo'),cliente:gv('fc'),indirizzo:gv('fi'),
     resp:gv('f-resp'),mq:gv('fm'),dataInizio:new Date().toISOString().split('T')[0],
     stato:'In corso',giornate:[],costiMateriali:[],preventivo:0});
-  localStorage.setItem('cantieri_v1',JSON.stringify(cantieri));
-  dbSalva('cantieri_v1',cantieri);
+  const sincronizzato = await salvaCantieriSicuro(cantieri);
   const lista=getLista(); const idx=lista.findIndex(s=>s.id===currentId);
   if(idx>=0){lista[idx].cantiereId=cantiereId;salveLista(lista);}
   aggiornaBottoneAvvia(cantiereId);
-  toast('✅ Cantiere avviato!','ok');
+  if(!sincronizzato){
+    toast('⚠️ Cantiere creato solo su questo dispositivo, non sincronizzato','err');
+    return;
+  }
+  toast('✅ Cantiere avviato e sincronizzato','ok');
   setTimeout(()=>{window.location.href='cantiere.html?id='+cantiereId;},1200);
 }
 
@@ -1064,7 +1095,7 @@ function leggiImport(input){
         const ce=getCantieri(); const ci=new Set(ce.map(c=>c.id));
         const nc=dati.cantieri.filter(c=>!ci.has(c.id));
         const ac=ce.map(c=>{const b=dati.cantieri.find(x=>x.id===c.id);return b||c;});
-        const lc=[...nc,...ac]; localStorage.setItem('cantieri_v1',JSON.stringify(lc)); dbSalva('cantieri_v1',lc);
+        const lc=[...nc,...ac]; salvaCantieriSicuro(lc);
       }
       if(dati.note&&dati.note.length>0){
         const ne=JSON.parse(localStorage.getItem('note_v1')||'[]'); const ni=new Set(ne.map(n=>n.id));

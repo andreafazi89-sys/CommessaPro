@@ -211,19 +211,64 @@ let colleghiPerRiga = {};
 
 function initDB(){ if(window.supabase) db = window.supabase.createClient(SUPA_URL, SUPA_KEY); }
 
+// Mostra un avviso fisso in cima alla pagina quando il server non e' raggiungibile
+function mostraBanner(testo){
+  let b = document.getElementById('banner-sync');
+  if(!b){
+    b = document.createElement('div');
+    b.id = 'banner-sync';
+    b.style.cssText = 'position:sticky;top:0;z-index:99;background:#C0392B;color:#fff;padding:10px 12px;font-size:13px;line-height:1.4;text-align:center';
+    document.body.prepend(b);
+  }
+  b.textContent = testo;
+}
+function nascondiBanner(){
+  const b = document.getElementById('banner-sync');
+  if(b) b.remove();
+}
+// true se esiste una sessione Supabase valida: senza, ogni chiamata parte come anonima
+async function verificaSessione(){
+  if(!db) return false;
+  const { data } = await db.auth.getSession();
+  if(!data || !data.session){
+    mostraBanner('Non sei collegato al server: i rapportini restano solo su questo dispositivo. Esci e rientra per sincronizzarli.');
+    return false;
+  }
+  nascondiBanner();
+  return true;
+}
 async function dbSalva(k, v){
-  if(!db) return;
-  try{ await db.from('dati').upsert({chiave:k, valore:v, ts:new Date().toISOString()}, {onConflict:'chiave'}); }catch(e){}
+  if(!db){ toast('\u26a0 Non sincronizzato: server non raggiungibile','err'); return false; }
+  if(!(await verificaSessione())){
+    toast('\u26a0 Sessione scaduta: salvato solo su questo dispositivo','err');
+    return false;
+  }
+  const { error } = await db.from('dati').upsert({chiave:k, valore:v, ts:new Date().toISOString()}, {onConflict:'chiave'});
+  if(error){
+    console.error('dbSalva', k, error);
+    toast('\u26a0 Non sincronizzato: ' + error.message, 'err');
+    return false;
+  }
+  return true;
 }
 async function dbCarica(k){
   if(!db) return null;
-  try{
-    const {data} = await db.from('dati').select('valore').eq('chiave', k).maybeSingle();
-    return data ? data.valore : null;
-  }catch(e){ return null; }
+  const { data, error } = await db.from('dati').select('valore').eq('chiave', k).maybeSingle();
+  if(error){
+    console.error('dbCarica', k, error);
+    toast('\u26a0 Lettura dal server non riuscita: ' + error.message, 'err');
+    return null;
+  }
+  return data ? data.valore : null;
 }
 async function forcSync(){
   toast('🔄 Sincronizzazione...','inf');
+  // Senza sessione valida non leggo e non scrivo nulla: meglio fermarsi che
+  // svuotare gli elenchi locali con risposte vuote
+  if(!(await verificaSessione())){
+    toast('\u26a0 Non collegato al server: esci e rientra','err');
+    return;
+  }
   const remoto = await dbCarica(RPT_KEY);
   if(remoto && Array.isArray(remoto)){
     const locale = getRapporti();
@@ -232,10 +277,14 @@ async function forcSync(){
     salvaRapporti([...remoto, ...extra]);
     renderLista();
   }
-  // carica anche cantieri
+  // Carica anche i cantieri: unione, mai sostituzione, altrimenti un cantiere
+  // presente solo su questo dispositivo verrebbe cancellato dall'elenco locale
   const remotiCant = await dbCarica(CANT_KEY);
   if(remotiCant && Array.isArray(remotiCant)){
-    localStorage.setItem(CANT_KEY, JSON.stringify(remotiCant));
+    const localiCant = getCantieri();
+    const idRemoti = new Set(remotiCant.map(c => c.id));
+    const extraCant = localiCant.filter(c => !idRemoti.has(c.id));
+    localStorage.setItem(CANT_KEY, JSON.stringify([...remotiCant, ...extraCant]));
   }
   toast('✓ Sincronizzato','ok');
 }
@@ -1004,6 +1053,7 @@ function stampaRapporto(){
 initDB();
 renderToggle();
 renderLista();
+verificaSessione();
 // Sync in background
 setTimeout(() => forcSync().catch(()=>{}), 500);
 </script>

@@ -175,7 +175,29 @@ const OPERAI=['Adrian Lup','Fabio Cardini','Daniele Schedel','Michele Poveste','
 let db=null, currentCant=null, operaiSel=[];
 
 function initDB(){if(window.supabase)db=window.supabase.createClient(SUPA_URL,SUPA_KEY);}
-async function dbSalva(k,v){if(!db)return;try{await db.from('dati').upsert({chiave:k,valore:v,ts:new Date().toISOString()},{onConflict:'chiave'});}catch(e){}}
+function avvisoSync(msg){ toast('\u26a0\ufe0f '+msg,'err'); }
+async function dbSalva(k,v){
+  if(!db){ avvisoSync('Non sincronizzato: server non raggiungibile'); return false; }
+  const {data:s}=await db.auth.getSession();
+  if(!s||!s.session){ avvisoSync('Sessione scaduta: salvato solo su questo dispositivo, esci e rientra'); return false; }
+  const {error}=await db.from('dati').upsert({chiave:k,valore:v,ts:new Date().toISOString()},{onConflict:'chiave'});
+  if(error){ console.error('dbSalva',k,error); avvisoSync('Non sincronizzato: '+error.message); return false; }
+  return true;
+}
+// Salvataggio cantieri anti sovrascrittura: rilegge dal server e unisce prima
+// di riscrivere. Nota: le eliminazioni non si propagano agli altri dispositivi.
+async function salvaCantieriSicuro(lista){
+  localStorage.setItem(CANT_KEY,JSON.stringify(lista));
+  if(!db) return false;
+  const {data,error}=await db.from('dati').select('valore').eq('chiave',CANT_KEY).maybeSingle();
+  if(error){ console.error('salvaCantieriSicuro',error); avvisoSync('Non sincronizzato: '+error.message); return false; }
+  const remoti=(data&&Array.isArray(data.valore))?data.valore:[];
+  const idLocali=new Set(lista.map(c=>c.id));
+  const unione=[...lista,...remoti.filter(c=>!idLocali.has(c.id))];
+  const ok=await dbSalva(CANT_KEY,unione);
+  if(ok) localStorage.setItem(CANT_KEY,JSON.stringify(unione));
+  return ok;
+}
 async function forcSync(){
   toast('🔄 Sincronizzazione...','inf');
   if(!db){toast('Nessuna connessione','err');return;}
@@ -203,13 +225,13 @@ const g=id=>document.getElementById(id);
 const gv=id=>g(id)?.value?.trim()||'';
 function toast(msg,tipo){const t=g('toast');t.textContent=msg;t.className='toast '+tipo+' show';clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),3000);}
 function getCantieri(){try{return JSON.parse(localStorage.getItem(CANT_KEY))||[];}catch{return[];}}
-function salvaCantieri(l){localStorage.setItem(CANT_KEY,JSON.stringify(l));dbSalva(CANT_KEY,l);}
+function salvaCantieri(l){ return salvaCantieriSicuro(l); }
 
 // ── RAPPORTI (nuova tabella v1) ──
 const RPT_KEY = 'rapporti_v1';
 const MIGR_FLAG = 'migrazione_rapporti_v1_done';
 function getRapporti(){try{return JSON.parse(localStorage.getItem(RPT_KEY))||[];}catch{return[];}}
-function salvaRapporti(l){localStorage.setItem(RPT_KEY,JSON.stringify(l));dbSalva(RPT_KEY,l);}
+function salvaRapporti(l){localStorage.setItem(RPT_KEY,JSON.stringify(l));return dbSalva(RPT_KEY,l);}
 function getRapportiCantiere(cantiereId){
   return getRapporti().filter(r => r.cantiereId === cantiereId);
 }
