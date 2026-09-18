@@ -404,7 +404,8 @@ async function forcSync(){
     // Aggiungi sopralluoghi solo locali (mai visti in remoto)
     const remIds = new Set(remoto.map(x => x.id));
     const extra = locale.filter(x => !remIds.has(x.id));
-    salveLista([...merged, ...extra]);
+    localStorage.setItem(LIST_KEY, JSON.stringify([...merged, ...extra]));
+    getPending(LIST_KEY).forEach(r => scriviLocale(LIST_KEY, [r]));
     renderLista();
   }
   toast('✓ Sincronizzato','ok');
@@ -443,7 +444,22 @@ function showView(name){
 }
 
 // ── LISTA ──
-function getLista(){ try{return JSON.parse(localStorage.getItem(LIST_KEY))||[];}catch{return[];} }
+function getLista(){ try{return (JSON.parse(localStorage.getItem(LIST_KEY))||[]).filter(s=>!s.eliminato);}catch{return[];} }
+// Toglie dal record le foto e le note vocali non ancora caricate sul cloud,
+// che resterebbero come base64 e gonfierebbero il salvataggio sul server.
+function alleggerisci(s){
+  const fotoOk = (s.foto||[]).filter(f => typeof (f && f.url) === 'string' && f.url.startsWith('http'));
+  const noteOk = (s.noteVocali||[]).filter(n => { const u = (n && (n.url||n.b64)) || ''; return typeof u === 'string' && u.startsWith('http'); });
+  return {...s, foto:fotoOk, noteVocali:noteOk};
+}
+// Salva UN sopralluogo: copia locale completa, sul server solo quel record
+async function salvaSopralluogo(rec){
+  scriviLocale(LIST_KEY, [rec]);
+  exportAutoDebounced();
+  const ok = await salvaRecord(LIST_KEY, [alleggerisci(rec)]);
+  scriviLocale(LIST_KEY, [rec]);
+  return ok;
+}
 function salveLista(l){
   localStorage.setItem(LIST_KEY,JSON.stringify(l));
   exportAutoDebounced();
@@ -465,19 +481,24 @@ function salveLista(l){
   dbSalva(LIST_KEY, lLight);
 }
 
+let mostraArchiviati=false;
+function toggleArchiviati(){ mostraArchiviati=!mostraArchiviati; renderLista(); }
 function renderLista(){
-  const lista=getLista();
+  const tutti=getLista();
+  const lista=tutti.filter(s=>mostraArchiviati ? s.archiviato : !s.archiviato);
+  const nArch=tutti.filter(s=>s.archiviato).length;
   const el=g('lista-container');
+  const barra = nArch ? `<div style="margin-bottom:10px"><button onclick="toggleArchiviati()" style="width:100%;padding:9px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:${mostraArchiviati?'var(--brick)':'var(--muted)'};font-size:12px;font-weight:600;font-family:inherit;cursor:pointer">${mostraArchiviati?'← Torna ai sopralluoghi attivi':'🗄 Mostra archiviati ('+nArch+')'}</button></div>` : '';
   if(!lista.length){
-    el.innerHTML=`<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-txt">Nessun sopralluogo</div><div class="empty-sub">Premi "+ Nuovo" per iniziare</div></div>`;
+    el.innerHTML=barra+`<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-txt">${mostraArchiviati?'Nessun sopralluogo archiviato':'Nessun sopralluogo'}</div><div class="empty-sub">${mostraArchiviati?'':'Premi "+ Nuovo" per iniziare'}</div></div>`;
     return;
   }
-  el.innerHTML=lista.map(s=>`
+  el.innerHTML=barra+lista.map(s=>`
     <div class="sop-card" onclick="apriSopralluogo('${s.id}')">
       <div class="sop-icon">${s.cantiereId?'🏗️':'📋'}</div>
       <div class="sop-info">
         <div class="sop-nome">${s.commessa?s.commessa+' — ':''}${s.titolo||s.cliente||'Sopralluogo senza titolo'}</div>
-        <div class="sop-meta">${s.cliente||'—'} · ${s.data||'—'}${s.cantiereId?' · <span style="color:var(--green)">Cantiere attivo</span>':''}</div>
+        <div class="sop-meta">${s.cliente||'—'} · ${s.data||'—'}${s.cantiereId?' · <span style="color:var(--green)">Cantiere attivo</span>':''}${s.archiviato?' · <span style="color:var(--muted)">archiviato '+(s.archiviatoIl||'')+'</span>':''}</div>
       </div>
       <button class="sop-del" onclick="event.stopPropagation();eliminaSopralluogo('${s.id}')">🗑</button>
     </div>`).join('');
@@ -485,7 +506,8 @@ function renderLista(){
 
 function eliminaSopralluogo(id){
   if(!confirm('Eliminare questo sopralluogo?')) return;
-  salveLista(getLista().filter(s=>s.id!==id));
+  const s = getLista().find(x => x.id === id);
+  if(s) salvaRecord(LIST_KEY, [{...alleggerisci(s), eliminato:true}]);
   renderLista(); toast('Eliminato','inf');
 }
 
@@ -537,9 +559,9 @@ function salva(){
       lat:currentLat,lon:currentLon,
       ambienti,foto,noteVocali:noteVocali.map(n=>({dur:n.dur,b64:n.b64,type:n.type})),
       cantiereId:(idx>=0?lista[idx].cantiereId:null)||null};
-    if(idx>=0) lista[idx]=dati; else lista.unshift(dati);
+    if(idx>=0) dati.archiviato = lista[idx].archiviato || false;
     try{
-      salveLista(lista);
+      salvaSopralluogo(dati);
       g('si').textContent='✓ salvato'; g('si').className='save-ind ok';
       // Aggiorna il cantiere collegato se esiste
       if(dati.cantiereId) aggiornaCantiere(dati);
@@ -1022,7 +1044,7 @@ async function avviaCantiere(){
     stato:'In corso',giornate:[],costiMateriali:[],preventivo:0};
   const sincronizzato = await salvaRecord('cantieri_v1', [nuovoCantiere]);
   const lista=getLista(); const idx=lista.findIndex(s=>s.id===currentId);
-  if(idx>=0){lista[idx].cantiereId=cantiereId;salveLista(lista);}
+  if(idx>=0){ lista[idx].cantiereId=cantiereId; await salvaSopralluogo(lista[idx]); }
   aggiornaBottoneAvvia(cantiereId);
   if(!sincronizzato){
     toast('⚠️ Cantiere creato solo su questo dispositivo, non sincronizzato','err');

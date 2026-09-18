@@ -184,10 +184,11 @@ const ALL_TOOLS=[
   {key:'contabilita',href:'contabilita.html',icon:'📊',bg:'rgba(58,122,76,0.15)',name:'Contabilità',desc:'Preventivi, costi e margini',roles:['admin','segretaria']},
   {key:'note',href:'note.html',icon:'📝',bg:'rgba(212,81,30,0.12)',name:'Note & Agenda',desc:'Attività giornaliere per mese',roles:['admin','segretaria']},
   {key:'rubrica',href:'rubrica.html',icon:'👥',bg:'rgba(58,122,76,0.12)',name:'Rubrica Clienti',desc:'Anagrafica nome, telefono, email',roles:['admin','segretaria']},
+  {key:'archivio',href:'archivio.html',icon:'🗄️',bg:'rgba(74,120,180,0.15)',name:'Archivio commesse',desc:'Pacchetto ZIP della commessa e archiviazione',roles:['admin','segretaria']},
   {key:'manutenzione',href:'manutenzione.html',icon:'🛠️',bg:'rgba(138,138,138,0.15)',name:'Manutenzione',desc:'Backup e ripristino sincronizzazione',roles:['admin','segretaria','operaio']},
 ];
 // Flag per attivare/disattivare le tab: 1 = visibile, 0 = spenta per tutti
-const TOOLS_ATTIVI={sopralluogo:1,rapporto:1,cantiere:1,sal:1,contabilita:0,note:0,rubrica:1,manutenzione:1};
+const TOOLS_ATTIVI={sopralluogo:1,rapporto:1,cantiere:1,sal:1,contabilita:0,note:0,rubrica:1,manutenzione:1,archivio:1};
 function renderTools(){
   const user=getUser();
   const ruolo=(user?.ruolo||'operatore').toLowerCase();

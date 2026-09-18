@@ -13,6 +13,9 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
   - Tabella `utenti`: id, nome, email, ruolo, attivo, permessi (JSON).
   - `rapporti_v1`: fonte di verita per le ore lavorate.
   - Storage bucket `Foto`, pattern: `sopralluoghi/sop_<id>/<timestamp>.jpg`
+- `archivio.html`: crea il pacchetto ZIP della commessa (scheda, foto scaricate,
+  giornate in CSV, dati.json) e poi marca `archiviato:true` su sopralluogo e
+  cantiere. Non cancella nulla dal bucket Foto.
 - Dati locali: localStorage con chiavi `sopralluoghi_v3`, `cantieri_v1`, `note_v1`, `rubrica_v1`, `cp_user`, `cp_settings`.
 - Nessun build step, nessun framework, nessun npm. Librerie solo via CDN (gia presente supabase-js).
 
