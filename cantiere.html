@@ -149,7 +149,7 @@ textarea{resize:none;min-height:80px;line-height:1.6;}
   </div>
   <div class="bottom-bar">
     <button class="btn-main" onclick="chiudiCantiere()">✓ Fine Cantiere</button>
-    <button class="btn-main" id="btn-archivia" style="display:none;background:var(--surface2);color:var(--sand);border:1.5px solid var(--border)" onclick="archiviaCantiere()">🗄 Archivia</button>
+    <button class="btn-main" id="btn-archivia" style="display:none;background:var(--surface2);color:var(--sand);border:1.5px solid var(--border)" onclick="archiviaCantiere()">🗄 Archivia commessa</button>
   </div>
 </div>
 
@@ -393,8 +393,7 @@ function ruoloUtente(){
 }
 function aggiornaBottoneArchivia(){
   const privilegiato=ruoloUtente()==='admin'||ruoloUtente()==='segretaria';
-  const completato=(currentCant?.stato||'In corso')==='Completato';
-  g('btn-archivia').style.display=(privilegiato&&completato)?'':'none';
+  g('btn-archivia').style.display=privilegiato?'':'none';
 }
 
 function tornaLista(){showView('lista');renderLista();}
@@ -513,23 +512,10 @@ function chiudiCantiere(){
 
 function archiviaCantiere(){
   if(ruoloUtente()!=='admin'&&ruoloUtente()!=='segretaria'){toast('Operazione riservata','err');return;}
-  if((currentCant.stato||'In corso')!=='Completato'){toast('Chiudi prima il cantiere','err');return;}
-  const nome=currentCant.commessa||currentCant.titolo||currentCant.cliente||'cantiere';
-  if(!confirm(`Archiviare "${nome}"?\nSparisce dalle liste di tutti ma resta recuperabile.\nVerra scaricato un backup automatico.`))return;
-  // Backup automatico prima dell'operazione: cantiere + suoi rapportini
-  const rapportini=getRapporti().filter(r=>r.cantiereId===currentCant.id);
-  const backup={esportato_il:new Date().toISOString(),cantiere:currentCant,rapportini};
-  const blob=new Blob([JSON.stringify(backup,null,1)],{type:'application/json'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='backup_archivio_'+(currentCant.commessa||currentCant.id).replace(/[^\w-]+/g,'_')+'.json';
-  a.click();URL.revokeObjectURL(a.href);
-  // Archivio recuperabile: il cantiere resta nei dati con il flag, sparisce dalle viste
-  currentCant.archiviato=true;
-  currentCant.archiviatoIl=new Date().toISOString().split('T')[0];
-  salvaCantiere();
-  toast('🗄 Cantiere archiviato','ok');
-  setTimeout(tornaLista,600);
+  // L'archiviazione vive nella pagina dedicata: crea il pacchetto ZIP completo
+  // (scheda sopralluogo, foto, giornate, dati.json) e archivia insieme
+  // sopralluogo e cantiere. Qui si rimanda solo a quella pagina.
+  window.location.href='archivio.html?id='+encodeURIComponent(currentCant.id);
 }
 
 function notificaFineCantiere(){

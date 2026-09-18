@@ -428,11 +428,26 @@ async function archivia(c){
   else { toast('Archiviazione non riuscita: riprova quando sei collegato','err'); }
 }
 
+// Apertura diretta da cantiere.html: archivio.html?id=cant_xxx
+function evidenzia(){
+  const id = new URLSearchParams(location.search).get('id');
+  if(!id) return;
+  const c = commesse().find(x => x.id === id);
+  if(!c) return;
+  if(c.archiviato && vista !== 'archiviati'){ cambiaVista('archiviati'); }
+  const card = g('btn-' + id) ? g('btn-' + id).closest('.card') : null;
+  if(!card) return;
+  card.scrollIntoView({behavior:'smooth', block:'center'});
+  card.style.borderColor = 'var(--brick)';
+  card.style.boxShadow = '0 0 0 2px rgba(212,81,30,.25)';
+}
+
 // ── INIT ──
 (async function(){
   render();
+  evidenzia();
   const ok = await caricaTutto();
-  if(ok) render();
+  if(ok){ render(); evidenzia(); }
 })();
 </script>
 </body>
