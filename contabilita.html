@@ -145,28 +145,72 @@ async function dbSalva(k,v){
   if(error){ console.error('dbSalva',k,error); avvisoSync('Non sincronizzato: '+error.message); return false; }
   return true;
 }
-// Salvataggio cantieri anti sovrascrittura: rilegge dal server e unisce prima
-// di riscrivere. Nota: le eliminazioni non si propagano agli altri dispositivi.
-async function salvaCantieriSicuro(lista){
-  localStorage.setItem(CANT_KEY,JSON.stringify(lista));
-  if(!db) return false;
-  const {data,error}=await db.from('dati').select('valore').eq('chiave',CANT_KEY).maybeSingle();
-  if(error){ console.error('salvaCantieriSicuro',error); avvisoSync('Non sincronizzato: '+error.message); return false; }
-  const remoti=(data&&Array.isArray(data.valore))?data.valore:[];
-  const idLocali=new Set(lista.map(c=>c.id));
-  const unione=[...lista,...remoti.filter(c=>!idLocali.has(c.id))];
-  const ok=await dbSalva(CANT_KEY,unione);
-  if(ok) localStorage.setItem(CANT_KEY,JSON.stringify(unione));
-  return ok;
+
+// ── SINCRONIZZAZIONE: scrittura chirurgica + coda offline ──
+// Regola: la versione del server e' la base. Ogni dispositivo applica SOLO i
+// record che ha appena toccato, quindi una copia locale vecchia non puo' piu'
+// riportare indietro modifiche fatte altrove. Le cancellazioni sono marcature
+// (eliminato:true) e non rimozioni, cosi' si propagano invece di tornare indietro.
+function chiavePending(k){ return 'cp_pending_' + k; }
+function getPending(k){ try{ return JSON.parse(localStorage.getItem(chiavePending(k))) || []; }catch{ return []; } }
+function aggiungiPending(k, records){
+  const m = new Map(getPending(k).map(x => [x.id, x]));
+  records.forEach(r => m.set(r.id, r));
+  localStorage.setItem(chiavePending(k), JSON.stringify([...m.values()]));
 }
+function svuotaPending(k){ localStorage.removeItem(chiavePending(k)); }
+function scriviLocale(k, records){
+  let attuali = [];
+  try{ attuali = JSON.parse(localStorage.getItem(k)) || []; }catch(e){}
+  const m = new Map(attuali.map(x => [x.id, x]));
+  records.forEach(r => m.set(r.id, r));
+  localStorage.setItem(k, JSON.stringify([...m.values()]));
+}
+function marcaEliminato(rec){ return {...rec, eliminato:true, timestamp:new Date().toISOString()}; }
+async function salvaRecord(k, records){
+  if(!Array.isArray(records) || !records.length) return true;
+  scriviLocale(k, records);
+  if(!db){ aggiungiPending(k, records); avvisoSync('Salvato sul dispositivo, non ancora sincronizzato'); return false; }
+  const { data, error } = await db.from('dati').select('valore').eq('chiave', k).maybeSingle();
+  if(error){
+    console.error('salvaRecord lettura', k, error);
+    aggiungiPending(k, records);
+    avvisoSync('Salvato sul dispositivo, non ancora sincronizzato');
+    return false;
+  }
+  const base = (data && Array.isArray(data.valore)) ? data.valore : [];
+  const m = new Map(base.map(x => [x.id, x]));
+  getPending(k).forEach(r => m.set(r.id, r));
+  records.forEach(r => m.set(r.id, r));
+  const finale = [...m.values()];
+  const ok = await dbSalva(k, finale);
+  if(!ok){ aggiungiPending(k, records); return false; }
+  svuotaPending(k);
+  localStorage.setItem(k, JSON.stringify(finale));
+  return true;
+}
+// Allinea la copia locale a quella del server, mantenendo le modifiche in coda
+async function allinea(k){
+  if(!db) return false;
+  const { data, error } = await db.from('dati').select('valore').eq('chiave', k).maybeSingle();
+  if(error){ console.error('allinea', k, error); avvisoSync('Lettura dal server non riuscita: ' + error.message); return false; }
+  const base = (data && Array.isArray(data.valore)) ? data.valore : [];
+  const pend = getPending(k);
+  const m = new Map(base.map(x => [x.id, x]));
+  pend.forEach(r => m.set(r.id, r));
+  const finale = [...m.values()];
+  localStorage.setItem(k, JSON.stringify(finale));
+  if(pend.length){
+    const ok = await dbSalva(k, finale);
+    if(ok) svuotaPending(k);
+  }
+  return true;
+}
+
 async function forcSync(){
   if(!db){ render(); return; }
   try{
-    const {data}=await db.from('dati').select('valore').eq('chiave',CANT_KEY).maybeSingle();
-    if(data&&data.valore&&data.valore.length>0){
-      const loc=getCantieri(),ids=new Set(data.valore.map(x=>x.id)),ex=loc.filter(x=>!ids.has(x.id));
-      localStorage.setItem(CANT_KEY, JSON.stringify([...data.valore,...ex]));
-    }
+    await allinea(CANT_KEY);
   }catch(e){}
   render();
 }
@@ -174,8 +218,8 @@ async function forcSync(){
 const fmt = n => parseFloat(n||0).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2});
 const g = id => document.getElementById(id);
 
-function getCantieri(){try{return JSON.parse(localStorage.getItem(CANT_KEY))||[];}catch{return[];}}
-function salvaCantieri(l){ return salvaCantieriSicuro(l); }
+function getCantieri(){try{return (JSON.parse(localStorage.getItem(CANT_KEY))||[]).filter(c=>!c.eliminato);}catch{return[];}}
+function salvaCantieri(l){ return salvaRecord(CANT_KEY, l); }
 
 // Calcola ore totali dalle giornate
 function calcolaOre(c){
@@ -192,7 +236,7 @@ function salvaCampo(id, campo, valore){
   const idx=lista.findIndex(c=>c.id===id);
   if(idx<0) return;
   lista[idx][campo]=valore;
-  salvaCantieri(lista);
+  salvaRecord(CANT_KEY,[lista[idx]]);
   renderTotali(lista);
 }
 
@@ -203,7 +247,7 @@ function salvaMatRiga(id, i, campo, valore){
   if(idx<0) return;
   if(!lista[idx].costiMateriali) lista[idx].costiMateriali=[];
   lista[idx].costiMateriali[i][campo]=valore;
-  salvaCantieri(lista);
+  salvaRecord(CANT_KEY,[lista[idx]]);
   renderTotali(lista);
   aggiornaRiepilogo(lista[idx]);
 }
@@ -214,7 +258,7 @@ function aggiungiMat(id){
   if(idx<0) return;
   if(!lista[idx].costiMateriali) lista[idx].costiMateriali=[];
   lista[idx].costiMateriali.push({desc:'',importo:0});
-  salvaCantieri(lista);
+  salvaRecord(CANT_KEY,[lista[idx]]);
   renderCantiere(lista[idx]);
   renderTotali(lista);
 }
@@ -224,7 +268,7 @@ function delMat(id, i){
   const idx=lista.findIndex(c=>c.id===id);
   if(idx<0) return;
   lista[idx].costiMateriali.splice(i,1);
-  salvaCantieri(lista);
+  salvaRecord(CANT_KEY,[lista[idx]]);
   renderCantiere(lista[idx]);
   renderTotali(lista);
 }

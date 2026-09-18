@@ -306,25 +306,70 @@ async function dbSalva(chiave, valore){
   }
   return true;
 }
-// Salvataggio cantieri anti sovrascrittura: rilegge l'elenco dal server e lo
-// unisce al locale prima di riscrivere, cosi' un cantiere creato da un altro
-// dispositivo non viene cancellato. Nota: le eliminazioni non si propagano.
-async function salvaCantieriSicuro(lista){
-  localStorage.setItem('cantieri_v1', JSON.stringify(lista));
-  if(!db) return false;
-  const { data, error } = await db.from('dati').select('valore').eq('chiave','cantieri_v1').maybeSingle();
+function __toastErr(msg){ toast('\u26a0\ufe0f ' + msg, 'err'); }
+
+// ── SINCRONIZZAZIONE: scrittura chirurgica + coda offline ──
+// Regola: la versione del server e' la base. Ogni dispositivo applica SOLO i
+// record che ha appena toccato, quindi una copia locale vecchia non puo' piu'
+// riportare indietro modifiche fatte altrove. Le cancellazioni sono marcature
+// (eliminato:true) e non rimozioni, cosi' si propagano invece di tornare indietro.
+function chiavePending(k){ return 'cp_pending_' + k; }
+function getPending(k){ try{ return JSON.parse(localStorage.getItem(chiavePending(k))) || []; }catch{ return []; } }
+function aggiungiPending(k, records){
+  const m = new Map(getPending(k).map(x => [x.id, x]));
+  records.forEach(r => m.set(r.id, r));
+  localStorage.setItem(chiavePending(k), JSON.stringify([...m.values()]));
+}
+function svuotaPending(k){ localStorage.removeItem(chiavePending(k)); }
+function scriviLocale(k, records){
+  let attuali = [];
+  try{ attuali = JSON.parse(localStorage.getItem(k)) || []; }catch(e){}
+  const m = new Map(attuali.map(x => [x.id, x]));
+  records.forEach(r => m.set(r.id, r));
+  localStorage.setItem(k, JSON.stringify([...m.values()]));
+}
+function marcaEliminato(rec){ return {...rec, eliminato:true, timestamp:new Date().toISOString()}; }
+async function salvaRecord(k, records){
+  if(!Array.isArray(records) || !records.length) return true;
+  scriviLocale(k, records);
+  if(!db){ aggiungiPending(k, records); __toastErr('Salvato sul dispositivo, non ancora sincronizzato'); return false; }
+  const { data, error } = await db.from('dati').select('valore').eq('chiave', k).maybeSingle();
   if(error){
-    console.error('salvaCantieriSicuro lettura', error);
-    toast('\u26a0\ufe0f Non sincronizzato: ' + error.message,'err');
+    console.error('salvaRecord lettura', k, error);
+    aggiungiPending(k, records);
+    __toastErr('Salvato sul dispositivo, non ancora sincronizzato');
     return false;
   }
-  const remoti = (data && Array.isArray(data.valore)) ? data.valore : [];
-  const idLocali = new Set(lista.map(c => c.id));
-  const unione = [...lista, ...remoti.filter(c => !idLocali.has(c.id))];
-  const ok = await dbSalva('cantieri_v1', unione);
-  if(ok) localStorage.setItem('cantieri_v1', JSON.stringify(unione));
-  return ok;
+  const base = (data && Array.isArray(data.valore)) ? data.valore : [];
+  const m = new Map(base.map(x => [x.id, x]));
+  getPending(k).forEach(r => m.set(r.id, r));
+  records.forEach(r => m.set(r.id, r));
+  const finale = [...m.values()];
+  const ok = await dbSalva(k, finale);
+  if(!ok){ aggiungiPending(k, records); return false; }
+  svuotaPending(k);
+  localStorage.setItem(k, JSON.stringify(finale));
+  return true;
 }
+// Allinea la copia locale a quella del server, mantenendo le modifiche in coda
+async function allinea(k){
+  if(!db) return false;
+  const { data, error } = await db.from('dati').select('valore').eq('chiave', k).maybeSingle();
+  if(error){ console.error('allinea', k, error); __toastErr('Lettura dal server non riuscita: ' + error.message); return false; }
+  const base = (data && Array.isArray(data.valore)) ? data.valore : [];
+  const pend = getPending(k);
+  const m = new Map(base.map(x => [x.id, x]));
+  pend.forEach(r => m.set(r.id, r));
+  const finale = [...m.values()];
+  localStorage.setItem(k, JSON.stringify(finale));
+  if(pend.length){
+    const ok = await dbSalva(k, finale);
+    if(ok) svuotaPending(k);
+  }
+  return true;
+}
+
+async function salvaCantieriSicuro(lista){ return salvaRecord('cantieri_v1', lista); }
 async function dbCarica(chiave){
   if(!db) return null;
   try{
@@ -514,7 +559,7 @@ function aggiornaCantiere(sop){
   cantieri[idx].mq = sop.mq;
   cantieri[idx].commessa = sop.commessa;
   cantieri[idx].titolo = sop.titolo;
-  salvaCantieriSicuro(cantieri);
+  salvaRecord('cantieri_v1', [cantieri[idx]]);
 }
 
 function aggiornaProg(){
@@ -972,11 +1017,10 @@ async function avviaCantiere(){
   if(!gv('fc')||!gv('fi')){toast('Inserisci cliente e indirizzo prima','err');return;}
   if(!confirm(`Avviare il cantiere per ${gv('fc')}?`)) return;
   const cantiereId='cant_'+Date.now();
-  const cantieri=getCantieri();
-  cantieri.unshift({id:cantiereId,sopralluogoId:currentId,commessa:gv('f-commessa'),titolo:gv('f-titolo'),cliente:gv('fc'),indirizzo:gv('fi'),
+  const nuovoCantiere = {id:cantiereId,sopralluogoId:currentId,commessa:gv('f-commessa'),titolo:gv('f-titolo'),cliente:gv('fc'),indirizzo:gv('fi'),
     resp:gv('f-resp'),mq:gv('fm'),dataInizio:new Date().toISOString().split('T')[0],
-    stato:'In corso',giornate:[],costiMateriali:[],preventivo:0});
-  const sincronizzato = await salvaCantieriSicuro(cantieri);
+    stato:'In corso',giornate:[],costiMateriali:[],preventivo:0};
+  const sincronizzato = await salvaRecord('cantieri_v1', [nuovoCantiere]);
   const lista=getLista(); const idx=lista.findIndex(s=>s.id===currentId);
   if(idx>=0){lista[idx].cantiereId=cantiereId;salveLista(lista);}
   aggiornaBottoneAvvia(cantiereId);
@@ -988,7 +1032,7 @@ async function avviaCantiere(){
   setTimeout(()=>{window.location.href='cantiere.html?id='+cantiereId;},1200);
 }
 
-function getCantieri(){try{return JSON.parse(localStorage.getItem('cantieri_v1'))||[];}catch{return[];}}
+function getCantieri(){try{return (JSON.parse(localStorage.getItem('cantieri_v1'))||[]).filter(c=>!c.eliminato);}catch{return[];}}
 
 // ── AVVISA SEGRETARIA (WhatsApp) ──
 function avvisaSegretariaSopralluogo(){
