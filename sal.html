@@ -11,6 +11,7 @@
 <title>SAL</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Epilogue:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@9.7.2/dist/index.iife.js"></script>
 <style>
 :root{--bg:#FFFFFF;--surface:#F5F5F5;--surface2:#EBEBEB;--brick:#D4511E;--brick-dim:rgba(212,81,30,0.12);--sand:#8A6A50;--sand-dim:rgba(138,106,80,0.12);--white:#1A1612;--muted:#888280;--border:rgba(0,0,0,0.1);--green:#3A7A4C;--green-dim:rgba(58,122,76,0.12);--r:14px;--r-sm:10px;}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
@@ -48,11 +49,20 @@ input[type="file"]{display:none;}
 .sal-header{padding:14px 16px;display:flex;justify-content:space-between;align-items:center;}
 .sal-data{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;}
 .sal-perc{font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;background:var(--green-dim);color:var(--green);}
-.sal-desc{padding:0 16px 14px;font-size:13px;line-height:1.6;color:rgba(245,240,232,.8);}
+.sal-desc{padding:0 16px 14px;font-size:13px;line-height:1.6;color:var(--white);}
 .sal-foto-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:0 16px 14px;}
 .sal-foto-item{border-radius:6px;overflow:hidden;aspect-ratio:1;}
 .sal-foto-item img{width:100%;height:100%;object-fit:cover;display:block;}
 .sal-del{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 6px;}
+.report-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:999;background:#fff;display:none;flex-direction:column;}
+.report-overlay.show{display:flex;}
+.report-topbar{background:#1A1612;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.rep-title{font-family:'Syne',sans-serif;font-size:15px;color:#fff;font-weight:700;}
+.rep-actions{display:flex;gap:8px;}
+.rep-btn{padding:8px 14px;border:none;border-radius:8px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
+.rep-btn.close{background:rgba(255,255,255,.1);color:#fff;}
+.rep-btn.print{background:var(--brick);color:#fff;}
+.report-frame{flex:1;border:none;width:100%;}
 .empty-state{text-align:center;padding:48px 20px;color:var(--muted);}
 .empty-icon{font-size:48px;margin-bottom:12px;}
 .empty-txt{font-size:15px;font-weight:500;color:var(--sand);margin-bottom:6px;}
@@ -87,7 +97,7 @@ input[type="file"]{display:none;}
       <button class="btn-back" onclick="tornaLista()">←</button>
       <div class="topbar-title" id="sal-title">SAL</div>
     </div>
-    <div style="display:flex;gap:6px"><button class="btn-top" onclick="esportaSAL()">📤 Esporta</button><button class="btn-top" onclick="mostraForm()">+ Nuovo</button></div>
+    <div style="display:flex;gap:6px"><button class="btn-top" onclick="esportaWord()">📄 Word</button><button class="btn-top" onclick="esportaSAL()">📤 Esporta</button><button class="btn-top" onclick="mostraForm()">+ Nuovo</button></div>
   </div>
   <div class="content">
     <div id="sal-form" style="display:none">
@@ -120,6 +130,17 @@ input[type="file"]{display:none;}
     </div>
     <div id="sal-storico"></div>
   </div>
+</div>
+
+<div class="report-overlay" id="report-overlay">
+  <div class="report-topbar">
+    <div class="rep-title">📄 Report S.A.L.</div>
+    <div class="rep-actions">
+      <button class="rep-btn close" onclick="chiudiReport()">✕ Chiudi</button>
+      <button class="rep-btn print" onclick="document.getElementById('report-frame').contentWindow.print()">🖨️ PDF</button>
+    </div>
+  </div>
+  <iframe id="report-frame" class="report-frame"></iframe>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -234,14 +255,14 @@ function renderLista(){
     const n=(c.sal||[]).length;
     return `<div class="cant-card" onclick="apriSAL('${c.id}')">
       <div class="cant-icon">📸</div>
-      <div class="cant-info"><div class="cant-nome">${c.cliente||'—'}</div><div class="cant-meta">${c.indirizzo||'—'} · ${n} aggiornament${n===1?'o':'i'}</div></div>
+      <div class="cant-info"><div class="cant-nome">${c.commessa?c.commessa+' — ':''} ${c.titolo||c.cliente||'—'}</div><div class="cant-meta">${c.cliente||'—'} · ${c.indirizzo||'—'} · ${n} aggiornament${n===1?'o':'i'}</div></div>
       <span style="font-size:20px;color:var(--muted)">→</span>
     </div>`;}).join('');
 }
 
 function apriSAL(id){
   currentCantId=id;const c=getCantieri().find(x=>x.id===id);if(!c)return;
-  g('sal-title').textContent=c.cliente||'SAL';g('sal-form').style.display='none';
+  g('sal-title').textContent=c.titolo||c.cliente||'SAL';g('sal-form').style.display='none';
   fotoForm=[];renderStorico(c);showView('sal');
 }
 function tornaLista(){showView('lista');renderLista();}
@@ -320,58 +341,129 @@ function esportaSAL(){
   const sal = c.sal||[];
   if(!sal.length){ toast('Nessun aggiornamento da esportare','err'); return; }
 
-  const MESI=['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
-  const fotoRows = sal.map((s,i)=>{
+  const COLS=2;
+  const entriesHtml = sal.map(s=>{
     const d = new Date(s.data).toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'});
-    const fotoHtml = (s.foto||[]).length ? `
-      <table style="width:100%;border-collapse:separate;border-spacing:6px 6px;margin-top:8px">
-        <tr>${(s.foto||[]).map((url,fi)=>`
-          <td style="vertical-align:top;padding:0;width:50%">
-            <div style="font-size:8px;color:#9C9088;margin-bottom:3px">Foto ${fi+1}</div>
-            <img src="${url}" style="width:100%;height:160px;object-fit:cover;border-radius:6px;border:1px solid #E8E2D9;display:block">
-          </td>`).join('')}
-        </tr>
-      </table>` : '';
-    return `
-      <div style="margin-bottom:24px;page-break-inside:avoid;border-left:3px solid #D4511E;padding-left:14px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <div style="font-weight:700;font-size:15px;color:#0F0D0A">${d}</div>
-          ${s.perc?`<span style="background:#E8F5E9;color:#3A7A4C;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px">${s.perc}%</span>`:''}
-        </div>
-        <div style="font-size:13px;line-height:1.7;color:#333;margin-bottom:6px">${s.desc}</div>
-        ${fotoHtml}
-      </div>`;
+    const fotoArr = s.foto||[];
+    let fotoRows='';
+    if(fotoArr.length){
+      fotoRows='<table style="width:100%;border-collapse:separate;border-spacing:4mm 3mm">';
+      for(let i=0;i<fotoArr.length;i+=COLS){
+        fotoRows+='<tr style="break-inside:avoid;page-break-inside:avoid">';
+        for(let j=0;j<COLS;j++){
+          const url=fotoArr[i+j];
+          fotoRows+=url?`<td style="vertical-align:top;padding:0;text-align:center;width:50%;break-inside:avoid;page-break-inside:avoid"><div style="font-size:7px;color:#9C9088;margin-bottom:2px;font-weight:700;letter-spacing:1px;text-align:center">FOTO ${i+j+1}</div><img src="${url}" style="width:100%;max-height:62mm;object-fit:cover;border-radius:4px;border:1px solid #E8E2D9;display:block"></td>`:'<td style="width:50%"></td>';
+        }
+        fotoRows+='</tr>';
+      }
+      fotoRows+='</table>';
+    }
+    return `<div class="sec"><div class="stitle">📅 ${d}${s.perc?` — Avanzamento ${s.perc}%`:''}</div><div class="btext">${s.desc||''}</div>${fotoRows}</div>`;
   }).join('');
 
   const oggi = new Date().toLocaleDateString('it-IT');
-  const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
-<title>SAL — ${c.titolo||c.cliente}</title>
-<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:#fff;color:#1A1612;padding:24px;max-width:680px;margin:0 auto;}
-.hdr{border-bottom:3px solid #D4511E;padding-bottom:14px;margin-bottom:24px;}
-.ttl{font-size:22px;font-weight:700;}.sub{font-size:13px;color:#9C9088;margin-top:4px;}
-@media print{body{padding:0;}.print-btn{display:none;}}
-.print-btn{position:fixed;bottom:16px;right:16px;background:#D4511E;color:#fff;border:none;padding:13px 20px;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(212,81,30,.4);}
-</style></head><body>
-<div class="hdr">
-  <div class="ttl">S.A.L. — ${c.titolo||c.cliente||'—'}</div>
-  <div class="sub">${c.cliente||''} · ${c.indirizzo||''} · Esportato il ${oggi}</div>
-</div>
-${fotoRows}
-<button class="print-btn" onclick="window.print()">🖨️ Salva PDF</button>
+  const html=`<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SAL — ${c.titolo||c.cliente||'—'}</title>
+<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:#fff;color:#1A1612;padding:12px 16px;max-width:720px;margin:0 auto;font-size:13px;}.hdr{border-bottom:3px solid #D4511E;padding-bottom:10px;margin-bottom:14px;}.ttl{font-size:19px;font-weight:700;}.sub{font-size:11px;color:#9C9088;margin-top:2px;}.sec{margin-bottom:10px;}.stitle{font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#D4511E;border-bottom:1px solid #E8E2D9;padding-bottom:3px;margin-bottom:6px;break-after:avoid;page-break-after:avoid;}.btext{font-size:12px;line-height:1.7;white-space:pre-wrap;}@page{margin:12mm;}@media print{body{padding:0;max-width:none;}}</style></head><body>
+<div class="hdr"><div class="ttl">S.A.L. — ${c.titolo||c.cliente||'—'}</div><div class="sub">${c.cliente||''} · ${c.indirizzo||''}</div><div class="sub">Esportato il ${oggi}</div></div>
+${entriesHtml}
 </body></html>`;
 
-  const frame = document.createElement('iframe');
-  frame.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:9999;background:#fff';
-  document.body.appendChild(frame);
-  const doc = frame.contentDocument||frame.contentWindow.document;
+  const frame=g('report-frame'); const overlay=g('report-overlay'); overlay.classList.add('show');
+  const doc=frame.contentDocument||frame.contentWindow.document;
   doc.open(); doc.write(html); doc.close();
+}
 
-  // Add close button
-  const closeBtn = document.createElement('button');
-  closeBtn.textContent = '✕ Chiudi';
-  closeBtn.style.cssText = 'position:fixed;top:16px;left:16px;z-index:10000;background:rgba(0,0,0,0.7);color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:14px;font-weight:700;cursor:pointer';
-  closeBtn.onclick = ()=>{ document.body.removeChild(frame); document.body.removeChild(closeBtn); };
-  document.body.appendChild(closeBtn);
+function chiudiReport(){ g('report-overlay').classList.remove('show'); }
+
+// ── ESPORTA WORD: solo foto, griglia 2×2 da template ──
+function fotoCoverJpeg(url){
+  // Ritaglio centrale a 4:3 (equivalente di object-fit:cover nel riquadro 8×6cm)
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    if(/^https?:/i.test(url)) img.crossOrigin='anonymous';
+    img.onload=()=>{
+      try{
+        const W=800,H=600;
+        const canvas=document.createElement('canvas');canvas.width=W;canvas.height=H;
+        const ctx=canvas.getContext('2d');
+        const scala=Math.max(W/img.width,H/img.height);
+        const w=img.width*scala,h=img.height*scala;
+        ctx.drawImage(img,(W-w)/2,(H-h)/2,w,h);
+        canvas.toBlob(b=>b?b.arrayBuffer().then(resolve,reject):reject(new Error('toBlob fallito')),'image/jpeg',0.85);
+      }catch(e){reject(e);}
+    };
+    img.onerror=()=>reject(new Error('immagine non caricata'));
+    img.src=url;
+  });
+}
+
+async function esportaWord(){
+  const c=getCantieri().find(x=>x.id===currentCantId); if(!c)return;
+  const sal=c.sal||[];
+  // Lo storico è salvato dal più recente (unshift): inverto e ordino per data
+  const entries=[...sal].reverse().sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  const urls=entries.flatMap(s=>s.foto||[]);
+  if(!urls.length){toast('Nessuna foto da esportare','err');return;}
+  if(!window.docx){toast('Libreria Word non caricata, controlla la connessione','err');return;}
+  toast('📄 Generazione Word in corso...','inf');
+
+  const buffers=[]; let saltate=0;
+  for(const u of urls){
+    try{ buffers.push(await fotoCoverJpeg(u)); }
+    catch(e){ console.error('esportaWord: foto saltata',e); saltate++; }
+  }
+  if(!buffers.length){toast('Nessuna foto esportabile','err');return;}
+
+  const {Document,Packer,Paragraph,TextRun,ImageRun,Table,TableRow,TableCell,WidthType,BorderStyle,AlignmentType}=window.docx;
+  const CM=567;                       // 1 cm in twip
+  const FOTO_W=302,FOTO_H=227;        // 8×6 cm in px a 96 DPI
+  const NB={style:BorderStyle.NONE,size:0,color:'FFFFFF'};
+  const cellaFoto=(buf,num)=>new TableCell({
+    width:{size:50,type:WidthType.PERCENTAGE},
+    borders:{top:NB,bottom:NB,left:NB,right:NB},
+    children:[
+      new Paragraph({alignment:AlignmentType.CENTER,children:[new ImageRun({type:'jpg',data:buf,transformation:{width:FOTO_W,height:FOTO_H}})]}),
+      new Paragraph({alignment:AlignmentType.CENTER,children:[new TextRun({text:'foto '+num,bold:true,font:'Arial',size:16,color:'00B0F0'})]})
+    ]
+  });
+  const cellaVuota=()=>new TableCell({
+    width:{size:50,type:WidthType.PERCENTAGE},
+    borders:{top:NB,bottom:NB,left:NB,right:NB},
+    children:[new Paragraph({children:[]})]
+  });
+
+  const children=[
+    new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:200},
+      children:[new TextRun({text:c.titolo||c.cliente||'—',bold:true,font:'Arial',size:28})]})
+  ];
+  for(let p=0;p<buffers.length;p+=4){
+    if(p>0) children.push(new Paragraph({pageBreakBefore:true,children:[]}));
+    const rows=[];
+    for(let r=p;r<Math.min(p+4,buffers.length);r+=2){
+      const celle=[cellaFoto(buffers[r],r+1)];
+      celle.push(buffers[r+1]&&r+1<p+4?cellaFoto(buffers[r+1],r+2):cellaVuota());
+      rows.push(new TableRow({children:celle}));
+    }
+    children.push(new Table({
+      width:{size:100,type:WidthType.PERCENTAGE},
+      borders:{top:NB,bottom:NB,left:NB,right:NB,insideHorizontal:NB,insideVertical:NB},
+      rows
+    }));
+  }
+
+  const doc=new Document({sections:[{
+    properties:{page:{margin:{top:CM,right:2*CM,bottom:2*CM,left:2*CM}}},
+    children
+  }]});
+
+  const blob=await Packer.toBlob(doc);
+  const nome=(c.titolo||c.cliente||'cantiere').replace(/[\\/:*?"<>|]+/g,'').trim().replace(/\s+/g,'-');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`SAL_${nome}_${new Date().toISOString().split('T')[0]}.docx`;
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+  toast(saltate?`✅ Word generato (${saltate} foto saltate)`:'✅ Word generato','ok');
 }
 
 
