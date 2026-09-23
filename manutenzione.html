@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Manutenzione · CommessaPro</title>
+<link rel="icon" href="logo.svg">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root{
+  --bg:#0F0F10; --surface:#191919; --surface2:#222; --border:#2E2E2E;
+  --white:#F2F0EC; --muted:#8A8A8A; --brick:#D4511E; --green:#3A7A4C; --red:#C0392B;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{margin:0;background:var(--bg);color:var(--white);font-family:system-ui,-apple-system,sans-serif;font-size:14px;padding:16px 14px 40px;}
+h1{font-size:19px;margin:0 0 2px;}
+.sub{font-size:12px;color:var(--muted);margin-bottom:16px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px;}
+.card h2{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:0 0 10px;}
+.riga{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.riga:last-child{border-bottom:none;}
+.riga .val{font-weight:600;text-align:right;word-break:break-word;}
+.ok{color:var(--green);} .ko{color:var(--red);} .warn{color:#E3A008;}
+button{width:100%;padding:13px;border-radius:10px;border:none;font-size:15px;font-weight:600;font-family:inherit;color:#fff;background:var(--surface2);margin-top:8px;cursor:pointer;}
+button.primario{background:var(--brick);}
+button.verde{background:var(--green);}
+button:disabled{opacity:.45;}
+.hint{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.45;}
+pre{background:#000;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:11px;white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto;color:#CFCFCF;}
+.step{display:inline-block;width:20px;height:20px;line-height:20px;text-align:center;border-radius:50%;background:var(--brick);font-size:11px;font-weight:700;margin-right:6px;}
+a.link{color:var(--brick);text-decoration:none;font-weight:600;}
+</style>
+</head>
+<body>
+
+<h1>Manutenzione</h1>
+<div class="sub">Pagina di servizio: backup dei dati locali, diagnosi e ripristino della sincronizzazione.</div>
+
+<div class="card">
+  <h2><span class="step">1</span>Backup sul telefono</h2>
+  <div id="box-locale"></div>
+  <button class="primario" onclick="scaricaBackup()">Scarica backup (file JSON)</button>
+  <button onclick="condividiBackup()">Condividi il backup (WhatsApp, email)</button>
+  <div class="hint">Fallo per primo. Il file contiene tutti i dati salvati su questo telefono e non ancora finiti sul server.</div>
+</div>
+
+<div class="card">
+  <h2><span class="step">2</span>Diagnosi</h2>
+  <div id="box-diag"><div class="hint">Premi il pulsante per eseguire i controlli.</div></div>
+  <button onclick="eseguiDiagnosi()">Esegui diagnosi</button>
+  <div class="hint">Se la sessione risulta scaduta: <a class="link" href="login.html">esci e rientra con email e password</a>, poi torna qui.</div>
+</div>
+
+<div class="card">
+  <h2><span class="step">3</span>Ripristino sincronizzazione</h2>
+  <div id="box-sync"><div class="hint">Disponibile dopo il backup e la diagnosi.</div></div>
+  <button class="verde" id="btn-sync" onclick="sincronizza()" disabled>Sincronizza adesso</button>
+  <div class="hint">Unisce i dati del telefono con quelli del server senza cancellare nulla, poi ricarica l'elenco cantieri aggiornato.</div>
+</div>
+
+<div class="card">
+  <h2>Dettaglio tecnico</h2>
+  <pre id="log">In attesa.</pre>
+</div>
+
+<button onclick="location.href='index.html'">Torna alla home</button>
+
+<script>
+// ── GUARD AUTH: gira prima di qualsiasi lettura dati o render ──
+(function(){
+  let u=null; try{u=JSON.parse(localStorage.getItem('cp_user'))||null;}catch{}
+  if(!u||!u.email) window.location.replace('login.html');
+})();
+
+// ── SUPABASE ──
+const SUPA_URL = 'https://iradzlocobsipjazracw.supabase.co';
+const SUPA_KEY = 'sb_publishable_zFgRrNrmYSORug8N06heow_6vjl0fhH';
+const RPT_KEY = 'rapporti_v1';
+const CANT_KEY = 'cantieri_v1';
+const CHIAVI_BACKUP = ['rapporti_v1','cantieri_v1','sopralluoghi_v3','note_v1','rubrica_v1','cp_user','cp_settings'];
+
+let db = null;
+let backupFatto = false;
+let diagFatta = false;
+
+if(window.supabase) db = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+
+// ── HELPERS ──
+const g = id => document.getElementById(id);
+function log(msg){
+  const el = g('log');
+  const t = new Date().toLocaleTimeString('it-IT');
+  el.textContent = (el.textContent === 'In attesa.' ? '' : el.textContent + '\n') + '[' + t + '] ' + msg;
+  el.scrollTop = el.scrollHeight;
+}
+function riga(label, valore, classe){
+  return '<div class="riga"><span>' + label + '</span><span class="val ' + (classe||'') + '">' + valore + '</span></div>';
+}
+function leggiLocale(k){
+  try{ return JSON.parse(localStorage.getItem(k)); }catch{ return null; }
+}
+function rapportiLocali(){
+  const l = leggiLocale(RPT_KEY);
+  return Array.isArray(l) ? l : [];
+}
+function ultimaData(lista){
+  const d = lista.map(r => r && r.data).filter(Boolean).sort();
+  return d.length ? d[d.length-1].split('-').reverse().join('/') : 'nessuna';
+}
+function nomeFileBackup(){
+  const n = new Date();
+  const p = x => String(x).padStart(2,'0');
+  return 'commessapro_backup_' + n.getFullYear() + p(n.getMonth()+1) + p(n.getDate()) + '_' + p(n.getHours()) + p(n.getMinutes()) + '.json';
+}
+function contenutoBackup(){
+  const out = { generato: new Date().toISOString(), origine: 'manutenzione.html', dati: {} };
+  CHIAVI_BACKUP.forEach(k => { const v = localStorage.getItem(k); if(v !== null) out.dati[k] = v; });
+  return JSON.stringify(out, null, 2);
+}
+
+// ── SEZIONE 1: STATO LOCALE E BACKUP ──
+function renderLocale(){
+  const rpt = rapportiLocali();
+  const cant = leggiLocale(CANT_KEY) || [];
+  const u = leggiLocale('cp_user') || {};
+  g('box-locale').innerHTML =
+    riga('Utente', (u.nome || u.email || 'sconosciuto')) +
+    riga('Rapportini su questo telefono', rpt.length) +
+    riga('Ultima giornata registrata', ultimaData(rpt)) +
+    riga('Cantieri in memoria', cant.length);
+}
+
+function scaricaBackup(){
+  const blob = new Blob([contenutoBackup()], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nomeFileBackup();
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  backupFatto = true;
+  aggiornaPulsanteSync();
+  log('Backup scaricato: ' + nomeFileBackup());
+}
+
+async function condividiBackup(){
+  const testo = contenutoBackup();
+  try{
+    const file = new File([testo], nomeFileBackup(), {type:'application/json'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:'Backup CommessaPro'});
+      backupFatto = true; aggiornaPulsanteSync();
+      log('Backup condiviso.');
+      return;
+    }
+  }catch(e){ log('Condivisione non riuscita: ' + e.message); }
+  scaricaBackup();
+  alert('Il file e\' stato scaricato nella cartella Download. Inviamelo da li\'.');
+}
+
+// ── SEZIONE 2: DIAGNOSI ──
+async function eseguiDiagnosi(){
+  let html = '';
+  log('Avvio diagnosi.');
+
+  if(!db){
+    g('box-diag').innerHTML = riga('Libreria Supabase', 'non caricata', 'ko');
+    log('Libreria Supabase non caricata: connessione assente o CDN bloccato.');
+    return;
+  }
+
+  // Sessione
+  let sessione = null;
+  try{
+    const { data } = await db.auth.getSession();
+    sessione = data ? data.session : null;
+  }catch(e){ log('getSession errore: ' + e.message); }
+
+  if(sessione){
+    const scad = new Date(sessione.expires_at * 1000);
+    html += riga('Sessione Supabase', 'attiva', 'ok');
+    html += riga('Account collegato', sessione.user.email);
+    html += riga('Token valido fino a', scad.toLocaleString('it-IT'));
+    log('Sessione attiva per ' + sessione.user.email);
+  } else {
+    html += riga('Sessione Supabase', 'assente o scaduta', 'ko');
+    log('Nessuna sessione Supabase: le richieste partono come anonime.');
+  }
+
+  // Lettura
+  let remoto = null, letturaOk = false;
+  const rl = await db.from('dati').select('valore').eq('chiave', RPT_KEY).maybeSingle();
+  if(rl.error){
+    html += riga('Lettura dal server', 'BLOCCATA', 'ko');
+    log('Lettura rifiutata: ' + rl.error.code + ' ' + rl.error.message);
+  } else {
+    letturaOk = true;
+    remoto = rl.data ? rl.data.valore : null;
+    const n = Array.isArray(remoto) ? remoto.length : 0;
+    html += riga('Lettura dal server', 'ok (' + n + ' rapportini)', 'ok');
+    if(Array.isArray(remoto)) html += riga('Ultima giornata sul server', ultimaData(remoto));
+    log('Lettura ok, record remoti: ' + n);
+  }
+
+  // Scrittura: riscrive lo stesso contenuto, nessuna modifica ai dati
+  if(letturaOk && Array.isArray(remoto)){
+    const rs = await db.from('dati').upsert({chiave:RPT_KEY, valore:remoto, ts:new Date().toISOString()}, {onConflict:'chiave'});
+    if(rs.error){
+      html += riga('Scrittura sul server', 'BLOCCATA', 'ko');
+      log('Scrittura rifiutata: ' + rs.error.code + ' ' + rs.error.message);
+    } else {
+      html += riga('Scrittura sul server', 'ok', 'ok');
+      log('Scrittura ok.');
+    }
+  } else {
+    const rs = await db.from('dati').upsert({chiave:'diag_ping', valore:{ts:new Date().toISOString()}, ts:new Date().toISOString()}, {onConflict:'chiave'});
+    if(rs.error){
+      html += riga('Scrittura sul server', 'BLOCCATA', 'ko');
+      log('Scrittura rifiutata: ' + rs.error.code + ' ' + rs.error.message);
+    } else {
+      html += riga('Scrittura sul server', 'ok', 'ok');
+      log('Scrittura ok su chiave di prova diag_ping.');
+    }
+  }
+
+  // Confronto locale / remoto
+  if(letturaOk){
+    const locali = rapportiLocali();
+    const idRemoti = new Set((Array.isArray(remoto)?remoto:[]).map(r=>r.id));
+    const mancanti = locali.filter(r => !idRemoti.has(r.id));
+    html += riga('Rapportini solo sul telefono', mancanti.length, mancanti.length ? 'warn' : 'ok');
+    if(mancanti.length){
+      const date = [...new Set(mancanti.map(r=>r.data))].sort();
+      html += riga('Dal / al', ultimaData([{data:date[0]}]) + ' - ' + ultimaData([{data:date[date.length-1]}]));
+    }
+    log('Da caricare sul server: ' + mancanti.length + ' rapportini.');
+  }
+
+  g('box-diag').innerHTML = html;
+  diagFatta = true;
+  aggiornaPulsanteSync();
+}
+
+// ── SEZIONE 3: SINCRONIZZAZIONE ──
+function aggiornaPulsanteSync(){
+  const pronto = backupFatto && diagFatta;
+  g('btn-sync').disabled = !pronto;
+  if(pronto) g('box-sync').innerHTML = '<div class="hint">Backup eseguito e diagnosi completata: puoi sincronizzare.</div>';
+}
+
+async function sincronizza(){
+  if(!backupFatto){ alert('Prima scarica il backup.'); return; }
+  const btn = g('btn-sync');
+  btn.disabled = true;
+  let html = '';
+  log('Avvio sincronizzazione.');
+
+  const lettura = await db.from('dati').select('valore').eq('chiave', RPT_KEY).maybeSingle();
+  if(lettura.error){
+    g('box-sync').innerHTML = riga('Sincronizzazione', 'non riuscita in lettura', 'ko');
+    log('Stop: lettura rifiutata (' + lettura.error.code + ' ' + lettura.error.message + ').');
+    btn.disabled = false;
+    return;
+  }
+
+  const remoto = Array.isArray(lettura.data && lettura.data.valore) ? lettura.data.valore : [];
+  const locali = rapportiLocali();
+  const idRemoti = new Set(remoto.map(r=>r.id));
+  const extra = locali.filter(r => !idRemoti.has(r.id));
+  const unione = [...remoto, ...extra];
+
+  const scrittura = await db.from('dati')
+    .upsert({chiave:RPT_KEY, valore:unione, ts:new Date().toISOString()}, {onConflict:'chiave'});
+  if(scrittura.error){
+    g('box-sync').innerHTML = riga('Sincronizzazione', 'scrittura rifiutata', 'ko') +
+      '<div class="hint">Il server non accetta le scritture da questo account. Il problema e\' lato server, i dati restano al sicuro sul telefono e nel backup.</div>';
+    log('Scrittura rifiutata: ' + scrittura.error.code + ' ' + scrittura.error.message);
+    btn.disabled = false;
+    return;
+  }
+
+  // Verifica: rileggo e confronto
+  const verifica = await db.from('dati').select('valore').eq('chiave', RPT_KEY).maybeSingle();
+  const dopo = Array.isArray(verifica.data && verifica.data.valore) ? verifica.data.valore : [];
+  localStorage.setItem(RPT_KEY, JSON.stringify(unione));
+
+  html += riga('Rapportini caricati ora', extra.length, 'ok');
+  html += riga('Totale sul server', dopo.length, dopo.length >= unione.length ? 'ok' : 'warn');
+  log('Sincronizzati ' + extra.length + ' rapportini. Totale server: ' + dopo.length + '.');
+
+  // Aggiorno anche i cantieri
+  const rc = await db.from('dati').select('valore').eq('chiave', CANT_KEY).maybeSingle();
+  if(!rc.error && rc.data && Array.isArray(rc.data.valore)){
+    localStorage.setItem(CANT_KEY, JSON.stringify(rc.data.valore));
+    html += riga('Cantieri aggiornati', rc.data.valore.length, 'ok');
+    log('Elenco cantieri aggiornato: ' + rc.data.valore.length + ' voci.');
+  } else if(rc.error){
+    html += riga('Cantieri aggiornati', 'lettura bloccata', 'ko');
+    log('Cantieri: lettura rifiutata (' + rc.error.code + ' ' + rc.error.message + ').');
+  }
+
+  g('box-sync').innerHTML = html + '<div class="hint">Fatto. Torna alla home e riapri "I miei rapporti".</div>';
+  renderLocale();
+  btn.disabled = false;
+}
+
+// ── INIT ──
+renderLocale();
+</script>
+</body>
+</html>
