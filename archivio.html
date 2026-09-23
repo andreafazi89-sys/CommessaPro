@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Archivio commesse · CommessaPro</title>
+<link rel="icon" href="logo.svg">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root{
+  --bg:#0F0F10; --surface:#191919; --surface2:#222; --border:#2E2E2E;
+  --white:#F2F0EC; --muted:#8A8A8A; --brick:#D4511E; --green:#3A7A4C; --red:#C0392B;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{margin:0;background:var(--bg);color:var(--white);font-family:system-ui,-apple-system,sans-serif;font-size:14px;padding:14px 12px 90px;}
+.header{display:flex;align-items:center;gap:10px;margin-bottom:4px;}
+.back{background:var(--surface);border:1px solid var(--border);border-radius:9px;width:36px;height:36px;color:var(--white);font-size:16px;cursor:pointer;}
+h1{font-size:18px;margin:0;}
+.sub{font-size:12px;color:var(--muted);margin:2px 0 14px;line-height:1.45;}
+.toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+.tbtn{flex:1;min-width:130px;padding:9px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;}
+.tbtn.on{border-color:var(--brick);color:var(--brick);background:rgba(212,81,30,.1);}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px;margin-bottom:10px;}
+.card.arch{opacity:.55;}
+.titolo{font-size:15px;font-weight:700;line-height:1.3;}
+.meta{font-size:12px;color:var(--muted);margin-top:3px;}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:9px 0 2px;}
+.chip{font-size:11px;padding:3px 8px;border-radius:20px;background:var(--surface2);color:var(--muted);}
+.chip.ok{color:var(--green);} .chip.warn{color:#E3A008;}
+button.azione{width:100%;padding:11px;border-radius:9px;border:none;background:var(--brick);color:#fff;font-size:14px;font-weight:600;font-family:inherit;margin-top:10px;cursor:pointer;}
+button.azione.grigio{background:var(--surface2);color:var(--muted);}
+button:disabled{opacity:.5;}
+.prog{height:6px;background:var(--surface2);border-radius:4px;overflow:hidden;margin-top:9px;display:none;}
+.prog > div{height:100%;background:var(--green);width:0;transition:width .2s;}
+.stato{font-size:12px;color:var(--muted);margin-top:6px;min-height:16px;}
+.empty{text-align:center;color:var(--muted);padding:34px 10px;font-size:13px;line-height:1.6;}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:20px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:92%;text-align:center;z-index:50;}
+.toast.show{opacity:1;}
+.toast.err{border-color:var(--red);color:#F0B0A8;}
+.toast.ok{border-color:var(--green);color:#A6D7B4;}
+.nota{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--brick);border-radius:8px;padding:11px 12px;font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:14px;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <button class="back" onclick="location.href='index.html'">←</button>
+  <h1>Archivio commesse</h1>
+</div>
+<div class="sub">Crea un pacchetto ZIP con tutto quello che riguarda la commessa, poi la toglie dagli elenchi attivi. I dati restano nel database e il pacchetto va salvato nella cartella della commessa sul server aziendale.</div>
+
+<div class="nota">
+  Il pacchetto contiene scheda del sopralluogo, foto del sopralluogo e dei SAL scaricate davvero, note vocali, elenco delle giornate in CSV e il file dati.json per una eventuale reimportazione. Le foto restano anche sul cloud: qui non viene cancellato niente.
+</div>
+
+<div class="toolbar">
+  <button class="tbtn on" id="tb-attivi" onclick="cambiaVista('attivi')">Da archiviare</button>
+  <button class="tbtn" id="tb-arch" onclick="cambiaVista('archiviati')">Gia archiviati</button>
+</div>
+
+<div id="lista"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ── GUARD AUTH E RUOLO ──
+(function(){
+  let u=null; try{u=JSON.parse(localStorage.getItem('cp_user'))||null;}catch(e){}
+  if(!u||!u.email){ window.location.replace('login.html'); return; }
+  const r=(u.ruolo||'').toLowerCase();
+  if(r!=='admin'&&r!=='segretaria'){ window.location.replace('index.html'); }
+})();
+
+// ── SUPABASE ──
+const SUPA_URL = 'https://iradzlocobsipjazracw.supabase.co';
+const SUPA_KEY = 'sb_publishable_zFgRrNrmYSORug8N06heow_6vjl0fhH';
+const SOP_KEY = 'sopralluoghi_v3';
+const CANT_KEY = 'cantieri_v1';
+const RPT_KEY = 'rapporti_v1';
+let db = null;
+if(window.supabase) db = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+
+const g = id => document.getElementById(id);
+function toast(msg, tipo){
+  const t = g('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + (tipo||'') + ' show';
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.remove('show'), 3500);
+}
+function avvisoSync(msg){ toast('⚠️ ' + msg, 'err'); }
+
+async function dbSalva(k, v){
+  if(!db){ avvisoSync('Server non raggiungibile'); return false; }
+  const { data:s } = await db.auth.getSession();
+  if(!s || !s.session){ avvisoSync('Sessione scaduta: esci e rientra'); return false; }
+  const { error } = await db.from('dati').upsert({chiave:k, valore:v, ts:new Date().toISOString()}, {onConflict:'chiave'});
+  if(error){ console.error('dbSalva', k, error); avvisoSync('Non sincronizzato: ' + error.message); return false; }
+  return true;
+}
+
+// ── SINCRONIZZAZIONE: scrittura chirurgica ──
+// La versione del server e' la base: si applicano solo i record toccati qui.
+async function salvaRecord(k, records){
+  if(!Array.isArray(records) || !records.length) return true;
+  if(!db){ avvisoSync('Server non raggiungibile'); return false; }
+  const { data, error } = await db.from('dati').select('valore').eq('chiave', k).maybeSingle();
+  if(error){ console.error('salvaRecord', k, error); avvisoSync('Non sincronizzato: ' + error.message); return false; }
+  const base = (data && Array.isArray(data.valore)) ? data.valore : [];
+  const m = new Map(base.map(x => [x.id, x]));
+  records.forEach(r => m.set(r.id, r));
+  const finale = [...m.values()];
+  const ok = await dbSalva(k, finale);
+  if(ok) localStorage.setItem(k, JSON.stringify(finale));
+  return ok;
+}
+async function caricaTutto(){
+  if(!db) return false;
+  for(const k of [SOP_KEY, CANT_KEY, RPT_KEY]){
+    const { data, error } = await db.from('dati').select('valore').eq('chiave', k).maybeSingle();
+    if(error){ avvisoSync('Lettura non riuscita: ' + error.message); return false; }
+    if(data && Array.isArray(data.valore)) localStorage.setItem(k, JSON.stringify(data.valore));
+  }
+  return true;
+}
+function leggi(k){
+  try{ return (JSON.parse(localStorage.getItem(k)) || []).filter(x => !x.eliminato); }
+  catch(e){ return []; }
+}
+
+// ── RACCOLTA DELLE COMMESSE ──
+// Una commessa e' un sopralluogo con il suo cantiere, oppure un cantiere senza
+// sopralluogo collegato, oppure un sopralluogo mai diventato cantiere.
+function commesse(){
+  const sops = leggi(SOP_KEY), cants = leggi(CANT_KEY), rapp = leggi(RPT_KEY);
+  const out = [];
+  const cantUsati = new Set();
+
+  sops.forEach(s => {
+    const c = s.cantiereId ? cants.find(x => x.id === s.cantiereId) : null;
+    if(c) cantUsati.add(c.id);
+    out.push(componi(s, c, rapp));
+  });
+  cants.forEach(c => {
+    if(cantUsati.has(c.id)) return;
+    out.push(componi(null, c, rapp));
+  });
+  return out.sort((a,b) => (b.dataOrd || '').localeCompare(a.dataOrd || ''));
+}
+function componi(s, c, rapp){
+  const rapportini = c ? rapp.filter(r => r.cantiereId === c.id) : [];
+  const sal = (c && Array.isArray(c.sal)) ? c.sal : [];
+  const nFotoSop = (s && Array.isArray(s.foto)) ? s.foto.length : 0;
+  const nFotoSal = sal.reduce((n, x) => n + ((x.foto||[]).length), 0);
+  const nVoci = (s && Array.isArray(s.noteVocali)) ? s.noteVocali.length : 0;
+  const ore = rapportini.reduce((n, r) => n + (parseFloat(r.ore)||0), 0);
+  return {
+    id: (c ? c.id : s.id),
+    sop: s, cant: c, rapportini, sal,
+    commessa: (c && c.commessa) || (s && s.commessa) || '',
+    titolo: (c && c.titolo) || (s && s.titolo) || (s && s.cliente) || 'Senza titolo',
+    cliente: (c && c.cliente) || (s && s.cliente) || '',
+    stato: c ? (c.stato || 'In corso') : 'Solo sopralluogo',
+    dataOrd: (c && c.dataInizio) || (s && s.data) || '',
+    archiviato: !!((c && c.archiviato) || (s && s.archiviato)),
+    nFotoSop, nFotoSal, nVoci, ore, nRapportini: rapportini.length
+  };
+}
+
+// ── VISTA ──
+let vista = 'attivi';
+function cambiaVista(v){
+  vista = v;
+  g('tb-attivi').classList.toggle('on', v === 'attivi');
+  g('tb-arch').classList.toggle('on', v === 'archiviati');
+  render();
+}
+function nomeFile(c){
+  const base = (c.commessa ? c.commessa + '_' : '') + c.titolo;
+  return base.replace(/[^\w\s\-]+/g,'').trim().replace(/\s+/g,'-').slice(0,60) || 'commessa';
+}
+function render(){
+  const tutte = commesse().filter(c => vista === 'archiviati' ? c.archiviato : !c.archiviato);
+  const el = g('lista');
+  if(!tutte.length){
+    el.innerHTML = '<div class="empty">' + (vista === 'archiviati'
+      ? 'Nessuna commessa archiviata.'
+      : 'Nessuna commessa da archiviare.<br>Compaiono qui tutti i sopralluoghi e i cantieri ancora attivi.') + '</div>';
+    return;
+  }
+  el.innerHTML = tutte.map(c => `
+    <div class="card ${c.archiviato?'arch':''}">
+      <div class="titolo">${c.commessa ? c.commessa + ' · ' : ''}${c.titolo}</div>
+      <div class="meta">${c.cliente || '—'} · ${c.stato}${c.dataOrd ? ' · dal ' + c.dataOrd.split('-').reverse().join('/') : ''}</div>
+      <div class="chips">
+        <span class="chip ${c.sop?'ok':'warn'}">${c.sop ? 'scheda sopralluogo' : 'nessun sopralluogo'}</span>
+        <span class="chip">${c.nRapportini} rapportini · ${c.ore}h</span>
+        <span class="chip">${c.nFotoSop} foto sopralluogo</span>
+        <span class="chip">${c.nFotoSal} foto SAL</span>
+        ${c.nVoci ? `<span class="chip">${c.nVoci} note vocali</span>` : ''}
+      </div>
+      <div class="prog" id="prog-${c.id}"><div></div></div>
+      <div class="stato" id="stato-${c.id}"></div>
+      <button class="azione ${c.archiviato?'grigio':''}" id="btn-${c.id}" onclick="creaPacchetto('${c.id}')">
+        ${c.archiviato ? 'Scarica di nuovo il pacchetto' : 'Crea pacchetto e archivia'}
+      </button>
+    </div>`).join('');
+}
+
+// ── COSTRUZIONE DEL PACCHETTO ──
+function progresso(id, perc, testo){
+  const p = g('prog-' + id);
+  if(p){ p.style.display = 'block'; p.firstElementChild.style.width = perc + '%'; }
+  const s = g('stato-' + id);
+  if(s) s.textContent = testo || '';
+}
+function estensione(url, fallback){
+  const m = (url || '').split('?')[0].match(/\.([a-z0-9]{2,5})$/i);
+  return m ? m[1].toLowerCase() : fallback;
+}
+async function scaricaBinario(url){
+  const risposta = await fetch(url);
+  if(!risposta.ok) throw new Error('HTTP ' + risposta.status);
+  return await risposta.blob();
+}
+function csvRapportini(rapportini){
+  const righe = [['Data','Operaio','Ore','Descrizione','Subappaltatori','Colleghi presenti']];
+  rapportini.slice().sort((a,b)=>(a.data||'').localeCompare(b.data||'')).forEach(r => {
+    righe.push([
+      (r.data||'').split('-').reverse().join('/'),
+      r.operaio || '',
+      r.ore || '',
+      (r.descrizione || '').replace(/\r?\n/g,' '),
+      r.subappaltatori || '',
+      (r.colleghi || []).join(', ')
+    ]);
+  });
+  return '﻿' + righe.map(r => r.map(v => '"' + String(v).replace(/"/g,'""') + '"').join(';')).join('\r\n');
+}
+function htmlRapportini(c){
+  const righe = c.rapportini.slice().sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  const tot = righe.reduce((n,r)=>n+(parseFloat(r.ore)||0),0);
+  return `<!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><title>Giornate ${c.commessa||c.titolo}</title>
+<style>body{font-family:Arial,sans-serif;color:#1A1612;max-width:760px;margin:0 auto;padding:18px;font-size:13px}
+h1{font-size:18px;border-bottom:3px solid #D4511E;padding-bottom:8px}
+table{width:100%;border-collapse:collapse;margin-top:10px}
+th{background:#F5F0E8;text-align:left;font-size:11px;color:#6B6258;padding:6px 8px}
+td{border-top:1px solid #E8E2D9;padding:6px 8px;font-size:12px;vertical-align:top}
+tfoot td{font-weight:700;border-top:2px solid #D4511E}
+@page{margin:14mm}</style></head><body>
+<h1>Giornate lavorate</h1>
+<div>${c.commessa ? '<strong>' + c.commessa + '</strong> · ' : ''}${c.titolo}${c.cliente ? ' · ' + c.cliente : ''}</div>
+<table><thead><tr><th>Data</th><th>Operaio</th><th>Ore</th><th>Descrizione</th><th>Sub</th></tr></thead><tbody>
+${righe.map(r => `<tr><td>${(r.data||'').split('-').reverse().join('/')}</td><td>${r.operaio||'—'}</td><td>${r.ore||''}</td><td>${(r.descrizione||'').replace(/</g,'&lt;')}</td><td>${(r.subappaltatori||'').replace(/</g,'&lt;')}</td></tr>`).join('')}
+</tbody><tfoot><tr><td colspan="2">Totale</td><td>${tot}h</td><td colspan="2">${righe.length} registrazioni</td></tr></tfoot></table>
+<p style="margin-top:14px;font-size:11px;color:#9C9088">Stampa questa pagina e scegli "Salva come PDF" per averne una copia in PDF.</p>
+</body></html>`;
+}
+function htmlScheda(c, fotoFile, vociFile, salFoto){
+  const s = c.sop || {};
+  const amb = (s.ambienti || []).filter(a => a.nome || a.mq);
+  const riga = (k, v) => `<tr><td>${k}</td><td>${(v === undefined || v === null || v === '') ? '—' : String(v).replace(/</g,'&lt;')}</td></tr>`;
+  return `<!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><title>Sopralluogo ${c.commessa||c.titolo}</title>
+<style>body{font-family:Arial,sans-serif;color:#1A1612;max-width:760px;margin:0 auto;padding:18px;font-size:13px}
+h1{font-size:19px;border-bottom:3px solid #D4511E;padding-bottom:8px;margin-bottom:4px}
+.sub{font-size:11px;color:#9C9088;margin-bottom:14px}
+.stitle{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#D4511E;border-bottom:1px solid #E8E2D9;padding-bottom:3px;margin:16px 0 7px}
+table{width:100%;border-collapse:collapse}
+td{padding:6px 8px;border:1px solid #E8E2D9;font-size:12px;vertical-align:top}
+td:first-child{background:#F5F0E8;font-weight:600;color:#6B6258;width:28%}
+.btext{white-space:pre-wrap;line-height:1.7;font-size:12px}
+.griglia{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
+.griglia figure{margin:0}
+.griglia img{width:100%;border:1px solid #E8E2D9;border-radius:4px;display:block}
+.griglia figcaption{font-size:9px;color:#9C9088;margin-top:2px}
+@page{margin:12mm}</style></head><body>
+<h1>REPORT DI SOPRALLUOGO</h1>
+<div class="sub">${c.commessa ? c.commessa + ' · ' : ''}${c.titolo} · Data ${(s.data||'').split('-').reverse().join('/')||'—'} · Responsabile ${s.resp||'—'}</div>
+<div class="stitle">Cliente</div>
+<table>${riga('Cliente', s.cliente)}${riga('Telefono', s.tel)}${riga('Email', s.email)}</table>
+<div class="stitle">Cantiere</div>
+<table>${riga('Indirizzo', s.indirizzo)}${riga('Piano', s.piano)}${riga('Superficie', s.mq ? s.mq + ' mq' : '')}${riga('Accesso', s.accesso)}${c.cant ? riga('Stato cantiere', c.cant.stato) + riga('Data inizio', (c.cant.dataInizio||'').split('-').reverse().join('/')) + riga('Data fine', (c.cant.dataFine||'').split('-').reverse().join('/')) : ''}</table>
+${amb.length ? `<div class="stitle">Misure per ambiente</div><table>${amb.map(a => riga(a.nome||'—', a.mq ? a.mq + ' mq' : '—')).join('')}</table>` : ''}
+<div class="stitle">Lavorazioni richieste</div><div class="btext">${(s.lavori||'—').replace(/</g,'&lt;')}</div>
+${s.note ? `<div class="stitle">Note</div><div class="btext">${s.note.replace(/</g,'&lt;')}</div>` : ''}
+${vociFile.length ? `<div class="stitle">Note vocali</div><ul>${vociFile.map(f => `<li><a href="${f}">${f}</a></li>`).join('')}</ul>` : ''}
+${fotoFile.length ? `<div class="stitle">Foto sopralluogo (${fotoFile.length})</div><div class="griglia">${fotoFile.map((f,i) => `<figure><img src="${f}"><figcaption>Foto ${i+1}</figcaption></figure>`).join('')}</div>` : ''}
+${salFoto.length ? `<div class="stitle">Foto SAL (${salFoto.length})</div><div class="griglia">${salFoto.map(f => `<figure><img src="${f.file}"><figcaption>${f.eti}</figcaption></figure>`).join('')}</div>` : ''}
+<p style="margin-top:16px;font-size:11px;color:#9C9088">Stampa questa pagina e scegli "Salva come PDF" per averne una copia in PDF. Le immagini sono nelle cartelle accanto a questo file.</p>
+</body></html>`;
+}
+
+async function creaPacchetto(id){
+  const c = commesse().find(x => x.id === id);
+  if(!c){ toast('Commessa non trovata','err'); return; }
+  const btn = g('btn-' + id);
+  btn.disabled = true;
+  const errori = [];
+  try{
+    const zip = new JSZip();
+    const cartella = nomeFile(c);
+    const root = zip.folder(cartella);
+
+    // Foto del sopralluogo
+    const fotoSop = (c.sop && Array.isArray(c.sop.foto)) ? c.sop.foto : [];
+    const fotoFile = [];
+    const totale = fotoSop.length + c.sal.reduce((n,s)=>n+((s.foto||[]).length),0) + ((c.sop&&c.sop.noteVocali)||[]).length;
+    let fatti = 0;
+    for(let i=0; i<fotoSop.length; i++){
+      const url = fotoSop[i] && (fotoSop[i].url || fotoSop[i]);
+      const nome = 'foto_sopralluogo/' + String(i+1).padStart(3,'0') + '.' + estensione(url,'jpg');
+      progresso(id, totale ? Math.round(fatti/totale*90) : 50, 'Scarico foto sopralluogo ' + (i+1) + ' di ' + fotoSop.length);
+      try{ root.file(nome, await scaricaBinario(url)); fotoFile.push(nome); }
+      catch(e){ errori.push('foto sopralluogo ' + (i+1) + ': ' + e.message); }
+      fatti++;
+    }
+
+    // Foto dei SAL
+    const salFoto = [];
+    for(const entry of c.sal){
+      const urls = entry.foto || [];
+      for(let i=0; i<urls.length; i++){
+        const data = (entry.data || 'sal');
+        const nome = 'foto_sal/' + data + '_' + String(i+1).padStart(3,'0') + '.' + estensione(urls[i],'jpg');
+        progresso(id, totale ? Math.round(fatti/totale*90) : 60, 'Scarico foto SAL');
+        try{
+          root.file(nome, await scaricaBinario(urls[i]));
+          salFoto.push({file:nome, eti:(data.split('-').reverse().join('/')) + (entry.perc ? ' · ' + entry.perc + '%' : '')});
+        }catch(e){ errori.push('foto SAL ' + data + ': ' + e.message); }
+        fatti++;
+      }
+    }
+
+    // Note vocali
+    const vociFile = [];
+    const voci = (c.sop && Array.isArray(c.sop.noteVocali)) ? c.sop.noteVocali : [];
+    for(let i=0; i<voci.length; i++){
+      const src = voci[i].url || voci[i].b64;
+      if(!src) continue;
+      const nome = 'note_vocali/nota_' + (i+1) + '.webm';
+      progresso(id, totale ? Math.round(fatti/totale*90) : 70, 'Salvo note vocali');
+      try{
+        if(src.startsWith('http')) root.file(nome, await scaricaBinario(src));
+        else root.file(nome, src.split(',')[1] || '', {base64:true});
+        vociFile.push(nome);
+      }catch(e){ errori.push('nota vocale ' + (i+1) + ': ' + e.message); }
+      fatti++;
+    }
+
+    progresso(id, 93, 'Preparo documenti e dati');
+    root.file('scheda_sopralluogo.html', htmlScheda(c, fotoFile, vociFile, salFoto));
+    if(c.rapportini.length){
+      root.file('giornate.csv', csvRapportini(c.rapportini));
+      root.file('giornate.html', htmlRapportini(c));
+    }
+    root.file('dati.json', JSON.stringify({
+      esportato_il: new Date().toISOString(),
+      versione: 'archivio-1',
+      commessa: c.commessa, titolo: c.titolo, cliente: c.cliente,
+      sopralluogo: c.sop || null,
+      cantiere: c.cant || null,
+      rapportini: c.rapportini,
+      sal: c.sal
+    }, null, 1));
+    root.file('LEGGIMI.txt', [
+      'ARCHIVIO COMMESSA - CommessaPro',
+      '',
+      'Commessa: ' + (c.commessa || '—'),
+      'Lavoro: ' + c.titolo,
+      'Cliente: ' + (c.cliente || '—'),
+      'Stato: ' + c.stato,
+      'Pacchetto creato il: ' + new Date().toLocaleString('it-IT'),
+      '',
+      'CONTENUTO',
+      '- scheda_sopralluogo.html: la scheda completa, si apre con qualsiasi browser.',
+      '  Per il PDF: apri il file, Stampa, e scegli "Salva come PDF".',
+      '- giornate.csv e giornate.html: le ore lavorate, ' + c.rapportini.length + ' registrazioni per ' + c.ore + ' ore.',
+      '- foto_sopralluogo/ e foto_sal/: le immagini originali scaricate dal cloud.',
+      '- note_vocali/: le registrazioni audio.',
+      '- dati.json: tutti i dati grezzi, serve se un giorno vanno reimportati.',
+      '',
+      errori.length ? 'FILE NON SCARICATI (' + errori.length + '):' : 'Tutti i file allegati sono stati scaricati correttamente.',
+      ...errori.map(e => '- ' + e)
+    ].join('\n'));
+
+    progresso(id, 97, 'Comprimo il pacchetto');
+    const blob = await zip.generateAsync({type:'blob', compression:'DEFLATE', compressionOptions:{level:6}});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = cartella + '_archivio.zip';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 8000);
+
+    const mb = (blob.size/1048576).toFixed(1);
+    progresso(id, 100, 'Pacchetto pronto: ' + mb + ' MB' + (errori.length ? ' · ' + errori.length + ' file non scaricati' : ''));
+
+    if(errori.length){
+      toast('Pacchetto creato, ma ' + errori.length + ' file non sono stati scaricati: vedi LEGGIMI.txt', 'err');
+    }
+    if(c.archiviato){ btn.disabled = false; return; }
+
+    const conferma = confirm(
+      'Pacchetto scaricato (' + mb + ' MB).\n\n' +
+      'Salvalo nella cartella della commessa sul server, poi conferma qui per archiviare.\n\n' +
+      'Archiviare adesso? Sopralluogo e cantiere spariranno dagli elenchi attivi, i dati restano nel database.'
+    );
+    if(!conferma){ btn.disabled = false; toast('Archiviazione rimandata','ok'); return; }
+    await archivia(c);
+  }catch(e){
+    console.error(e);
+    toast('Errore: ' + e.message, 'err');
+    progresso(id, 0, 'Operazione interrotta');
+  }
+  btn.disabled = false;
+}
+
+async function archivia(c){
+  const oggi = new Date().toISOString().split('T')[0];
+  let ok = true;
+  if(c.sop){
+    ok = await salvaRecord(SOP_KEY, [{...c.sop, archiviato:true, archiviatoIl:oggi}]) && ok;
+  }
+  if(c.cant){
+    ok = await salvaRecord(CANT_KEY, [{...c.cant, archiviato:true, archiviatoIl:oggi}]) && ok;
+  }
+  if(ok){ toast('Commessa archiviata','ok'); render(); }
+  else { toast('Archiviazione non riuscita: riprova quando sei collegato','err'); }
+}
+
+// Apertura diretta da cantiere.html: archivio.html?id=cant_xxx
+function evidenzia(){
+  const id = new URLSearchParams(location.search).get('id');
+  if(!id) return;
+  const c = commesse().find(x => x.id === id);
+  if(!c) return;
+  if(c.archiviato && vista !== 'archiviati'){ cambiaVista('archiviati'); }
+  const card = g('btn-' + id) ? g('btn-' + id).closest('.card') : null;
+  if(!card) return;
+  card.scrollIntoView({behavior:'smooth', block:'center'});
+  card.style.borderColor = 'var(--brick)';
+  card.style.boxShadow = '0 0 0 2px rgba(212,81,30,.25)';
+}
+
+// ── INIT ──
+(async function(){
+  render();
+  evidenzia();
+  const ok = await caricaTutto();
+  if(ok){ render(); evidenzia(); }
+})();
+</script>
+</body>
+</html>
