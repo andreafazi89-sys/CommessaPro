@@ -149,7 +149,7 @@ textarea{resize:none;min-height:80px;line-height:1.6;}
   </div>
   <div class="bottom-bar">
     <button class="btn-main" onclick="chiudiCantiere()">✓ Fine Cantiere</button>
-    <button class="btn-main" id="btn-archivia" style="display:none;background:var(--surface2);color:var(--sand);border:1.5px solid var(--border)" onclick="archiviaCantiere()">🗄 Archivia</button>
+    <button class="btn-main" id="btn-archivia" style="display:none;background:var(--surface2);color:var(--sand);border:1.5px solid var(--border)" onclick="archiviaCantiere()">🗄 Archivia commessa</button>
   </div>
 </div>
 
@@ -175,41 +175,101 @@ const OPERAI=['Adrian Lup','Fabio Cardini','Daniele Schedel','Michele Poveste','
 let db=null, currentCant=null, operaiSel=[];
 
 function initDB(){if(window.supabase)db=window.supabase.createClient(SUPA_URL,SUPA_KEY);}
-async function dbSalva(k,v){if(!db)return;try{await db.from('dati').upsert({chiave:k,valore:v,ts:new Date().toISOString()},{onConflict:'chiave'});}catch(e){}}
+function avvisoSync(msg){ toast('\u26a0\ufe0f '+msg,'err'); }
+async function dbSalva(k,v){
+  if(!db){ avvisoSync('Non sincronizzato: server non raggiungibile'); return false; }
+  const {data:s}=await db.auth.getSession();
+  if(!s||!s.session){ avvisoSync('Sessione scaduta: salvato solo su questo dispositivo, esci e rientra'); return false; }
+  const {error}=await db.from('dati').upsert({chiave:k,valore:v,ts:new Date().toISOString()},{onConflict:'chiave'});
+  if(error){ console.error('dbSalva',k,error); avvisoSync('Non sincronizzato: '+error.message); return false; }
+  return true;
+}
 async function forcSync(){
   toast('🔄 Sincronizzazione...','inf');
   if(!db){toast('Nessuna connessione','err');return;}
   try{
-    // Sync cantieri
-    const {data}=await db.from('dati').select('valore').eq('chiave',CANT_KEY).maybeSingle();
-    if(data&&data.valore&&data.valore.length>0){
-      const loc=getCantieri(),ids=new Set(data.valore.map(x=>x.id)),ex=loc.filter(x=>!ids.has(x.id));
-      salvaCantieri([...data.valore,...ex]); renderLista();
-    }
-    // Sync rapporti
-    const resR = await db.from('dati').select('valore').eq('chiave',RPT_KEY).maybeSingle();
-    if(resR.data && Array.isArray(resR.data.valore)){
-      const locR = getRapporti();
-      const idsR = new Set(resR.data.valore.map(x=>x.id));
-      const exR = locR.filter(x => !idsR.has(x.id));
-      salvaRapporti([...resR.data.valore, ...exR]);
-      if(currentCant) renderDiario();
-    }
+    await allinea(CANT_KEY);
+    await allinea(RPT_KEY);
+    renderLista();
+    if(currentCant) renderDiario();
     toast('✓ Sincronizzato','ok');
   }catch(e){toast('Errore sync','err');}
+}
+
+function __toastErr(msg){ toast('\u26a0\ufe0f ' + msg, 'err'); }
+
+// ── SINCRONIZZAZIONE: scrittura chirurgica + coda offline ──
+// Regola: la versione del server e' la base. Ogni dispositivo applica SOLO i
+// record che ha appena toccato, quindi una copia locale vecchia non puo' piu'
+// riportare indietro modifiche fatte altrove. Le cancellazioni sono marcature
+// (eliminato:true) e non rimozioni, cosi' si propagano invece di tornare indietro.
+function chiavePending(k){ return 'cp_pending_' + k; }
+function getPending(k){ try{ return JSON.parse(localStorage.getItem(chiavePending(k))) || []; }catch{ return []; } }
+function aggiungiPending(k, records){
+  const m = new Map(getPending(k).map(x => [x.id, x]));
+  records.forEach(r => m.set(r.id, r));
+  localStorage.setItem(chiavePending(k), JSON.stringify([...m.values()]));
+}
+function svuotaPending(k){ localStorage.removeItem(chiavePending(k)); }
+function scriviLocale(k, records){
+  let attuali = [];
+  try{ attuali = JSON.parse(localStorage.getItem(k)) || []; }catch(e){}
+  const m = new Map(attuali.map(x => [x.id, x]));
+  records.forEach(r => m.set(r.id, r));
+  localStorage.setItem(k, JSON.stringify([...m.values()]));
+}
+function marcaEliminato(rec){ return {...rec, eliminato:true, timestamp:new Date().toISOString()}; }
+async function salvaRecord(k, records){
+  if(!Array.isArray(records) || !records.length) return true;
+  scriviLocale(k, records);
+  if(!db){ aggiungiPending(k, records); __toastErr('Salvato sul dispositivo, non ancora sincronizzato'); return false; }
+  const { data, error } = await db.from('dati').select('valore').eq('chiave', k).maybeSingle();
+  if(error){
+    console.error('salvaRecord lettura', k, error);
+    aggiungiPending(k, records);
+    __toastErr('Salvato sul dispositivo, non ancora sincronizzato');
+    return false;
+  }
+  const base = (data && Array.isArray(data.valore)) ? data.valore : [];
+  const m = new Map(base.map(x => [x.id, x]));
+  getPending(k).forEach(r => m.set(r.id, r));
+  records.forEach(r => m.set(r.id, r));
+  const finale = [...m.values()];
+  const ok = await dbSalva(k, finale);
+  if(!ok){ aggiungiPending(k, records); return false; }
+  svuotaPending(k);
+  localStorage.setItem(k, JSON.stringify(finale));
+  return true;
+}
+// Allinea la copia locale a quella del server, mantenendo le modifiche in coda
+async function allinea(k){
+  if(!db) return false;
+  const { data, error } = await db.from('dati').select('valore').eq('chiave', k).maybeSingle();
+  if(error){ console.error('allinea', k, error); __toastErr('Lettura dal server non riuscita: ' + error.message); return false; }
+  const base = (data && Array.isArray(data.valore)) ? data.valore : [];
+  const pend = getPending(k);
+  const m = new Map(base.map(x => [x.id, x]));
+  pend.forEach(r => m.set(r.id, r));
+  const finale = [...m.values()];
+  localStorage.setItem(k, JSON.stringify(finale));
+  if(pend.length){
+    const ok = await dbSalva(k, finale);
+    if(ok) svuotaPending(k);
+  }
+  return true;
 }
 
 const g=id=>document.getElementById(id);
 const gv=id=>g(id)?.value?.trim()||'';
 function toast(msg,tipo){const t=g('toast');t.textContent=msg;t.className='toast '+tipo+' show';clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),3000);}
-function getCantieri(){try{return JSON.parse(localStorage.getItem(CANT_KEY))||[];}catch{return[];}}
-function salvaCantieri(l){localStorage.setItem(CANT_KEY,JSON.stringify(l));dbSalva(CANT_KEY,l);}
+function getCantieri(){try{return (JSON.parse(localStorage.getItem(CANT_KEY))||[]).filter(c=>!c.eliminato);}catch{return[];}}
+function salvaCantieri(l){ return salvaRecord(CANT_KEY, l); }
 
 // ── RAPPORTI (nuova tabella v1) ──
 const RPT_KEY = 'rapporti_v1';
 const MIGR_FLAG = 'migrazione_rapporti_v1_done';
-function getRapporti(){try{return JSON.parse(localStorage.getItem(RPT_KEY))||[];}catch{return[];}}
-function salvaRapporti(l){localStorage.setItem(RPT_KEY,JSON.stringify(l));dbSalva(RPT_KEY,l);}
+function getRapporti(){try{return (JSON.parse(localStorage.getItem(RPT_KEY))||[]).filter(r=>!r.eliminato);}catch{return[];}}
+function salvaRapporti(l){ return salvaRecord(RPT_KEY, l); }
 function getRapportiCantiere(cantiereId){
   return getRapporti().filter(r => r.cantiereId === cantiereId);
 }
@@ -301,7 +361,8 @@ function eliminaCantiere(id){
     const sopIdx = sops.findIndex(s=>s.id===cant.sopralluogoId);
     if(sopIdx>=0){ sops[sopIdx].cantiereId=null; localStorage.setItem('sopralluoghi_v3',JSON.stringify(sops)); dbSalva('sopralluoghi_v3',sops); }
   }
-  salvaCantieri(getCantieri().filter(c=>c.id!==id)); renderLista(); toast('Eliminato','inf');
+  if(cant) salvaRecord(CANT_KEY,[marcaEliminato(cant)]);
+  renderLista(); toast('Eliminato','inf');
 }
 
 function renderLista(){
@@ -332,12 +393,11 @@ function ruoloUtente(){
 }
 function aggiornaBottoneArchivia(){
   const privilegiato=ruoloUtente()==='admin'||ruoloUtente()==='segretaria';
-  const completato=(currentCant?.stato||'In corso')==='Completato';
-  g('btn-archivia').style.display=(privilegiato&&completato)?'':'none';
+  g('btn-archivia').style.display=privilegiato?'':'none';
 }
 
 function tornaLista(){showView('lista');renderLista();}
-function salvaCantiere(){const l=getCantieri();const i=l.findIndex(c=>c.id===currentCant.id);if(i>=0)l[i]=currentCant;salvaCantieri(l);}
+function salvaCantiere(){ return salvaRecord(CANT_KEY,[currentCant]); }
 
 function renderChips(){
   g('operai-chips').innerHTML=OPERAI.map(op=>`<div class="op-chip ${operaiSel.includes(op)?'on':''}" onclick="toggleOp('${op}',this)">${op.split(' ')[0]}</div>`).join('');
@@ -355,7 +415,7 @@ function aggiungiGiornata(){
   const now = new Date().toISOString();
 
   // Crea un record per ogni operaio selezionato
-  const rapporti = getRapporti();
+  const rapporti = [];
   operaiSel.forEach((op, i) => {
     rapporti.push({
       id: 'rpt_' + Date.now() + '_' + i,
@@ -423,16 +483,19 @@ function renderDiario(){
 
 function delGiornata(data){
   if(!confirm('Eliminare tutta la giornata? Tutti i contributi degli operai di quel giorno saranno rimossi.')) return;
-  const lista = getRapporti().filter(r => !(r.cantiereId === currentCant.id && r.data === data));
-  salvaRapporti(lista);
+  const daEliminare = getRapporti()
+    .filter(r => r.cantiereId === currentCant.id && r.data === data)
+    .map(marcaEliminato);
+  salvaRecord(RPT_KEY, daEliminare);
   renderDiario();
   toast('Giornata eliminata','inf');
 }
 
 function delContributo(id){
   if(!confirm('Eliminare solo questo contributo?')) return;
-  const lista = getRapporti().filter(r => r.id !== id);
-  salvaRapporti(lista);
+  const r = getRapporti().find(x => x.id === id);
+  if(!r){ toast('Contributo non trovato','err'); return; }
+  salvaRecord(RPT_KEY, [marcaEliminato(r)]);
   renderDiario();
   toast('Contributo eliminato','inf');
 }
@@ -449,23 +512,10 @@ function chiudiCantiere(){
 
 function archiviaCantiere(){
   if(ruoloUtente()!=='admin'&&ruoloUtente()!=='segretaria'){toast('Operazione riservata','err');return;}
-  if((currentCant.stato||'In corso')!=='Completato'){toast('Chiudi prima il cantiere','err');return;}
-  const nome=currentCant.commessa||currentCant.titolo||currentCant.cliente||'cantiere';
-  if(!confirm(`Archiviare "${nome}"?\nSparisce dalle liste di tutti ma resta recuperabile.\nVerra scaricato un backup automatico.`))return;
-  // Backup automatico prima dell'operazione: cantiere + suoi rapportini
-  const rapportini=getRapporti().filter(r=>r.cantiereId===currentCant.id);
-  const backup={esportato_il:new Date().toISOString(),cantiere:currentCant,rapportini};
-  const blob=new Blob([JSON.stringify(backup,null,1)],{type:'application/json'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='backup_archivio_'+(currentCant.commessa||currentCant.id).replace(/[^\w-]+/g,'_')+'.json';
-  a.click();URL.revokeObjectURL(a.href);
-  // Archivio recuperabile: il cantiere resta nei dati con il flag, sparisce dalle viste
-  currentCant.archiviato=true;
-  currentCant.archiviatoIl=new Date().toISOString().split('T')[0];
-  salvaCantiere();
-  toast('🗄 Cantiere archiviato','ok');
-  setTimeout(tornaLista,600);
+  // L'archiviazione vive nella pagina dedicata: crea il pacchetto ZIP completo
+  // (scheda sopralluogo, foto, giornate, dati.json) e archivia insieme
+  // sopralluogo e cantiere. Qui si rimanda solo a quella pagina.
+  window.location.href='archivio.html?id='+encodeURIComponent(currentCant.id);
 }
 
 function notificaFineCantiere(){

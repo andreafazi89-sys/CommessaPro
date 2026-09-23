@@ -137,26 +137,94 @@ const SUPA_KEY='sb_publishable_zFgRrNrmYSORug8N06heow_6vjl0fhH';
 const CANT_KEY='cantieri_v1';
 let db=null;
 function initDB(){if(window.supabase)db=window.supabase.createClient(SUPA_URL,SUPA_KEY);}
-async function dbSalva(k,v){if(!db)return;try{await db.from('dati').upsert({chiave:k,valore:v,ts:new Date().toISOString()},{onConflict:'chiave'});}catch(e){}}
+function avvisoSync(msg){ toast('\u26a0\ufe0f '+msg,'err'); }
+async function dbSalva(k,v){
+  if(!db){ avvisoSync('Non sincronizzato: server non raggiungibile'); return false; }
+  const {data:s}=await db.auth.getSession();
+  if(!s||!s.session){ avvisoSync('Sessione scaduta: salvato solo su questo dispositivo, esci e rientra'); return false; }
+  const {error}=await db.from('dati').upsert({chiave:k,valore:v,ts:new Date().toISOString()},{onConflict:'chiave'});
+  if(error){ console.error('dbSalva',k,error); avvisoSync('Non sincronizzato: '+error.message); return false; }
+  return true;
+}
 async function forcSync(){
   toast('🔄 Sincronizzazione...','inf');
   if(!db)return;
   try{
-    const {data}=await db.from('dati').select('valore').eq('chiave',CANT_KEY).maybeSingle();
-    if(data&&data.valore&&data.valore.length>0){
-      const loc=getCantieri(),ids=new Set(data.valore.map(x=>x.id)),ex=loc.filter(x=>!ids.has(x.id));
-      salvaCantieri([...data.valore,...ex]); renderLista();
-    }
+    await allinea(CANT_KEY);
+    renderLista();
     toast('✓ Sincronizzato','ok');
   }catch(e){toast('Sync ok','inf');}
+}
+
+function __toastErr(msg){ toast('\u26a0\ufe0f ' + msg, 'err'); }
+
+// ── SINCRONIZZAZIONE: scrittura chirurgica + coda offline ──
+// Regola: la versione del server e' la base. Ogni dispositivo applica SOLO i
+// record che ha appena toccato, quindi una copia locale vecchia non puo' piu'
+// riportare indietro modifiche fatte altrove. Le cancellazioni sono marcature
+// (eliminato:true) e non rimozioni, cosi' si propagano invece di tornare indietro.
+function chiavePending(k){ return 'cp_pending_' + k; }
+function getPending(k){ try{ return JSON.parse(localStorage.getItem(chiavePending(k))) || []; }catch{ return []; } }
+function aggiungiPending(k, records){
+  const m = new Map(getPending(k).map(x => [x.id, x]));
+  records.forEach(r => m.set(r.id, r));
+  localStorage.setItem(chiavePending(k), JSON.stringify([...m.values()]));
+}
+function svuotaPending(k){ localStorage.removeItem(chiavePending(k)); }
+function scriviLocale(k, records){
+  let attuali = [];
+  try{ attuali = JSON.parse(localStorage.getItem(k)) || []; }catch(e){}
+  const m = new Map(attuali.map(x => [x.id, x]));
+  records.forEach(r => m.set(r.id, r));
+  localStorage.setItem(k, JSON.stringify([...m.values()]));
+}
+function marcaEliminato(rec){ return {...rec, eliminato:true, timestamp:new Date().toISOString()}; }
+async function salvaRecord(k, records){
+  if(!Array.isArray(records) || !records.length) return true;
+  scriviLocale(k, records);
+  if(!db){ aggiungiPending(k, records); __toastErr('Salvato sul dispositivo, non ancora sincronizzato'); return false; }
+  const { data, error } = await db.from('dati').select('valore').eq('chiave', k).maybeSingle();
+  if(error){
+    console.error('salvaRecord lettura', k, error);
+    aggiungiPending(k, records);
+    __toastErr('Salvato sul dispositivo, non ancora sincronizzato');
+    return false;
+  }
+  const base = (data && Array.isArray(data.valore)) ? data.valore : [];
+  const m = new Map(base.map(x => [x.id, x]));
+  getPending(k).forEach(r => m.set(r.id, r));
+  records.forEach(r => m.set(r.id, r));
+  const finale = [...m.values()];
+  const ok = await dbSalva(k, finale);
+  if(!ok){ aggiungiPending(k, records); return false; }
+  svuotaPending(k);
+  localStorage.setItem(k, JSON.stringify(finale));
+  return true;
+}
+// Allinea la copia locale a quella del server, mantenendo le modifiche in coda
+async function allinea(k){
+  if(!db) return false;
+  const { data, error } = await db.from('dati').select('valore').eq('chiave', k).maybeSingle();
+  if(error){ console.error('allinea', k, error); __toastErr('Lettura dal server non riuscita: ' + error.message); return false; }
+  const base = (data && Array.isArray(data.valore)) ? data.valore : [];
+  const pend = getPending(k);
+  const m = new Map(base.map(x => [x.id, x]));
+  pend.forEach(r => m.set(r.id, r));
+  const finale = [...m.values()];
+  localStorage.setItem(k, JSON.stringify(finale));
+  if(pend.length){
+    const ok = await dbSalva(k, finale);
+    if(ok) svuotaPending(k);
+  }
+  return true;
 }
 
 let currentCantId=null, fotoForm=[];
 const g=id=>document.getElementById(id);
 const gv=id=>g(id)?.value?.trim()||'';
 function toast(msg,tipo){const t=g('toast');t.textContent=msg;t.className='toast '+tipo+' show';clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),3000);}
-function getCantieri(){try{return JSON.parse(localStorage.getItem(CANT_KEY))||[];}catch{return[];}}
-function salvaCantieri(l){localStorage.setItem(CANT_KEY,JSON.stringify(l));dbSalva(CANT_KEY,l);}
+function getCantieri(){try{return (JSON.parse(localStorage.getItem(CANT_KEY))||[]).filter(c=>!c.eliminato);}catch{return[];}}
+function salvaCantieri(l){ return salvaRecord(CANT_KEY, l); }
 function showView(n){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));g('view-'+n).classList.add('active');window.scrollTo(0,0);}
 
 function renderLista(){
@@ -213,7 +281,7 @@ function salvaEntrata(){
   const lista=getCantieri();const idx=lista.findIndex(c=>c.id===currentCantId);if(idx<0)return;
   if(!lista[idx].sal)lista[idx].sal=[];
   lista[idx].sal.unshift({id:'sal_'+Date.now(),data:gv('sal-data')||new Date().toISOString().split('T')[0],perc:gv('sal-perc'),desc,foto:[...fotoForm]});
-  salvaCantieri(lista);g('sal-form').style.display='none';fotoForm=[];
+  salvaRecord(CANT_KEY,[lista[idx]]);g('sal-form').style.display='none';fotoForm=[];
   renderStorico(lista[idx]);toast('✅ SAL salvato','ok');
 }
 
@@ -240,7 +308,7 @@ function renderStorico(c){
 function delSAL(cantId,i){
   if(!confirm('Eliminare questo aggiornamento?'))return;
   const lista=getCantieri();const idx=lista.findIndex(c=>c.id===cantId);if(idx<0)return;
-  lista[idx].sal.splice(i,1);salvaCantieri(lista);renderStorico(lista[idx]);toast('Eliminato','ok');
+  lista[idx].sal.splice(i,1);salvaRecord(CANT_KEY,[lista[idx]]);renderStorico(lista[idx]);toast('Eliminato','ok');
 }
 
 

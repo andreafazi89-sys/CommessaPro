@@ -13,6 +13,9 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
   - Tabella `utenti`: id, nome, email, ruolo, attivo, permessi (JSON).
   - `rapporti_v1`: fonte di verita per le ore lavorate.
   - Storage bucket `Foto`, pattern: `sopralluoghi/sop_<id>/<timestamp>.jpg`
+- `archivio.html`: crea il pacchetto ZIP della commessa (scheda, foto scaricate,
+  giornate in CSV, dati.json) e poi marca `archiviato:true` su sopralluogo e
+  cantiere. Non cancella nulla dal bucket Foto.
 - Dati locali: localStorage con chiavi `sopralluoghi_v3`, `cantieri_v1`, `note_v1`, `rubrica_v1`, `cp_user`, `cp_settings`.
 - Nessun build step, nessun framework, nessun npm. Librerie solo via CDN (gia presente supabase-js).
 
@@ -30,6 +33,20 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
    dry-run + backup automatico. Mai eseguire direttamente.
 4. Ogni fix o feature = un commit separato con messaggio chiaro in italiano.
    Mai accorpare modifiche non correlate nello stesso commit.
+
+## Sincronizzazione dati (NON tornare indietro su questo)
+- `dati` e' una tabella chiave/valore: ogni chiave contiene un array intero.
+  Non scrivere MAI l'array locale sopra quello del server.
+- Ogni modifica passa da `salvaRecord(chiave, records)`: rilegge la versione
+  remota, applica SOLO i record appena toccati, riscrive. Per allineare la copia
+  locale si usa `allinea(chiave)`, che tiene la versione del server e riapplica
+  la coda offline (`cp_pending_<chiave>`).
+- Le cancellazioni sono marcature `eliminato:true` con `timestamp` aggiornato,
+  mai rimozioni dall'array: i getter filtrano gli eliminati.
+- `dbSalva` deve sempre restituire l'esito e mostrare l'errore all'utente:
+  supabase-js non lancia eccezioni, restituisce {error}.
+- Le pagine non devono cancellare da sole collegamenti o record perche' non li
+  trovano nell'elenco locale: l'elenco locale puo' essere semplicemente vecchio.
 
 ## Check obbligatori dopo OGNI edit a un file HTML
 1. Cercare doppi `}` accidentali, in particolare prima del blocco `// ── INIT ──`.

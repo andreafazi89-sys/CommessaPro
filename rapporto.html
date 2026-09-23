@@ -211,33 +211,131 @@ let colleghiPerRiga = {};
 
 function initDB(){ if(window.supabase) db = window.supabase.createClient(SUPA_URL, SUPA_KEY); }
 
+// Mostra un avviso fisso in cima alla pagina quando il server non e' raggiungibile
+function mostraBanner(testo){
+  let b = document.getElementById('banner-sync');
+  if(!b){
+    b = document.createElement('div');
+    b.id = 'banner-sync';
+    b.style.cssText = 'position:sticky;top:0;z-index:99;background:#C0392B;color:#fff;padding:10px 12px;font-size:13px;line-height:1.4;text-align:center';
+    document.body.prepend(b);
+  }
+  b.textContent = testo;
+}
+function nascondiBanner(){
+  const b = document.getElementById('banner-sync');
+  if(b) b.remove();
+}
+// true se esiste una sessione Supabase valida: senza, ogni chiamata parte come anonima
+async function verificaSessione(){
+  if(!db) return false;
+  const { data } = await db.auth.getSession();
+  if(!data || !data.session){
+    mostraBanner('Non sei collegato al server: i rapportini restano solo su questo dispositivo. Esci e rientra per sincronizzarli.');
+    return false;
+  }
+  nascondiBanner();
+  return true;
+}
 async function dbSalva(k, v){
-  if(!db) return;
-  try{ await db.from('dati').upsert({chiave:k, valore:v, ts:new Date().toISOString()}, {onConflict:'chiave'}); }catch(e){}
+  if(!db){ toast('\u26a0 Non sincronizzato: server non raggiungibile','err'); return false; }
+  if(!(await verificaSessione())){
+    toast('\u26a0 Sessione scaduta: salvato solo su questo dispositivo','err');
+    return false;
+  }
+  const { error } = await db.from('dati').upsert({chiave:k, valore:v, ts:new Date().toISOString()}, {onConflict:'chiave'});
+  if(error){
+    console.error('dbSalva', k, error);
+    toast('\u26a0 Non sincronizzato: ' + error.message, 'err');
+    return false;
+  }
+  return true;
 }
 async function dbCarica(k){
   if(!db) return null;
-  try{
-    const {data} = await db.from('dati').select('valore').eq('chiave', k).maybeSingle();
-    return data ? data.valore : null;
-  }catch(e){ return null; }
+  const { data, error } = await db.from('dati').select('valore').eq('chiave', k).maybeSingle();
+  if(error){
+    console.error('dbCarica', k, error);
+    toast('\u26a0 Lettura dal server non riuscita: ' + error.message, 'err');
+    return null;
+  }
+  return data ? data.valore : null;
 }
 async function forcSync(){
   toast('🔄 Sincronizzazione...','inf');
-  const remoto = await dbCarica(RPT_KEY);
-  if(remoto && Array.isArray(remoto)){
-    const locale = getRapporti();
-    const remIds = new Set(remoto.map(r=>r.id));
-    const extra = locale.filter(r=>!remIds.has(r.id));
-    salvaRapporti([...remoto, ...extra]);
-    renderLista();
+  // Senza sessione valida non leggo e non scrivo nulla: meglio fermarsi che
+  // svuotare gli elenchi locali con risposte vuote
+  if(!(await verificaSessione())){
+    toast('\u26a0 Non collegato al server: esci e rientra','err');
+    return;
   }
-  // carica anche cantieri
-  const remotiCant = await dbCarica(CANT_KEY);
-  if(remotiCant && Array.isArray(remotiCant)){
-    localStorage.setItem(CANT_KEY, JSON.stringify(remotiCant));
-  }
+  await allinea(RPT_KEY);
+  await allinea(CANT_KEY);
+  renderLista();
   toast('✓ Sincronizzato','ok');
+}
+
+function __toastErr(msg){ toast('\u26a0\ufe0f ' + msg, 'err'); }
+
+// ── SINCRONIZZAZIONE: scrittura chirurgica + coda offline ──
+// Regola: la versione del server e' la base. Ogni dispositivo applica SOLO i
+// record che ha appena toccato, quindi una copia locale vecchia non puo' piu'
+// riportare indietro modifiche fatte altrove. Le cancellazioni sono marcature
+// (eliminato:true) e non rimozioni, cosi' si propagano invece di tornare indietro.
+function chiavePending(k){ return 'cp_pending_' + k; }
+function getPending(k){ try{ return JSON.parse(localStorage.getItem(chiavePending(k))) || []; }catch{ return []; } }
+function aggiungiPending(k, records){
+  const m = new Map(getPending(k).map(x => [x.id, x]));
+  records.forEach(r => m.set(r.id, r));
+  localStorage.setItem(chiavePending(k), JSON.stringify([...m.values()]));
+}
+function svuotaPending(k){ localStorage.removeItem(chiavePending(k)); }
+function scriviLocale(k, records){
+  let attuali = [];
+  try{ attuali = JSON.parse(localStorage.getItem(k)) || []; }catch(e){}
+  const m = new Map(attuali.map(x => [x.id, x]));
+  records.forEach(r => m.set(r.id, r));
+  localStorage.setItem(k, JSON.stringify([...m.values()]));
+}
+function marcaEliminato(rec){ return {...rec, eliminato:true, timestamp:new Date().toISOString()}; }
+async function salvaRecord(k, records){
+  if(!Array.isArray(records) || !records.length) return true;
+  scriviLocale(k, records);
+  if(!db){ aggiungiPending(k, records); __toastErr('Salvato sul dispositivo, non ancora sincronizzato'); return false; }
+  const { data, error } = await db.from('dati').select('valore').eq('chiave', k).maybeSingle();
+  if(error){
+    console.error('salvaRecord lettura', k, error);
+    aggiungiPending(k, records);
+    __toastErr('Salvato sul dispositivo, non ancora sincronizzato');
+    return false;
+  }
+  const base = (data && Array.isArray(data.valore)) ? data.valore : [];
+  const m = new Map(base.map(x => [x.id, x]));
+  getPending(k).forEach(r => m.set(r.id, r));
+  records.forEach(r => m.set(r.id, r));
+  const finale = [...m.values()];
+  const ok = await dbSalva(k, finale);
+  if(!ok){ aggiungiPending(k, records); return false; }
+  svuotaPending(k);
+  localStorage.setItem(k, JSON.stringify(finale));
+  return true;
+}
+// Allinea la copia locale a quella del server, mantenendo le modifiche in coda
+async function allinea(k){
+  if(!db) return false;
+  const { data, error } = await db.from('dati').select('valore').eq('chiave', k).maybeSingle();
+  if(error){ console.error('allinea', k, error); __toastErr('Lettura dal server non riuscita: ' + error.message); return false; }
+  const base = (data && Array.isArray(data.valore)) ? data.valore : [];
+  const pend = getPending(k);
+  const m = new Map(base.map(x => [x.id, x]));
+  pend.forEach(r => m.set(r.id, r));
+  const finale = [...m.values()];
+  localStorage.setItem(k, JSON.stringify(finale));
+  if(pend.length){
+    const ok = await dbSalva(k, finale);
+    if(ok) svuotaPending(k);
+  }
+  return true;
 }
 
 // ── HELPERS ──
@@ -258,15 +356,11 @@ function showView(name){
 
 // ── STORAGE ──
 function getRapporti(){
-  try{ return JSON.parse(localStorage.getItem(RPT_KEY)) || []; }
+  try{ return (JSON.parse(localStorage.getItem(RPT_KEY)) || []).filter(r => !r.eliminato); }
   catch{ return []; }
 }
-function salvaRapporti(l){
-  localStorage.setItem(RPT_KEY, JSON.stringify(l));
-  dbSalva(RPT_KEY, l);
-}
 function getCantieri(){
-  try{ return JSON.parse(localStorage.getItem(CANT_KEY)) || []; }
+  try{ return (JSON.parse(localStorage.getItem(CANT_KEY)) || []).filter(c => !c.eliminato); }
   catch{ return []; }
 }
 function getCantieriAperti(){
@@ -535,8 +629,9 @@ function modificaRapporto(id){
 
 function eliminaRapporto(id){
   if(!confirm('Confermi eliminazione del rapporto?')) return;
-  const lista = getRapporti().filter(r => r.id !== id);
-  salvaRapporti(lista);
+  const r = getRapporti().find(x => x.id === id);
+  if(!r){ toast('Rapporto non trovato','err'); return; }
+  salvaRecord(RPT_KEY, [marcaEliminato(r)]);
   renderLista();
   toast('Eliminato','inf');
 }
@@ -688,15 +783,15 @@ function salvaRapporto(){
   const autore = (cpUser.email || '').toLowerCase();
   const now = new Date().toISOString();
 
-  let lista = getRapporti();
+  const records = [];
 
   if(currentEditId){
     // Modifica: aggiorno il record esistente (prendo solo la prima riga in caso di modifica)
-    const idx = lista.findIndex(r => r.id === currentEditId);
-    if(idx < 0){ toast('Record non trovato','err'); return; }
+    const esistente = getRapporti().find(r => r.id === currentEditId);
+    if(!esistente){ toast('Record non trovato','err'); return; }
     const r0 = righe[0];
-    lista[idx] = {
-      ...lista[idx],
+    records.push({
+      ...esistente,
       data, operaio,
       cantiereId: r0.cantiereId,
       ore: r0.ore,
@@ -704,11 +799,11 @@ function salvaRapporto(){
       subappaltatori: r0.subappaltatori,
       colleghi: Array.isArray(r0.colleghi) ? r0.colleghi : [],
       timestamp: now
-    };
+    });
   } else {
     // Nuovo: creo N record, uno per riga
     righe.forEach((r, i) => {
-      lista.push({
+      records.push({
         id: 'rpt_' + Date.now() + '_' + i,
         cantiereId: r.cantiereId,
         data, operaio,
@@ -724,7 +819,7 @@ function salvaRapporto(){
     });
   }
 
-  salvaRapporti(lista);
+  salvaRecord(RPT_KEY, records);
   toast(currentEditId ? '✓ Rapporto aggiornato' : `✓ Salvate ${righe.length} righe`, 'ok');
   setTimeout(() => tornaLista(), 600);
 }
@@ -1004,6 +1099,7 @@ function stampaRapporto(){
 initDB();
 renderToggle();
 renderLista();
+verificaSessione();
 // Sync in background
 setTimeout(() => forcSync().catch(()=>{}), 500);
 </script>
