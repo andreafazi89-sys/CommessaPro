@@ -488,7 +488,7 @@ function ordinaPerCommessa(a,b){
   if(!ca && !cb) return 0;
   if(!ca) return -1;
   if(!cb) return 1;
-  return ca.localeCompare(cb,'it',{numeric:true,sensitivity:'base'});
+  return cb.localeCompare(ca,'it',{numeric:true,sensitivity:'base'});
 }
 function renderLista(){
   const tutti=getLista();
