@@ -72,6 +72,30 @@ input[type="file"]{display:none;}
 .toast.ok{background:var(--green);color:#fff;}
 .toast.err{background:#C8441A;color:#fff;}
 .toast.inf{background:var(--surface2);color:var(--white);border:1px solid var(--border);}
+.foto-btns-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;}
+.foto-btn-sm{padding:10px 6px;background:var(--surface2);border:1.5px dashed var(--border);border-radius:var(--r-sm);text-align:center;cursor:pointer;}
+.foto-btn-sm:active{border-color:var(--brick);}
+.foto-item.loading::after{content:'';position:absolute;inset:0;background:rgba(0,0,0,.45);border-radius:8px;}
+.foto-item.loading::before{content:'';position:absolute;top:50%;left:50%;width:22px;height:22px;margin:-11px 0 0 -11px;border:2.5px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;z-index:2;}
+.foto-item.failed{outline:2px solid var(--brick);}
+.foto-item.failed::after{content:'!';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font-weight:800;background:var(--brick);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.cam-overlay{position:fixed;inset:0;background:#000;z-index:1000;display:none;flex-direction:column;}
+.cam-overlay.show{display:flex;}
+.cam-video{flex:1;width:100%;height:100%;object-fit:cover;background:#000;}
+.cam-controls{position:absolute;left:0;right:0;bottom:0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(to top,rgba(0,0,0,.6),transparent);}
+.cam-btn{flex-shrink:0;padding:12px 16px;border:none;border-radius:999px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:rgba(255,255,255,.15);color:#fff;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}
+.cam-btn.scatta{width:76px;height:76px;border-radius:50%;background:#fff;border:5px solid rgba(255,255,255,.4);padding:0;}
+.cam-btn.scatta:active{transform:scale(.94);}
+.cam-btn.fine{background:var(--brick);}
+.cam-top{position:absolute;top:0;left:0;right:0;padding:14px 16px calc(14px + env(safe-area-inset-top));display:flex;justify-content:space-between;align-items:center;gap:12px;background:linear-gradient(to bottom,rgba(0,0,0,.5),transparent);color:#fff;}
+.cam-counter{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;background:rgba(0,0,0,.5);padding:6px 12px;border-radius:999px;}
+.cam-err{position:absolute;left:16px;right:16px;bottom:120px;background:rgba(0,0,0,.75);color:#fff;padding:12px;border-radius:10px;font-size:13px;text-align:center;display:none;}
+.cam-err.show{display:block;}
+.sal-actions{display:flex;align-items:center;gap:6px;}
+.sal-btn{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:4px 8px;border-radius:6px;}
+.sal-btn:active{background:var(--surface2);}
+.sal-btn.mod{color:var(--sand);}
 </style>
 </head>
 <body>
@@ -102,25 +126,29 @@ input[type="file"]{display:none;}
   <div class="content">
     <div id="sal-form" style="display:none">
       <div class="section">
-        <div class="sec-title"><div class="sec-icon">📝</div>Nuovo aggiornamento</div>
+        <div class="sec-title"><div class="sec-icon">📝</div><span id="sal-form-title">Nuovo aggiornamento</span></div>
         <div class="fg"><label>Data</label><input type="date" id="sal-data"></div>
         <div class="fg"><label>Avanzamento %</label><input type="number" id="sal-perc" placeholder="Es. 30" min="0" max="100"></div>
         <div class="fg"><label>Descrizione lavori svolti</label>
           <textarea id="sal-desc" placeholder="Descrivi cosa è stato fatto..."></textarea>
         </div>
         <div class="divider"></div>
-        <div class="foto-btns">
-          <div class="foto-btn" onclick="document.getElementById('sal-cam').click()">
+        <div class="foto-btns-3">
+          <div class="foto-btn-sm" onclick="apriFotocamera()">
             <div style="font-size:20px;margin-bottom:4px">📷</div>
-            <div style="font-size:12px;font-weight:500;color:var(--sand)">Scatta foto</div>
+            <div style="font-size:11px;font-weight:500;color:var(--sand)">Scatta a raffica</div>
           </div>
-          <div class="foto-btn" onclick="document.getElementById('sal-lib').click()">
+          <div class="foto-btn-sm" onclick="document.getElementById('sal-lib').click()">
             <div style="font-size:20px;margin-bottom:4px">🖼️</div>
-            <div style="font-size:12px;font-weight:500;color:var(--sand)">Dalla libreria</div>
+            <div style="font-size:11px;font-weight:500;color:var(--sand)">Da galleria</div>
+          </div>
+          <div class="foto-btn-sm" onclick="document.getElementById('sal-cam-sys').click()" title="Usa la fotocamera di sistema">
+            <div style="font-size:20px;margin-bottom:4px">📱</div>
+            <div style="font-size:11px;font-weight:500;color:var(--sand)">Camera sistema</div>
           </div>
         </div>
-        <input type="file" id="sal-cam" accept="image/*" capture="environment" multiple onchange="caricaFotoForm(this)">
-        <input type="file" id="sal-lib" accept="image/*" multiple onchange="caricaFotoForm(this)">
+        <input type="file" id="sal-cam-sys" accept="image/*" capture="environment" multiple onchange="caricaFotoInput(this)">
+        <input type="file" id="sal-lib" accept="image/*" multiple onchange="caricaFotoInput(this)">
         <div class="foto-grid" id="sal-foto-preview" style="margin-bottom:14px"></div>
         <div style="display:flex;gap:8px">
           <button onclick="nascondiForm()" style="flex:1;padding:14px;background:var(--surface2);color:var(--muted);border:1px solid var(--border);border-radius:var(--r-sm);font-family:'Syne',sans-serif;font-size:14px;font-weight:700;cursor:pointer">Annulla</button>
@@ -141,6 +169,21 @@ input[type="file"]{display:none;}
     </div>
   </div>
   <iframe id="report-frame" class="report-frame"></iframe>
+</div>
+
+<div class="cam-overlay" id="cam-overlay">
+  <video id="cam-video" class="cam-video" playsinline muted autoplay></video>
+  <div class="cam-top">
+    <button class="cam-btn" onclick="chiudiFotocamera(true)">Annulla</button>
+    <div class="cam-counter" id="cam-counter">0</div>
+    <button class="cam-btn" id="cam-switch" onclick="cambiaFotocamera()" title="Cambia fotocamera">🔄</button>
+  </div>
+  <div class="cam-err" id="cam-err"></div>
+  <div class="cam-controls">
+    <button class="cam-btn fine" onclick="chiudiFotocamera(false)" id="cam-fine">Fine (0)</button>
+    <button class="cam-btn scatta" onclick="scattaFoto()" aria-label="Scatta"></button>
+    <div style="width:92px"></div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -240,13 +283,52 @@ async function allinea(k){
   return true;
 }
 
-let currentCantId=null, fotoForm=[];
+// ── STATO ──
+// currentCantId: cantiere aperto
+// formSalId: id del SAL del form (pregenerato se nuovo, = editingSalId se modifica)
+// editingSalId: null = inserimento, altrimenti id del SAL in modifica
+// fotoForm: foto AGGIUNTE in questa sessione di form, oggetti {localId, previewUrl, path, state:'uploading'|'ok'|'err'}
+// fotoRemoteByCant: cache per cantiere delle righe sal_foto gia' persistite
+let currentCantId=null, editingSalId=null, formSalId=null, fotoForm=[], fotoRemoteByCant={};
 const g=id=>document.getElementById(id);
 const gv=id=>g(id)?.value?.trim()||'';
 function toast(msg,tipo){const t=g('toast');t.textContent=msg;t.className='toast '+tipo+' show';clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),3000);}
 function getCantieri(){try{return (JSON.parse(localStorage.getItem(CANT_KEY))||[]).filter(c=>!c.eliminato);}catch{return[];}}
 function salvaCantieri(l){ return salvaRecord(CANT_KEY, l); }
 function showView(n){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));g('view-'+n).classList.add('active');window.scrollTo(0,0);}
+
+function getUser(){ try{ return JSON.parse(localStorage.getItem('cp_user'))||{}; }catch{ return {}; } }
+function nomeUtente(){ const u=getUser(); return u.nome||u.email||''; }
+function ruoloUtente(){ return (getUser().ruolo||'').toLowerCase(); }
+function isAdmin(){ const r=ruoloUtente(); return r==='admin'||r==='segretaria'; }
+
+// ── STORAGE + sal_foto ──
+function fotoPublicUrl(path){ if(!db||!path) return ''; return db.storage.from('Foto').getPublicUrl(path).data.publicUrl; }
+async function fetchFotoSAL(cantId){
+  if(!db) return [];
+  const {data,error}=await db.from('sal_foto')
+    .select('id,sal_id,path,uploaded_by,uploaded_by_nome,data_caricamento')
+    .eq('cantiere_id',cantId).eq('eliminato',false)
+    .order('data_caricamento',{ascending:true});
+  if(error){ console.error('fetchFotoSAL',error); toast('Errore lettura foto SAL: '+error.message,'err'); return []; }
+  return (data||[]).map(r=>({...r,url:fotoPublicUrl(r.path)}));
+}
+async function uploadFotoBlob(blob,cantId,salId,progressivo){
+  if(!db) throw new Error('server non raggiungibile');
+  const ts=Date.now();
+  const ext=(blob.type && blob.type.split('/')[1])==='png'?'png':'jpg';
+  const path='sal/'+cantId+'/'+salId+'/'+ts+'_'+progressivo+'.'+ext;
+  const up=await db.storage.from('Foto').upload(path,blob,{contentType:blob.type||'image/jpeg',upsert:false});
+  if(up.error) throw up.error;
+  const ins=await db.from('sal_foto').insert({
+    cantiere_id:cantId, sal_id:salId, path:path, uploaded_by_nome:nomeUtente()
+  });
+  if(ins.error){
+    try{ await db.storage.from('Foto').remove([path]); }catch(_){}
+    throw ins.error;
+  }
+  return path;
+}
 
 function renderLista(){
   const lista=getCantieri().filter(c=>!c.archiviato);const el=g('lista-cantieri');
@@ -260,80 +342,281 @@ function renderLista(){
     </div>`;}).join('');
 }
 
-function apriSAL(id){
-  currentCantId=id;const c=getCantieri().find(x=>x.id===id);if(!c)return;
-  g('sal-title').textContent=c.titolo||c.cliente||'SAL';g('sal-form').style.display='none';
-  fotoForm=[];renderStorico(c);showView('sal');
+async function apriSAL(id){
+  currentCantId=id;
+  const c=getCantieri().find(x=>x.id===id); if(!c) return;
+  g('sal-title').textContent=c.titolo||c.cliente||'SAL';
+  g('sal-form').style.display='none';
+  fotoForm=[]; editingSalId=null; formSalId=null;
+  showView('sal');
+  renderStorico(c);
+  fotoRemoteByCant[id]=await fetchFotoSAL(id);
+  renderStorico(c);
 }
 function tornaLista(){showView('lista');renderLista();}
 
+function abilitaCampiForm(enabled){
+  g('sal-data').disabled=!enabled;
+  g('sal-perc').disabled=!enabled;
+  g('sal-desc').disabled=!enabled;
+}
+
 function mostraForm(){
-  g('sal-form').style.display='block';
+  editingSalId=null;
+  formSalId='sal_'+Date.now();
+  fotoForm=[];
   g('sal-data').value=new Date().toISOString().split('T')[0];
-  g('sal-perc').value='';g('sal-desc').value='';
-  fotoForm=[];renderFotoForm();
+  g('sal-perc').value=''; g('sal-desc').value='';
+  abilitaCampiForm(true);
+  g('sal-form-title').textContent='Nuovo aggiornamento';
+  g('sal-form').style.display='block';
+  renderFotoForm();
   g('sal-form').scrollIntoView({behavior:'smooth'});
 }
-function nascondiForm(){g('sal-form').style.display='none';fotoForm=[];}
 
-function caricaFotoForm(input){
-  [...input.files].forEach(file=>{
-    const reader=new FileReader();
-    reader.onload=e=>{
+function modificaSAL(cantId, salId){
+  const c=getCantieri().find(x=>x.id===cantId); if(!c) return;
+  const s=(c.sal||[]).find(x=>x.id===salId); if(!s) return;
+  editingSalId=salId;
+  formSalId=salId;
+  fotoForm=[];
+  g('sal-data').value=s.data||new Date().toISOString().split('T')[0];
+  g('sal-perc').value=s.perc||'';
+  g('sal-desc').value=s.desc||'';
+  const admin=isAdmin();
+  abilitaCampiForm(admin);
+  g('sal-form-title').textContent = admin ? 'Modifica aggiornamento' : 'Aggiungi foto a questo SAL';
+  g('sal-form').style.display='block';
+  renderFotoForm();
+  g('sal-form').scrollIntoView({behavior:'smooth'});
+}
+
+async function nascondiForm(){
+  const paths=fotoForm.filter(f=>f.state==='ok' && f.path).map(f=>f.path);
+  g('sal-form').style.display='none';
+  // Rollback foto appena caricate solo se admin (operaio non ha i permessi DELETE).
+  if(paths.length && db && isAdmin()){
+    try{ await db.from('sal_foto').update({eliminato:true}).in('path',paths); }catch(_){}
+    try{ await db.storage.from('Foto').remove(paths); }catch(_){}
+  }
+  fotoForm.forEach(f=>{ try{URL.revokeObjectURL(f.previewUrl);}catch(_){} });
+  fotoForm=[]; editingSalId=null; formSalId=null;
+}
+
+// ── CATTURA / CARICAMENTO FOTO ──
+function riduciImmagine(file,MAX,q){
+  return new Promise(resolve=>{
+    const r=new FileReader();
+    r.onload=e=>{
       const img=new Image();
       img.onload=()=>{
-        const canvas=document.createElement('canvas');
-        const MAX=600;let w=img.width,h=img.height;
-        if(w>h){if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}}else{if(h>MAX){w=Math.round(w*MAX/h);h=MAX;}}
-        canvas.width=w;canvas.height=h;canvas.getContext('2d').drawImage(img,0,0,w,h);
-        fotoForm.push(canvas.toDataURL('image/jpeg',0.65));renderFotoForm();
-      };img.src=e.target.result;
-    };reader.readAsDataURL(file);
-  });input.value='';
+        let w=img.width,h=img.height;
+        if(w>h){ if(w>MAX){ h=Math.round(h*MAX/w); w=MAX; } } else { if(h>MAX){ w=Math.round(w*MAX/h); h=MAX; } }
+        const c=document.createElement('canvas'); c.width=w; c.height=h;
+        c.getContext('2d').drawImage(img,0,0,w,h);
+        c.toBlob(b=>resolve(b),'image/jpeg',q);
+      };
+      img.onerror=()=>resolve(null);
+      img.src=e.target.result;
+    };
+    r.onerror=()=>resolve(null);
+    r.readAsDataURL(file);
+  });
+}
+async function caricaFotoInput(input){
+  const files=[...input.files]; input.value='';
+  if(!files.length) return;
+  const blobs=(await Promise.all(files.map(f=>riduciImmagine(f,1600,0.82)))).filter(Boolean);
+  await caricaFotoBlobs(blobs);
+}
+async function caricaFotoBlobs(blobs){
+  if(!formSalId){ toast('Form non pronto, riapri "+ Nuovo"','err'); return; }
+  if(!db){ toast('Server non raggiungibile','err'); return; }
+  if(!blobs.length) return;
+  const base=fotoForm.length;
+  blobs.forEach((b,i)=>{
+    fotoForm.push({ localId:'f_'+Date.now()+'_'+(base+i), previewUrl:URL.createObjectURL(b), path:null, state:'uploading' });
+  });
+  renderFotoForm();
+  await Promise.all(blobs.map((b,i)=>caricaUnoBlob(b,base+i)));
+}
+async function caricaUnoBlob(blob,idx){
+  try{
+    const path=await uploadFotoBlob(blob, currentCantId, formSalId, idx);
+    fotoForm[idx].path=path; fotoForm[idx].state='ok';
+  }catch(e){
+    console.error('upload foto',e);
+    fotoForm[idx].state='err';
+    toast('Upload foto fallito: '+(e.message||e),'err');
+  }
+  renderFotoForm();
 }
 function renderFotoForm(){
-  const el=g('sal-foto-preview');if(!fotoForm.length){el.innerHTML='';return;}
-  el.innerHTML=fotoForm.map((url,i)=>`<div class="foto-item"><img src="${url}"><button class="foto-del" onclick="delFotoForm(${i})">✕</button><span class="foto-num">${i+1}</span></div>`).join('');
+  const el=g('sal-foto-preview');
+  if(!fotoForm.length){ el.innerHTML=''; return; }
+  const admin=isAdmin();
+  el.innerHTML=fotoForm.map((f,i)=>{
+    const cls=f.state==='uploading'?'loading':(f.state==='err'?'failed':'');
+    const canDel = admin && f.state!=='uploading';
+    const btn = canDel ? `<button class="foto-del" onclick="delFotoForm(${i})" title="Elimina">×</button>` : '';
+    return `<div class="foto-item ${cls}"><img src="${f.previewUrl}">${btn}<span class="foto-num">${i+1}</span></div>`;
+  }).join('');
 }
-function delFotoForm(i){fotoForm.splice(i,1);renderFotoForm();}
+async function delFotoForm(i){
+  if(!isAdmin()){ toast('Eliminazione riservata agli admin','err'); return; }
+  const f=fotoForm[i]; if(!f) return;
+  if(f.state==='uploading'){ toast('Attendi fine upload','inf'); return; }
+  if(f.state==='ok' && f.path){
+    const {error}=await db.from('sal_foto').update({eliminato:true}).eq('path',f.path);
+    if(error){ toast('Impossibile eliminare: '+error.message,'err'); return; }
+    try{ await db.storage.from('Foto').remove([f.path]); }catch(_){}
+  }
+  try{ URL.revokeObjectURL(f.previewUrl); }catch(_){}
+  fotoForm.splice(i,1); renderFotoForm();
+}
 
-function salvaEntrata(){
-  const desc=gv('sal-desc');if(!desc){toast('Inserisci una descrizione','err');return;}
-  const lista=getCantieri();const idx=lista.findIndex(c=>c.id===currentCantId);if(idx<0)return;
-  if(!lista[idx].sal)lista[idx].sal=[];
-  lista[idx].sal.unshift({id:'sal_'+Date.now(),data:gv('sal-data')||new Date().toISOString().split('T')[0],perc:gv('sal-perc'),desc,foto:[...fotoForm]});
-  salvaRecord(CANT_KEY,[lista[idx]]);g('sal-form').style.display='none';fotoForm=[];
-  renderStorico(lista[idx]);toast('✅ SAL salvato','ok');
+// ── FOTOCAMERA CUSTOM (overlay) ──
+let camStream=null, camFacing='environment', camBuffer=[];
+async function apriFotocamera(){
+  if(!formSalId){ toast('Form non pronto, riapri "+ Nuovo"','err'); return; }
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    toast('Fotocamera non supportata, usa gli altri pulsanti','err'); return;
+  }
+  camBuffer=[]; aggiornaContatoreCam();
+  g('cam-err').classList.remove('show');
+  g('cam-overlay').classList.add('show');
+  try{
+    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:camFacing},audio:false});
+    const v=g('cam-video'); v.srcObject=camStream; await v.play();
+  }catch(e){
+    const err=g('cam-err');
+    err.textContent='Fotocamera non disponibile: '+(e.message||e)+'. Usa i pulsanti alternativi.';
+    err.classList.add('show');
+  }
+}
+function stopStreamCam(){
+  if(camStream){ camStream.getTracks().forEach(t=>t.stop()); camStream=null; }
+  const v=g('cam-video'); if(v) v.srcObject=null;
+}
+async function cambiaFotocamera(){
+  camFacing = (camFacing==='environment')?'user':'environment';
+  stopStreamCam();
+  try{
+    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:camFacing},audio:false});
+    const v=g('cam-video'); v.srcObject=camStream; await v.play();
+  }catch(e){ toast('Altra fotocamera non disponibile','err'); }
+}
+function scattaFoto(){
+  const v=g('cam-video'); if(!v||!v.videoWidth) return;
+  const MAX=1600; let w=v.videoWidth,h=v.videoHeight;
+  if(w>h){ if(w>MAX){ h=Math.round(h*MAX/w); w=MAX; } } else { if(h>MAX){ w=Math.round(w*MAX/h); h=MAX; } }
+  const c=document.createElement('canvas'); c.width=w; c.height=h;
+  c.getContext('2d').drawImage(v,0,0,w,h);
+  c.toBlob(b=>{ if(b){ camBuffer.push(b); aggiornaContatoreCam(); } },'image/jpeg',0.85);
+}
+function aggiornaContatoreCam(){
+  g('cam-counter').textContent=String(camBuffer.length);
+  g('cam-fine').textContent='Fine ('+camBuffer.length+')';
+}
+async function chiudiFotocamera(annulla){
+  const buf=camBuffer.slice(); camBuffer=[];
+  stopStreamCam();
+  g('cam-overlay').classList.remove('show');
+  if(annulla || !buf.length) return;
+  await caricaFotoBlobs(buf);
+}
+
+// ── SALVA ──
+async function salvaEntrata(){
+  const lista=getCantieri(); const idx=lista.findIndex(c=>c.id===currentCantId); if(idx<0) return;
+  if(!lista[idx].sal) lista[idx].sal=[];
+  if(fotoForm.some(f=>f.state==='uploading')){ toast('Attendi fine upload foto','err'); return; }
+
+  if(editingSalId){
+    const i=lista[idx].sal.findIndex(x=>x.id===editingSalId);
+    if(i<0){ toast('SAL non trovato','err'); return; }
+    if(isAdmin()){
+      const desc=gv('sal-desc'); if(!desc){ toast('Inserisci una descrizione','err'); return; }
+      lista[idx].sal[i].data=gv('sal-data')||lista[idx].sal[i].data;
+      lista[idx].sal[i].perc=gv('sal-perc');
+      lista[idx].sal[i].desc=desc;
+      await salvaRecord(CANT_KEY,[lista[idx]]);
+    }
+    toast('✅ Aggiornato','ok');
+  } else {
+    const desc=gv('sal-desc'); if(!desc){ toast('Inserisci una descrizione','err'); return; }
+    lista[idx].sal.unshift({
+      id: formSalId,
+      data: gv('sal-data')||new Date().toISOString().split('T')[0],
+      perc: gv('sal-perc'),
+      desc,
+      foto: []
+    });
+    await salvaRecord(CANT_KEY,[lista[idx]]);
+    toast('✅ SAL salvato','ok');
+  }
+  g('sal-form').style.display='none';
+  fotoForm.forEach(f=>{ try{URL.revokeObjectURL(f.previewUrl);}catch(_){} });
+  fotoForm=[]; editingSalId=null; formSalId=null;
+  fotoRemoteByCant[currentCantId]=await fetchFotoSAL(currentCantId);
+  renderStorico(lista[idx]);
 }
 
 function renderStorico(c){
-  const el=g('sal-storico');const sal=c.sal||[];
-  if(!sal.length){el.innerHTML=`<div class="empty-state"><div class="empty-icon">📷</div><div class="empty-txt">Nessun aggiornamento</div><div style="font-size:13px;color:var(--muted)">Premi "+ Nuovo" per aggiungere il primo SAL</div></div>`;return;}
-  el.innerHTML=sal.map((s,i)=>{
+  const el=g('sal-storico'); const sal=c.sal||[];
+  if(!sal.length){ el.innerHTML=`<div class="empty-state"><div class="empty-icon">📷</div><div class="empty-txt">Nessun aggiornamento</div><div style="font-size:13px;color:var(--muted)">Premi "+ Nuovo" per aggiungere il primo SAL</div></div>`; return; }
+  const remote=fotoRemoteByCant[c.id]||[];
+  const admin=isAdmin();
+  el.innerHTML=sal.map(s=>{
     const d=new Date(s.data).toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'});
-    const fotoHtml=s.foto&&s.foto.length?`<div class="sal-foto-grid">${s.foto.map(url=>`<div class="sal-foto-item"><img src="${url}"></div>`).join('')}</div>`:'';
+    const fRemote=remote.filter(x=>x.sal_id===s.id).map(x=>x.url);
+    const fLegacy=(s.foto||[]).filter(x=>typeof x==='string' && x.startsWith('data:'));
+    const tutte=[...fRemote,...fLegacy];
+    const fotoHtml = tutte.length ? `<div class="sal-foto-grid">${tutte.map(url=>`<div class="sal-foto-item"><img src="${url}" loading="lazy"></div>`).join('')}</div>` : '';
+    const btnMod = `<button class="sal-btn mod" onclick="modificaSAL('${c.id}','${s.id}')" title="${admin?'Modifica':'Aggiungi foto'}">${admin?'✏️':'📷+'}</button>`;
+    const btnDel = admin ? `<button class="sal-btn" onclick="delSAL('${c.id}','${s.id}')" title="Elimina">🗑</button>` : '';
     return `<div class="sal-entry">
       <div class="sal-header">
-        <div><div class="sal-data">${d}</div>${s.foto&&s.foto.length?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${s.foto.length} foto</div>`:''}</div>
-        <div style="display:flex;align-items:center;gap:8px">
+        <div><div class="sal-data">${d}</div>${tutte.length?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${tutte.length} foto</div>`:''}</div>
+        <div class="sal-actions">
           ${s.perc?`<span class="sal-perc">${s.perc}%</span>`:''}
-          <button class="sal-del" onclick="delSAL('${c.id}',${i})">🗑</button>
+          ${btnMod}${btnDel}
         </div>
       </div>
-      <div class="sal-desc">${s.desc}</div>
+      <div class="sal-desc">${s.desc||''}</div>
       ${fotoHtml}
     </div>`;
   }).join('');
 }
 
-function delSAL(cantId,i){
-  if(!confirm('Eliminare questo aggiornamento?'))return;
-  const lista=getCantieri();const idx=lista.findIndex(c=>c.id===cantId);if(idx<0)return;
-  lista[idx].sal.splice(i,1);salvaRecord(CANT_KEY,[lista[idx]]);renderStorico(lista[idx]);toast('Eliminato','ok');
+async function delSAL(cantId, salId){
+  if(!isAdmin()){ toast('Eliminazione riservata agli admin','err'); return; }
+  if(!confirm('Eliminare questo aggiornamento e tutte le sue foto?')) return;
+  const lista=getCantieri(); const idx=lista.findIndex(c=>c.id===cantId); if(idx<0) return;
+  const i=lista[idx].sal.findIndex(s=>s.id===salId); if(i<0) return;
+  // Soft-delete foto su sal_foto + remove oggetti da Storage
+  if(db){
+    const {data:righe,error:errLst}=await db.from('sal_foto').select('path').eq('cantiere_id',cantId).eq('sal_id',salId).eq('eliminato',false);
+    if(errLst){ toast('Errore lettura foto: '+errLst.message,'err'); return; }
+    const paths=(righe||[]).map(r=>r.path);
+    const {error:errUpd}=await db.from('sal_foto').update({eliminato:true}).eq('cantiere_id',cantId).eq('sal_id',salId).eq('eliminato',false);
+    if(errUpd){ toast('Errore eliminazione foto: '+errUpd.message,'err'); return; }
+    if(paths.length){ try{ await db.storage.from('Foto').remove(paths); }catch(_){} }
+  }
+  lista[idx].sal.splice(i,1);
+  await salvaRecord(CANT_KEY,[lista[idx]]);
+  fotoRemoteByCant[cantId]=await fetchFotoSAL(cantId);
+  renderStorico(lista[idx]);
+  toast('Eliminato','ok');
 }
 
 
 // ── ESPORTA SAL ──
+function fotoMerged(c, s){
+  const remote=(fotoRemoteByCant[c.id]||[]).filter(x=>x.sal_id===s.id).map(x=>x.url);
+  const legacy=(s.foto||[]).filter(x=>typeof x==='string' && x.startsWith('data:'));
+  return [...remote,...legacy];
+}
 function esportaSAL(){
   const lista = getCantieri();
   const c = lista.find(x=>x.id===currentCantId);
@@ -344,7 +627,7 @@ function esportaSAL(){
   const COLS=2;
   const entriesHtml = sal.map(s=>{
     const d = new Date(s.data).toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'});
-    const fotoArr = s.foto||[];
+    const fotoArr = fotoMerged(c,s);
     let fotoRows='';
     if(fotoArr.length){
       fotoRows='<table style="width:100%;border-collapse:separate;border-spacing:4mm 3mm">';
@@ -402,7 +685,7 @@ async function esportaWord(){
   const sal=c.sal||[];
   // Lo storico è salvato dal più recente (unshift): inverto e ordino per data
   const entries=[...sal].reverse().sort((a,b)=>(a.data||'').localeCompare(b.data||''));
-  const urls=entries.flatMap(s=>s.foto||[]);
+  const urls=entries.flatMap(s=>fotoMerged(c,s));
   if(!urls.length){toast('Nessuna foto da esportare','err');return;}
   if(!window.docx){toast('Libreria Word non caricata, controlla la connessione','err');return;}
   toast('📄 Generazione Word in corso...','inf');
