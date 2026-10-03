@@ -483,9 +483,16 @@ function salveLista(l){
 
 let mostraArchiviati=false;
 function toggleArchiviati(){ mostraArchiviati=!mostraArchiviati; renderLista(); }
+function ordinaPerCommessa(a,b){
+  const ca=(a.commessa||'').trim(), cb=(b.commessa||'').trim();
+  if(!ca && !cb) return 0;
+  if(!ca) return -1;
+  if(!cb) return 1;
+  return ca.localeCompare(cb,'it',{numeric:true,sensitivity:'base'});
+}
 function renderLista(){
   const tutti=getLista();
-  const lista=tutti.filter(s=>mostraArchiviati ? s.archiviato : !s.archiviato);
+  const lista=tutti.filter(s=>mostraArchiviati ? s.archiviato : !s.archiviato).sort(ordinaPerCommessa);
   const nArch=tutti.filter(s=>s.archiviato).length;
   const el=g('lista-container');
   const barra = nArch ? `<div style="margin-bottom:10px"><button onclick="toggleArchiviati()" style="width:100%;padding:9px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:${mostraArchiviati?'var(--brick)':'var(--muted)'};font-size:12px;font-weight:600;font-family:inherit;cursor:pointer">${mostraArchiviati?'← Torna ai sopralluoghi attivi':'🗄 Mostra archiviati ('+nArch+')'}</button></div>` : '';
