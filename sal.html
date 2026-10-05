@@ -330,8 +330,15 @@ async function uploadFotoBlob(blob,cantId,salId,progressivo){
   return path;
 }
 
+function ordinaPerCommessa(a,b){
+  const ca=(a.commessa||'').trim(), cb=(b.commessa||'').trim();
+  if(!ca && !cb) return 0;
+  if(!ca) return -1;
+  if(!cb) return 1;
+  return cb.localeCompare(ca,'it',{numeric:true,sensitivity:'base'});
+}
 function renderLista(){
-  const lista=getCantieri().filter(c=>!c.archiviato);const el=g('lista-cantieri');
+  const lista=getCantieri().filter(c=>!c.archiviato).sort(ordinaPerCommessa);const el=g('lista-cantieri');
   if(!lista.length){el.innerHTML=`<div class="empty-state"><div class="empty-icon">📸</div><div class="empty-txt">Nessun cantiere</div><div style="font-size:13px;color:var(--muted)">Avvia un cantiere dalla scheda Sopralluogo</div></div>`;return;}
   el.innerHTML=lista.map(c=>{
     const n=(c.sal||[]).length;
