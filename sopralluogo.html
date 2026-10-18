@@ -1048,7 +1048,7 @@ async function avviaCantiere(){
   const cantiereId='cant_'+Date.now();
   const nuovoCantiere = {id:cantiereId,sopralluogoId:currentId,commessa:gv('f-commessa'),titolo:gv('f-titolo'),cliente:gv('fc'),indirizzo:gv('fi'),
     resp:gv('f-resp'),mq:gv('fm'),dataInizio:new Date().toISOString().split('T')[0],
-    stato:'In corso',giornate:[],costiMateriali:[],preventivo:0};
+    stato:'In corso',giornate:[]};
   const sincronizzato = await salvaRecord('cantieri_v1', [nuovoCantiere]);
   const lista=getLista(); const idx=lista.findIndex(s=>s.id===currentId);
   if(idx>=0){ lista[idx].cantiereId=cantiereId; await salvaSopralluogo(lista[idx]); }
