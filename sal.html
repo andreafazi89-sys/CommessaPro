@@ -301,6 +301,8 @@ function getUser(){ try{ return JSON.parse(localStorage.getItem('cp_user'))||{};
 function nomeUtente(){ const u=getUser(); return u.nome||u.email||''; }
 function ruoloUtente(){ return (getUser().ruolo||'').toLowerCase(); }
 function isAdmin(){ const r=ruoloUtente(); return r==='admin'||r==='segretaria'; }
+// Eliminare foto SAL (e interi aggiornamenti SAL, che le cancellano) e riservato al solo admin.
+function puoEliminareFoto(){ return ruoloUtente()==='admin'; }
 
 // ── STORAGE + sal_foto ──
 function fotoPublicUrl(path){ if(!db||!path) return ''; return db.storage.from('Foto').getPublicUrl(path).data.publicUrl; }
@@ -401,8 +403,8 @@ function modificaSAL(cantId, salId){
 async function nascondiForm(){
   const paths=fotoForm.filter(f=>f.state==='ok' && f.path).map(f=>f.path);
   g('sal-form').style.display='none';
-  // Rollback foto appena caricate solo se admin (operaio non ha i permessi DELETE).
-  if(paths.length && db && isAdmin()){
+  // Rollback foto appena caricate solo se admin (operaio e segretaria non hanno i permessi DELETE).
+  if(paths.length && db && puoEliminareFoto()){
     try{ await db.from('sal_foto').update({eliminato:true}).in('path',paths); }catch(_){}
     try{ await db.storage.from('Foto').remove(paths); }catch(_){}
   }
@@ -464,13 +466,13 @@ function renderFotoForm(){
   const admin=isAdmin();
   el.innerHTML=fotoForm.map((f,i)=>{
     const cls=f.state==='uploading'?'loading':(f.state==='err'?'failed':'');
-    const canDel = admin && f.state!=='uploading';
+    const canDel = puoEliminareFoto() && f.state!=='uploading';
     const btn = canDel ? `<button class="foto-del" onclick="delFotoForm(${i})" title="Elimina">×</button>` : '';
     return `<div class="foto-item ${cls}"><img src="${f.previewUrl}">${btn}<span class="foto-num">${i+1}</span></div>`;
   }).join('');
 }
 async function delFotoForm(i){
-  if(!isAdmin()){ toast('Eliminazione riservata agli admin','err'); return; }
+  if(!puoEliminareFoto()){ toast('Eliminazione riservata all\'amministratore','err'); return; }
   const f=fotoForm[i]; if(!f) return;
   if(f.state==='uploading'){ toast('Attendi fine upload','inf'); return; }
   if(f.state==='ok' && f.path){
@@ -581,7 +583,7 @@ function renderStorico(c){
     const tutte=[...fRemote,...fLegacy];
     const fotoHtml = tutte.length ? `<div class="sal-foto-grid">${tutte.map(url=>`<div class="sal-foto-item"><img src="${url}" loading="lazy"></div>`).join('')}</div>` : '';
     const btnMod = `<button class="sal-btn mod" onclick="modificaSAL('${c.id}','${s.id}')" title="${admin?'Modifica':'Aggiungi foto'}">${admin?'✏️':'📷+'}</button>`;
-    const btnDel = admin ? `<button class="sal-btn" onclick="delSAL('${c.id}','${s.id}')" title="Elimina">🗑</button>` : '';
+    const btnDel = puoEliminareFoto() ? `<button class="sal-btn" onclick="delSAL('${c.id}','${s.id}')" title="Elimina">🗑</button>` : '';
     return `<div class="sal-entry">
       <div class="sal-header">
         <div><div class="sal-data">${d}</div>${tutte.length?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${tutte.length} foto</div>`:''}</div>
@@ -597,7 +599,7 @@ function renderStorico(c){
 }
 
 async function delSAL(cantId, salId){
-  if(!isAdmin()){ toast('Eliminazione riservata agli admin','err'); return; }
+  if(!puoEliminareFoto()){ toast('Eliminazione riservata all\'amministratore','err'); return; }
   if(!confirm('Eliminare questo aggiornamento e tutte le sue foto?')) return;
   const lista=getCantieri(); const idx=lista.findIndex(c=>c.id===cantId); if(idx<0) return;
   const i=lista[idx].sal.findIndex(s=>s.id===salId); if(i<0) return;
