@@ -561,12 +561,14 @@ function salva(){
   g('si').textContent='● salvando...'; g('si').className='save-ind';
   saveTimer=setTimeout(()=>{
     const lista=getLista(); const idx=lista.findIndex(s=>s.id===currentId);
-    const dati={id:currentId,resp:gv('f-resp'),data:gv('f-data'),titolo:gv('f-titolo'),commessa:gv('f-commessa'),cliente:gv('fc'),tel:gv('ft'),email:gv('fe'),
+    // Parte dal record esistente: i campi che il form non gestisce (fase 2,
+    // archiviazione, ecc.) non devono andare persi a ogni salvataggio
+    const prec=idx>=0?lista[idx]:{};
+    const dati={...prec,id:currentId,resp:gv('f-resp'),data:gv('f-data'),titolo:gv('f-titolo'),commessa:gv('f-commessa'),cliente:gv('fc'),tel:gv('ft'),email:gv('fe'),
       indirizzo:gv('fi'),piano:gv('fp'),mq:gv('fm'),accesso:gv('facc'),lavori:gv('fl'),note:gv('fn'),
       lat:currentLat,lon:currentLon,
       ambienti,foto,noteVocali:noteVocali.map(n=>({dur:n.dur,b64:n.b64,type:n.type})),
       cantiereId:(idx>=0?lista[idx].cantiereId:null)||null};
-    if(idx>=0) dati.archiviato = lista[idx].archiviato || false;
     try{
       salvaSopralluogo(dati);
       g('si').textContent='✓ salvato'; g('si').className='save-ind ok';
