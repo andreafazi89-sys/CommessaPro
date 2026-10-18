@@ -16,6 +16,17 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
 - `archivio.html`: crea il pacchetto ZIP della commessa (scheda, foto scaricate,
   giornate in CSV, dati.json) e poi marca `archiviato:true` su sopralluogo e
   cantiere. Non cancella nulla dal bucket Foto.
+- Sopralluogo in due fasi sullo STESSO record di `sopralluoghi_v3`:
+  - Fase 1, `sopralluogo.html` (sopralluogo rapido): cliente e referente
+    scelti dalla rubrica, indirizzo cantiere compilato dalla sede del cliente,
+    lavorazioni richieste, note, foto. Il campo `cliente` resta la stringa
+    "CLIENTE - Referente" usata da report, cantiere e archivio.
+  - Fase 2, `sviluppo.html` (scheda di sviluppo, SOLO admin): piano, accessi,
+    opere provvisionali, lavorazioni con misure, rifiuti, squadra, forniture.
+    Salvata nel campo `sviluppo` del record; produce il testo per la bozza
+    di preventivo. Piano, superficie, accesso e misure NON stanno in fase 1.
+- `rubrica_v1`: ogni record e' un referente. `nome` = cliente (WFP, IFAD...),
+  `ref` = persona, `indirizzo` = sede del cliente.
 - Dati locali: localStorage con chiavi `sopralluoghi_v3`, `cantieri_v1`, `note_v1`, `rubrica_v1`, `cp_user`, `cp_settings`.
 - Nessun build step, nessun framework, nessun npm. Librerie solo via CDN (gia presente supabase-js).
 
