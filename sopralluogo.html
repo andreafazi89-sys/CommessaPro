@@ -35,10 +35,6 @@ input::placeholder,textarea::placeholder{color:var(--muted);}
 select option{background:#1A1714;color:var(--white);}
 textarea{resize:none;min-height:90px;line-height:1.6;}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.ambiente-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
-.ambiente-row input{flex:1;}
-.ambiente-row .mq-inp{width:75px;flex:none;text-align:center;}
-.ambiente-row .del-btn{background:var(--brick-dim);color:var(--brick);border:none;border-radius:8px;width:36px;height:48px;font-size:15px;cursor:pointer;flex-shrink:0;}
 .voice-item{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);margin-bottom:8px;}
 .voice-play{width:40px;height:40px;background:var(--brick);color:#fff;border:none;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .voice-play.playing{background:var(--green);}
@@ -152,41 +148,21 @@ input[type="file"]{display:none;}
     </div>
 
     <div class="section">
-      <div class="sec-title">
-        <div class="sec-icon">👤</div>Cliente
-        <button onclick="apriRubrica()" style="margin-left:auto;background:var(--brick-dim);color:var(--brick);border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:Epilogue,sans-serif">👥 Rubrica</button>
-      </div>
-      <div class="fg"><label>Nome e Cognome *</label><input type="text" id="fc" placeholder="Es. Marco Rossi" oninput="salva()"></div>
+      <div class="sec-title"><div class="sec-icon">👤</div>Cliente</div>
+      <div class="fg"><label>Cliente *</label><select id="f-cli" onchange="cambiaCliente()"></select></div>
+      <div class="fg" id="fg-ref" style="display:none"><label>Referente</label><select id="f-ref" onchange="cambiaReferente()"></select></div>
+      <div class="fg" id="fg-fc" style="display:none"><label>Nome e Cognome *</label><input type="text" id="fc" placeholder="Es. Marco Rossi" oninput="salva()"></div>
       <div class="row2">
         <div class="fg"><label>Telefono</label><input type="tel" id="ft" placeholder="333 000 0000" oninput="salva()"></div>
         <div class="fg"><label>Email</label><input type="email" id="fe" placeholder="email@..." oninput="salva()"></div>
       </div>
-    </div>
-
-    <div class="section">
-      <div class="sec-title"><div class="sec-icon">📍</div>Cantiere</div>
-      <div class="fg"><label>Indirizzo *</label>
-          <div style="display:flex;gap:8px;align-items:center">
-            <input type="text" id="fi" placeholder="Via, numero, città" oninput="salva()" style="flex:1">
-            <button type="button" onclick="geoLocalizza()" title="Usa posizione attuale" style="width:46px;height:48px;background:var(--brick-dim);border:1.5px solid var(--brick);border-radius:var(--r-sm);font-size:20px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center" id="geo-btn">📍</button>
-            <button type="button" onclick="apriMappa()" title="Apri in Google Maps" style="width:46px;height:48px;background:var(--brick-dim);border:1.5px solid var(--brick);border-radius:var(--r-sm);font-size:20px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">🗺️</button>
-          </div>
+      <div class="fg"><label>Indirizzo cantiere *</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="text" id="fi" placeholder="Si compila dalla sede del cliente" oninput="salva()" style="flex:1">
+          <button type="button" onclick="geoLocalizza()" title="Usa posizione attuale" aria-label="Usa posizione attuale" style="width:46px;height:48px;background:var(--brick-dim);border:1.5px solid var(--brick);border-radius:var(--r-sm);font-size:20px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center" id="geo-btn">📍</button>
+          <button type="button" onclick="apriMappa()" title="Apri in Google Maps" aria-label="Apri in Google Maps" style="width:46px;height:48px;background:var(--brick-dim);border:1.5px solid var(--brick);border-radius:var(--r-sm);font-size:20px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">🗺️</button>
         </div>
-      <div class="row2">
-        <div class="fg"><label>Piano</label><input type="text" id="fp" placeholder="Es. 2° piano" oninput="salva()"></div>
-        <div class="fg"><label>Sup. totale (mq)</label><input type="number" id="fm" placeholder="Es. 75" oninput="salva()"></div>
       </div>
-      <div class="fg"><label>Accesso</label>
-        <select id="facc" onchange="salva()">
-          <option>Facile — ascensore / piano terra</option>
-          <option>Normale — scale</option>
-          <option>Difficile — scala stretta / mansarda</option>
-        </select>
-      </div>
-      <div class="divider"></div>
-      <label style="margin-bottom:8px;display:block">Misure per ambiente</label>
-      <div id="ambienti-list"></div>
-      <button onclick="aggiungiAmbiente()" style="width:100%;padding:11px;background:var(--surface2);border:1.5px dashed var(--border);border-radius:var(--r-sm);color:var(--muted);font-family:Epilogue,sans-serif;font-size:13px;cursor:pointer;margin-top:4px">+ Aggiungi ambiente</button>
     </div>
 
     <div class="section">
@@ -424,7 +400,7 @@ function mergeArrayByKey(a, b, key){
 }
 
 // ── STATE ──
-let foto = [], ambienti = [], noteVocali = [];
+let foto = [], noteVocali = [];
 let currentId = null, saveTimer = null;
 let mediaRecorder = null, audioChunks = [], recInterval = null;
 let recSeconds = 0, isRecording = false, currentAudio = null;
@@ -520,33 +496,34 @@ function eliminaSopralluogo(id){
 
 // ── NUOVO / APRI ──
 function nuovoSopralluogo(){
-  currentId='sop_'+Date.now(); foto=[]; ambienti=[]; noteVocali=[];
+  currentId='sop_'+Date.now(); foto=[]; noteVocali=[];
   currentLat=null; currentLon=null;
   resetForm(); g('f-data').value=new Date().toISOString().split('T')[0];
   g('form-title').textContent='Nuovo Sopralluogo';
   g('si').textContent='● nuovo'; g('si').className='save-ind';
-  renderFoto(); renderAmbienti(); renderNoteVocali();
+  impostaCliente(null);
+  renderFoto(); renderNoteVocali();
   aggiornaBottoneAvvia(null); aggiornaProg(); showView('form');
 }
 
 function apriSopralluogo(id){
   const s=getLista().find(x=>x.id===id); if(!s) return;
-  currentId=id; foto=s.foto||[]; ambienti=s.ambienti||[];
+  currentId=id; foto=s.foto||[];
   currentLat=s.lat||null; currentLon=s.lon||null;
   noteVocali=(s.noteVocali||[]).map(n=>({dur:n.dur,b64:n.b64,type:n.type||'audio/webm',url:null}));
   resetForm();
   sv('f-resp',s.resp); sv('f-data',s.data); sv('f-titolo',s.titolo); sv('f-commessa',s.commessa); sv('fc',s.cliente); sv('ft',s.tel);
-  sv('fe',s.email); sv('fi',s.indirizzo); sv('fp',s.piano); sv('fm',s.mq);
-  sv('facc',s.accesso); sv('fl',s.lavori); sv('fn',s.note);
+  sv('fe',s.email); sv('fi',s.indirizzo); sv('fl',s.lavori); sv('fn',s.note);
+  impostaCliente(s);
   g('form-title').textContent=s.titolo||s.cliente||'Sopralluogo';
   g('si').textContent='✓ salvato'; g('si').className='save-ind ok';
-  renderFoto(); renderAmbienti(); renderNoteVocali();
+  renderFoto(); renderNoteVocali();
   aggiornaBottoneAvvia(s.cantiereId); aggiornaProg(); showView('form');
 }
 
 function resetForm(){
-  ['f-titolo','f-commessa','fc','ft','fe','fi','fp','fm','fl','fn'].forEach(id=>{const el=g(id);if(el)el.value='';});
-  sv('f-resp','Andrea Fazi'); g('facc').selectedIndex=0;
+  ['f-titolo','f-commessa','fc','ft','fe','fi','fl','fn'].forEach(id=>{const el=g(id);if(el)el.value='';});
+  sv('f-resp','Andrea Fazi');
 }
 
 function tornaLista(){
@@ -565,9 +542,11 @@ function salva(){
     // archiviazione, ecc.) non devono andare persi a ogni salvataggio
     const prec=idx>=0?lista[idx]:{};
     const dati={...prec,id:currentId,resp:gv('f-resp'),data:gv('f-data'),titolo:gv('f-titolo'),commessa:gv('f-commessa'),cliente:gv('fc'),tel:gv('ft'),email:gv('fe'),
-      indirizzo:gv('fi'),piano:gv('fp'),mq:gv('fm'),accesso:gv('facc'),lavori:gv('fl'),note:gv('fn'),
+      indirizzo:gv('fi'),lavori:gv('fl'),note:gv('fn'),
       lat:currentLat,lon:currentLon,
-      ambienti,foto,noteVocali:noteVocali.map(n=>({dur:n.dur,b64:n.b64,type:n.type})),
+      clienteRubrica:(g('f-cli').value&&g('f-cli').value!==CLI_ALTRO)?g('f-cli').value:'',
+      referenteId:(g('f-ref').value&&g('f-ref').value!==REF_NUOVO)?g('f-ref').value:'',
+      foto,noteVocali:noteVocali.map(n=>({dur:n.dur,b64:n.b64,type:n.type})),
       cantiereId:(idx>=0?lista[idx].cantiereId:null)||null};
     try{
       salvaSopralluogo(dati);
@@ -599,18 +578,8 @@ function aggiornaProg(){
   });
 }
 
-// ── AMBIENTI ──
-function aggiungiAmbiente(nome='',mq=''){ambienti.push({nome,mq});renderAmbienti();}
-function renderAmbienti(){
-  const el=g('ambienti-list'); if(!ambienti.length){el.innerHTML='';return;}
-  el.innerHTML=ambienti.map((a,i)=>`
-    <div class="ambiente-row">
-      <input type="text" value="${a.nome}" placeholder="Es. Bagno, Cucina..." oninput="ambienti[${i}].nome=this.value;salva()">
-      <input type="number" class="mq-inp" value="${a.mq}" placeholder="mq" oninput="ambienti[${i}].mq=this.value;salva()">
-      <button class="del-btn" onclick="delAmbiente(${i})">✕</button>
-    </div>`).join('');
-}
-function delAmbiente(i){ambienti.splice(i,1);renderAmbienti();salva();}
+// Piano, superficie, accesso e misure per ambiente sono passati alla fase 2.
+// I sopralluoghi vecchi li conservano nel record e il report li mostra ancora.
 
 // ── NOTE VOCALI ──
 async function toggleRec(){
@@ -1049,7 +1018,7 @@ async function avviaCantiere(){
   if(!confirm(`Avviare il cantiere per ${gv('fc')}?`)) return;
   const cantiereId='cant_'+Date.now();
   const nuovoCantiere = {id:cantiereId,sopralluogoId:currentId,commessa:gv('f-commessa'),titolo:gv('f-titolo'),cliente:gv('fc'),indirizzo:gv('fi'),
-    resp:gv('f-resp'),mq:gv('fm'),dataInizio:new Date().toISOString().split('T')[0],
+    resp:gv('f-resp'),mq:(recordCorrente().mq||''),dataInizio:new Date().toISOString().split('T')[0],
     stato:'In corso',giornate:[]};
   const sincronizzato = await salvaRecord('cantieri_v1', [nuovoCantiere]);
   const lista=getLista(); const idx=lista.findIndex(s=>s.id===currentId);
@@ -1082,6 +1051,7 @@ function avvisaSegretariaSopralluogo(){
 
 // ── COPIA TESTO ──
 function copiaTesto(){
+  const ambienti=recordCorrente().ambienti||[];
   const ambTxt=ambienti.length?'\n\nAMBIENTI\n'+ambienti.map(a=>`${a.nome||'—'}: ${a.mq||'—'} mq`).join('\n'):'';
   let txt=`SOPRALLUOGO — ${gv('f-titolo')||gv('fc')||'—'} · ${gv('f-data')||new Date().toLocaleDateString('it-IT')}\n${'═'.repeat(36)}\nResponsabile: ${gv('f-resp')||'—'}\n\nCLIENTE\n${gv('fc')||'—'} · ${gv('ft')||'—'}\n\nCANTIERE\n${gv('fi')||'—'}${ambTxt}\n\nLAVORAZIONI\n${gv('fl')||'—'}`;
   if(gv('fn')) txt+=`\n\nNOTE\n${gv('fn')}`;
@@ -1096,6 +1066,8 @@ function generaReport(){
   if(!cliente||!indirizzo){toast('Inserisci nome cliente e indirizzo','err');return;}
   const data=gv('f-data')?new Date(gv('f-data')).toLocaleDateString('it-IT'):new Date().toLocaleDateString('it-IT');
   const resp=gv('f-resp')||'—';
+  const rec=recordCorrente(), ambienti=rec.ambienti||[];
+  const rigaInfo=(l,v)=>v?`<tr><td>${l}</td><td>${v}</td></tr>`:'';
   const ambHtml=ambienti.length?`<table style="width:100%;border-collapse:collapse">
     <tr><th style="text-align:left;padding:5px 10px;background:#F5F0E8;font-size:11px;color:#6B6258">Ambiente</th><th style="text-align:right;padding:5px 10px;background:#F5F0E8;font-size:11px;color:#6B6258">mq</th></tr>
     ${ambienti.map(a=>`<tr><td style="padding:7px 10px;border-top:1px solid #E8E2D9;font-size:13px">${a.nome||'—'}</td><td style="padding:7px 10px;border-top:1px solid #E8E2D9;font-size:13px;text-align:right;font-weight:600">${a.mq||'—'}</td></tr>`).join('')}</table>`:null;
@@ -1123,7 +1095,7 @@ function generaReport(){
 <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:#fff;color:#1A1612;padding:12px 16px;max-width:720px;margin:0 auto;font-size:13px;}.hdr{border-bottom:3px solid #D4511E;padding-bottom:10px;margin-bottom:14px;}.ttl{font-size:19px;font-weight:700;}.sub{font-size:11px;color:#9C9088;margin-top:2px;}.sec{margin-bottom:10px;}.stitle{font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#D4511E;border-bottom:1px solid #E8E2D9;padding-bottom:3px;margin-bottom:6px;break-after:avoid;page-break-after:avoid;}table.info{width:100%;border-collapse:collapse;}table.info td{padding:6px 8px;border:1px solid #E8E2D9;font-size:12px;vertical-align:top;}table.info td:first-child{background:#F5F0E8;font-weight:600;color:#6B6258;width:28%;}.btext{font-size:12px;line-height:1.7;white-space:pre-wrap;}.firma-box{margin-top:8mm;padding-top:10px;border-top:1px solid #E8E2D9;display:grid;grid-template-columns:1fr 1fr;gap:16px;page-break-inside:avoid;break-inside:avoid;break-before:auto;page-break-before:auto;}.fl{font-size:10px;color:#9C9088;}.fl strong{display:block;font-size:12px;color:#1A1612;margin-bottom:12px;}.fline{border-bottom:1px solid #ccc;height:16px;margin-top:3px;}.foto-sec{break-before:auto;page-break-before:auto;}@page{margin:12mm;}@media print{body{padding:0;max-width:none;}audio{display:none;}.firma-box{page-break-inside:avoid;break-inside:avoid;}}</style></head><body>
 <div class="hdr"><div class="ttl">REPORT DI SOPRALLUOGO</div><div class="sub">${gv('f-titolo')||''}</div><div class="sub">Data: ${data} &middot; Responsabile: ${resp}</div></div>
 <div class="sec"><div class="stitle">👤 Cliente</div><table class="info"><tr><td>Cliente</td><td>${cliente}</td></tr><tr><td>Telefono</td><td>${gv('ft')||'—'}</td></tr><tr><td>Email</td><td>${gv('fe')||'—'}</td></tr></table></div>
-<div class="sec"><div class="stitle">📍 Cantiere</div><table class="info"><tr><td>Indirizzo</td><td>${indirizzo}</td></tr><tr><td>Piano</td><td>${gv('fp')||'—'}</td></tr><tr><td>Superficie</td><td>${gv('fm')?gv('fm')+' mq':'—'}</td></tr><tr><td>Accesso</td><td>${gv('facc')||'—'}</td></tr></table></div>
+<div class="sec"><div class="stitle">📍 Cantiere</div><table class="info"><tr><td>Indirizzo</td><td>${indirizzo}</td></tr>${rigaInfo('Piano',rec.piano)}${rigaInfo('Superficie',rec.mq?rec.mq+' mq':'')}${rigaInfo('Accesso',rec.accesso)}</table></div>
 ${ambHtml?`<div class="sec"><div class="stitle">📐 Misure per ambiente</div>${ambHtml}</div>`:''}
 <div class="sec"><div class="stitle">🔨 Lavorazioni richieste</div><div class="btext">${gv('fl')||'—'}</div></div>
 ${gv('fn')?`<div class="sec"><div class="stitle">📝 Note aggiuntive</div><div class="btext">${gv('fn')}</div></div>`:''}
@@ -1185,38 +1157,147 @@ function leggiImport(input){
 }
 
 
-// ── RUBRICA ──
-function apriRubrica(){
-  const clienti = JSON.parse(localStorage.getItem('rubrica_v1')||'[]');
-  const el = g('rubrica-lista');
-  if(!clienti.length){
-    el.innerHTML='<div style="text-align:center;padding:24px;color:var(--muted)">Nessun cliente in rubrica.<br><a href="rubrica.html" style="color:var(--brick)">Vai alla Rubrica →</a></div>';
-  } else {
-    el.innerHTML = clienti.sort((a,b)=>a.nome.localeCompare(b.nome)).map(cli=>`
-      <div onclick="selezionaCliente('${cli.id}')" style="padding:14px 16px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:12px;-webkit-tap-highlight-color:rgba(212,81,30,0.1)">
-        <div style="width:38px;height:38px;background:var(--brick-dim);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🏢</div>
-        <div>
-          <div style="font-weight:600;font-size:14px;color:var(--white)">${cli.nome}</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px">${cli.ref||''} ${cli.tel?'· '+cli.tel:''}</div>
-        </div>
-      </div>`).join('');
+// ── CLIENTE E REFERENTE DALLA RUBRICA ──
+// In rubrica_v1 ogni contatto e' un referente: "nome" e' il cliente (WFP, IFAD...),
+// "ref" la persona, "indirizzo" la sede. Scelto il cliente, il menu referente
+// mostra solo i suoi contatti e l'indirizzo del cantiere si compila dalla sede.
+const CLI_ALTRO = '__altro', REF_NUOVO = '__nuovo';
+function getRubrica(){ try{ return (JSON.parse(localStorage.getItem('rubrica_v1'))||[]).filter(r=>!r.eliminato); }catch{ return []; } }
+const normCli = n => (n||'').trim().toUpperCase();
+function puoModificareRubrica(){
+  let u=null; try{u=JSON.parse(localStorage.getItem('cp_user'))||null;}catch{}
+  const r=(u?.ruolo||'').toLowerCase(); return r==='admin'||r==='segretaria';
+}
+function esc(t){ return String(t??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// Elenco dei clienti senza doppioni, con la grafia del primo contatto trovato
+function clientiRubrica(){
+  const m=new Map();
+  getRubrica().forEach(r=>{ const k=normCli(r.nome); if(k&&!m.has(k)) m.set(k,(r.nome||'').trim()); });
+  return [...m.values()].sort((a,b)=>a.localeCompare(b,'it'));
+}
+function referentiDi(cli){
+  return getRubrica().filter(r=>normCli(r.nome)===normCli(cli)&&(r.ref||'').trim())
+    .sort((a,b)=>(a.ref||'').localeCompare(b.ref||'','it'));
+}
+function sedeDi(cli, ref){
+  if(ref&&ref.indirizzo) return ref.indirizzo.trim();
+  const r=getRubrica().find(x=>normCli(x.nome)===normCli(cli)&&(x.indirizzo||'').trim());
+  return r?r.indirizzo.trim():'';
+}
+function popolaClienti(scelto){
+  const opts=['<option value="">— scegli cliente —</option>']
+    .concat(clientiRubrica().map(c=>`<option value="${esc(c)}">${esc(c)}</option>`))
+    .concat([`<option value="${CLI_ALTRO}">Altro / privato (scrivi a mano)</option>`]);
+  g('f-cli').innerHTML=opts.join('');
+  g('f-cli').value=scelto||'';
+}
+function popolaReferenti(cli, refId){
+  const refs=referentiDi(cli);
+  let opts=['<option value="">— scegli referente —</option>']
+    .concat(refs.map(r=>`<option value="${esc(r.id)}">${esc(r.ref)}</option>`));
+  if(puoModificareRubrica()) opts.push(`<option value="${REF_NUOVO}">+ Nuovo referente...</option>`);
+  g('f-ref').innerHTML=opts.join('');
+  g('f-ref').value=refId||'';
+  return refs;
+}
+function mostraCampiCliente(){
+  const v=g('f-cli').value;
+  g('fg-ref').style.display=(v&&v!==CLI_ALTRO)?'':'none';
+  g('fg-fc').style.display=(v===CLI_ALTRO)?'':'none';
+}
+// Imposta i menu all'apertura di un sopralluogo (s=null per uno nuovo)
+function impostaCliente(s){
+  let cli='', refId='';
+  if(s){
+    const clienti=clientiRubrica();
+    const trovaCli=n=>clienti.find(c=>normCli(c)===normCli(n));
+    if(s.clienteRubrica&&trovaCli(s.clienteRubrica)){
+      cli=trovaCli(s.clienteRubrica);
+      if(s.referenteId&&referentiDi(cli).some(r=>r.id===s.referenteId)) refId=s.referenteId;
+    } else if(s.cliente){
+      // Sopralluoghi vecchi: riconosce "WFP - Alessandro Casciotti" dal testo
+      const testo=normCli(s.cliente);
+      const r=getRubrica().find(x=>(x.ref||'').trim()&&normCli(x.nome+' - '+x.ref)===testo);
+      if(r){ cli=trovaCli(r.nome); refId=r.id; }
+      else if(trovaCli(s.cliente)) cli=trovaCli(s.cliente);
+      else cli=CLI_ALTRO;
+    }
   }
-  g('rubrica-modal').style.display='flex';
+  popolaClienti(cli);
+  if(cli&&cli!==CLI_ALTRO) popolaReferenti(cli, refId);
+  mostraCampiCliente();
+}
+// Ricarica i menu dopo una sincronizzazione, senza perdere la scelta corrente
+function aggiornaMenuCliente(){
+  if(!g('view-form').classList.contains('active')) return;
+  const cli=g('f-cli').value, ref=g('f-ref').value;
+  const esiste=cli===CLI_ALTRO||clientiRubrica().includes(cli);
+  popolaClienti(esiste?cli:(cli?CLI_ALTRO:''));
+  if(esiste&&cli&&cli!==CLI_ALTRO) popolaReferenti(cli, ref===REF_NUOVO?'':ref);
+  mostraCampiCliente();
+}
+// Scelto il cliente: referenti filtrati e indirizzo dalla sede
+function cambiaCliente(){
+  const cli=g('f-cli').value;
+  if(cli===CLI_ALTRO){
+    mostraCampiCliente();
+    g('fc').value=''; g('ft').value=''; g('fe').value='';
+    g('fc').focus(); salva(); return;
+  }
+  if(!cli){ g('fc').value=''; mostraCampiCliente(); salva(); return; }
+  const refs=popolaReferenti(cli,'');
+  mostraCampiCliente();
+  if(refs.length===1){ g('f-ref').value=refs[0].id; cambiaReferente(); return; }
+  g('fc').value=cli; g('ft').value=''; g('fe').value='';
+  applicaSede(cli,null);
+  salva();
+}
+function cambiaReferente(){
+  const cli=g('f-cli').value, id=g('f-ref').value;
+  if(id===REF_NUOVO){ apriNuovoReferente(); return; }
+  const r=getRubrica().find(x=>x.id===id);
+  if(!r){ g('fc').value=cli; g('ft').value=''; g('fe').value=''; applicaSede(cli,null); salva(); return; }
+  g('fc').value=cli+' - '+r.ref.trim();
+  g('ft').value=r.tel||''; g('fe').value=r.email||'';
+  applicaSede(cli,r);
+  salva();
+}
+// Compila l'indirizzo del cantiere dalla sede, ma non sovrascrive un
+// indirizzo scritto a mano che non corrisponde a nessuna sede in rubrica
+function applicaSede(cli, ref){
+  const sede=sedeDi(cli, ref);
+  if(!sede) return;
+  const attuale=gv('fi');
+  if(attuale===sede) return;
+  const sediNote=new Set(getRubrica().map(r=>(r.indirizzo||'').trim()).filter(Boolean));
+  if(attuale&&!sediNote.has(attuale)){ toast('Indirizzo del cantiere lasciato com\'era: non corrisponde a una sede','inf'); return; }
+  g('fi').value=sede; currentLat=null; currentLon=null;
 }
 
-function selezionaCliente(id){
-  const clienti = JSON.parse(localStorage.getItem('rubrica_v1')||'[]');
-  const c = clienti.find(x=>x.id===id); if(!c) return;
-  const nome = c.ref ? c.nome+' - '+c.ref : c.nome;
-  const el = g('fc'); if(el) el.value = nome;
-  const tel = g('ft'); if(tel && c.tel) tel.value = c.tel;
-  const email = g('fe'); if(email && c.email) email.value = c.email;
-  chiudiRubrica(); salva();
+// ── NUOVO REFERENTE (salvato in rubrica gia' abbinato al cliente) ──
+function apriNuovoReferente(){
+  const cli=g('f-cli').value;
+  if(!cli||cli===CLI_ALTRO) return;
+  g('f-ref').value='';
+  g('nr-titolo').textContent='Nuovo referente '+cli;
+  ['nr-nome','nr-tel','nr-email'].forEach(id=>{g(id).value='';});
+  g('nr-sede').value=sedeDi(cli,null);
+  g('nuovo-ref-modal').style.display='flex';
+  setTimeout(()=>g('nr-nome').focus(),200);
 }
-
-function chiudiRubrica(){ g('rubrica-modal').style.display='none'; }
-
-
+function chiudiNuovoReferente(){ g('nuovo-ref-modal').style.display='none'; }
+async function salvaNuovoReferente(){
+  const cli=g('f-cli').value, nome=gv('nr-nome');
+  if(!nome){ toast('Inserisci nome e cognome del referente','err'); return; }
+  const rec={id:'cli_'+Date.now(),nome:cli,ref:nome,tel:gv('nr-tel'),email:gv('nr-email'),note:'',
+    indirizzo:gv('nr-sede'),timestamp:new Date().toISOString()};
+  chiudiNuovoReferente();
+  const ok=await salvaRecord('rubrica_v1',[rec]);
+  popolaReferenti(cli, rec.id);
+  cambiaReferente();
+  if(ok) toast('✓ Referente aggiunto alla rubrica','ok');
+}
+function recordCorrente(){ return getLista().find(x=>x.id===currentId)||{}; }
 
 // ── ONBOARDING BANNER ──
 function mostraOnboarding(){
@@ -1363,16 +1444,28 @@ renderLista();
 mostraOnboarding();
 // Sync da Supabase in background
 setTimeout(()=>forcSync().catch(()=>{}), 500);
+allinea('rubrica_v1').then(()=>aggiornaMenuCliente()).catch(()=>{});
 </script>
 
-<!-- RUBRICA MODAL -->
-<div id="rubrica-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.75);z-index:500;padding:16px;align-items:center;justify-content:center;">
-  <div style="background:var(--surface);border-radius:var(--r);overflow:hidden;max-height:85vh;display:flex;flex-direction:column;width:100%;max-width:420px;margin:0 auto;">
+<!-- NUOVO REFERENTE MODAL -->
+<div id="nuovo-ref-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.75);z-index:500;padding:16px;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border-radius:var(--r);overflow:hidden;max-height:90vh;display:flex;flex-direction:column;width:100%;max-width:420px;margin:0 auto;">
     <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
-      <span style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px;color:var(--white)">👥 Scegli cliente</span>
-      <button onclick="chiudiRubrica()" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0;line-height:1">✕</button>
+      <span id="nr-titolo" style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px;color:var(--white)">Nuovo referente</span>
+      <button onclick="chiudiNuovoReferente()" aria-label="Chiudi" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0;line-height:1">✕</button>
     </div>
-    <div id="rubrica-lista" style="overflow-y:auto;"></div>
+    <div style="overflow-y:auto;padding:16px 20px;">
+      <div class="fg"><label>Nome e Cognome *</label><input type="text" id="nr-nome" placeholder="Es. Alessandro Casciotti"></div>
+      <div class="row2">
+        <div class="fg"><label>Telefono</label><input type="tel" id="nr-tel" placeholder="333 000 0000"></div>
+        <div class="fg"><label>Email</label><input type="email" id="nr-email" placeholder="email@..."></div>
+      </div>
+      <div class="fg"><label>Indirizzo sede</label><input type="text" id="nr-sede" placeholder="Via, numero, città"></div>
+      <div class="btn-row" style="margin-top:6px">
+        <button class="btn-sec" onclick="chiudiNuovoReferente()">Annulla</button>
+        <button class="btn-main" onclick="salvaNuovoReferente()" style="flex:2;padding:13px">✓ Salva in rubrica</button>
+      </div>
+    </div>
   </div>
 </div>
 
