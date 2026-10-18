@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="CommessaPro">
+<meta name="theme-color" content="#0F0D0A">
+<link rel="icon" href="logo-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Scheda di sviluppo</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Epilogue:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root{--bg:#FFFFFF;--surface:#F5F5F5;--surface2:#EBEBEB;--brick:#D4511E;--brick-dim:rgba(212,81,30,0.12);--sand:#8A6A50;--sand-dim:rgba(138,106,80,0.12);--white:#1A1612;--muted:#6F6966;--border:rgba(0,0,0,0.1);--green:#3A7A4C;--green-dim:rgba(58,122,76,0.12);--r:14px;--r-sm:10px;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--white);min-height:100vh;}
+.topbar{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.topbar-title{font-family:'Syne',sans-serif;font-size:17px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.save-ind{font-size:11px;color:var(--muted);flex-shrink:0;}.save-ind.ok{color:var(--green);}
+.btn-back{color:var(--muted);background:none;border:none;cursor:pointer;font-size:22px;padding:0;text-decoration:none;}
+.steps{display:flex;gap:6px;padding:10px 16px 0;overflow-x:auto;}
+.step{flex:1;min-width:64px;background:none;border:none;cursor:pointer;padding:0;text-align:left;font-family:Epilogue,sans-serif;}
+.step-bar{height:3px;border-radius:2px;background:var(--border);margin-bottom:5px;}
+.step.on .step-bar{background:var(--brick);}
+.step-lbl{font-size:10px;color:var(--muted);white-space:nowrap;}
+.step.cur .step-lbl{color:var(--brick);font-weight:600;}
+.content{padding:16px 16px 150px;}
+.section{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px;margin-bottom:14px;}
+.sec-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--sand);margin:6px 0 12px;}
+.sec-title:first-child{margin-top:0;}
+.fg{margin-bottom:12px;}
+label,.lbl{display:block;font-size:11px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+input,textarea{width:100%;padding:13px 14px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r-sm);color:var(--white);font-family:'Epilogue',sans-serif;font-size:16px;outline:none;-webkit-appearance:none;}
+input:focus,textarea:focus{border-color:var(--brick);}
+textarea{resize:none;min-height:110px;line-height:1.6;}
+.num-wrap{display:flex;align-items:center;gap:8px;}.num-wrap input{flex:1;}
+.unit{font-size:13px;color:var(--muted);min-width:34px;}
+.chips{display:flex;flex-wrap:wrap;gap:6px;}
+.chip{padding:10px 13px;min-height:44px;border-radius:22px;border:1.5px solid var(--border);background:var(--surface2);color:var(--white);font-family:Epilogue,sans-serif;font-size:14px;cursor:pointer;}
+.chip.on{background:var(--brick);border-color:var(--brick);color:#fff;font-weight:600;}
+.auto{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:var(--green-dim);border-radius:var(--r-sm);margin-bottom:12px;font-size:14px;}
+.auto b{font-family:'Syne',sans-serif;color:var(--green);}
+.hint{font-size:12px;color:var(--muted);line-height:1.5;margin:-4px 0 12px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;}
+.card-tipo{font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--sand);}
+.card-zona{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin:3px 0 4px;}
+.card-riass{font-size:13px;color:var(--muted);line-height:1.5;}
+.card-act{display:flex;gap:8px;margin-top:10px;}
+.btn-sm{flex:1;padding:10px;min-height:44px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface2);color:var(--sand);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
+.btn-sm.danger{color:#B23A12;}
+.btn-add{width:100%;padding:14px;min-height:48px;background:var(--surface2);border:1.5px dashed var(--border);border-radius:var(--r-sm);color:var(--sand);font-family:'Syne',sans-serif;font-size:14px;font-weight:700;cursor:pointer;}
+.tipo{display:block;width:100%;text-align:left;padding:15px 16px;min-height:48px;margin-bottom:8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);font-family:Epilogue,sans-serif;font-size:15px;font-weight:500;color:var(--white);cursor:pointer;}
+.foto-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+.foto-sel{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;border:3px solid transparent;padding:0;cursor:pointer;background:var(--surface2);}
+.foto-sel img{width:100%;height:100%;object-fit:cover;display:block;}
+.foto-sel.on{border-color:var(--brick);}
+.foto-sel span{position:absolute;bottom:3px;left:5px;font-size:10px;font-weight:700;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.9);}
+.riepilogo{font-size:13px;line-height:1.7;}
+.riepilogo dt{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-top:8px;}
+.export{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;line-height:1.5;min-height:360px;}
+.empty{text-align:center;padding:24px 10px;color:var(--muted);font-size:14px;}
+.bottom-bar{position:fixed;bottom:0;left:0;right:0;padding:10px 16px;padding-bottom:max(10px,env(safe-area-inset-bottom));background:linear-gradient(to top,var(--bg) 60%,transparent);z-index:100;display:flex;gap:8px;}
+.btn-main{flex:2;padding:16px;background:var(--brick);color:#fff;border:none;border-radius:var(--r);font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;}
+.btn-main.green{background:var(--green);}
+.btn-sec{flex:1;padding:16px 10px;background:var(--surface2);color:var(--sand);border:1px solid var(--border);border-radius:var(--r);font-family:'Syne',sans-serif;font-size:14px;font-weight:700;cursor:pointer;}
+.toast{position:fixed;top:70px;left:16px;right:16px;padding:14px 16px;border-radius:var(--r-sm);font-size:14px;font-weight:500;text-align:center;z-index:9999;opacity:0;transform:translateY(-8px);transition:all .3s;pointer-events:none;}
+.toast.show{opacity:1;transform:translateY(0);}
+.toast.ok{background:var(--green);color:#fff;}.toast.err{background:#C8441A;color:#fff;}.toast.inf{background:var(--surface2);color:var(--white);border:1px solid var(--border);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:10px;min-width:0">
+    <a class="btn-back" id="link-indietro" href="sopralluogo.html" aria-label="Torna al sopralluogo">←</a>
+    <div class="topbar-title" id="titolo">Scheda di sviluppo</div>
+  </div>
+  <span class="save-ind" id="si">● carico...</span>
+</div>
+<nav class="steps" id="steps"></nav>
+<div class="content" id="contenuto"><div class="empty">Caricamento...</div></div>
+<div class="bottom-bar" id="barra"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ── GUARD AUTH + RUOLO: la scheda di sviluppo e' solo per l'admin ──
+(function(){
+  let u=null; try{u=JSON.parse(localStorage.getItem('cp_user'))||null;}catch{}
+  if(!u||!u.email){ window.location.replace('login.html'); return; }
+  if((u.ruolo||'').toLowerCase()!=='admin') window.location.replace('sopralluogo.html');
+})();
+
+// ── SUPABASE ──
+const SUPA_URL = 'https://iradzlocobsipjazracw.supabase.co';
+const SUPA_KEY = 'sb_publishable_zFgRrNrmYSORug8N06heow_6vjl0fhH';
+const LIST_KEY = 'sopralluoghi_v3';
+let db = null;
+function initDB(){ if(window.supabase) db = window.supabase.createClient(SUPA_URL, SUPA_KEY); }
+async function dbSalva(chiave, valore){
+  if(!db){ toast('⚠️ Non sincronizzato: server non raggiungibile','err'); return false; }
+  const { data:s } = await db.auth.getSession();
+  if(!s || !s.session){ toast('⚠️ Sessione scaduta: salvato solo su questo dispositivo','err'); return false; }
+  const { error } = await db.from('dati').upsert({chiave, valore, ts:new Date().toISOString()},{onConflict:'chiave'});
+  if(error){ console.error('dbSalva', chiave, error); toast('⚠️ Non sincronizzato: ' + error.message,'err'); return false; }
+  return true;
+}
+
+// ── SINCRONIZZAZIONE: scrittura chirurgica + coda offline (vedi CLAUDE.md) ──
+function chiavePending(k){ return 'cp_pending_' + k; }
+function getPending(k){ try{ return JSON.parse(localStorage.getItem(chiavePending(k))) || []; }catch{ return []; } }
+function aggiungiPending(k, records){
+  const m = new Map(getPending(k).map(x => [x.id, x]));
+  records.forEach(r => m.set(r.id, r));
+  localStorage.setItem(chiavePending(k), JSON.stringify([...m.values()]));
+}
+function svuotaPending(k){ localStorage.removeItem(chiavePending(k)); }
+function scriviLocale(k, records){
+  let attuali = [];
+  try{ attuali = JSON.parse(localStorage.getItem(k)) || []; }catch(e){}
+  const m = new Map(attuali.map(x => [x.id, x]));
+  records.forEach(r => m.set(r.id, r));
+  localStorage.setItem(k, JSON.stringify([...m.values()]));
+}
+async function salvaRecord(k, records){
+  if(!Array.isArray(records) || !records.length) return true;
+  scriviLocale(k, records);
+  if(!db){ aggiungiPending(k, records); toast('⚠️ Salvato sul dispositivo, non ancora sincronizzato','err'); return false; }
+  const { data, error } = await db.from('dati').select('valore').eq('chiave', k).maybeSingle();
+  if(error){
+    console.error('salvaRecord lettura', k, error);
+    aggiungiPending(k, records);
+    toast('⚠️ Salvato sul dispositivo, non ancora sincronizzato','err');
+    return false;
+  }
+  const base = (data && Array.isArray(data.valore)) ? data.valore : [];
+  const m = new Map(base.map(x => [x.id, x]));
+  getPending(k).forEach(r => m.set(r.id, r));
+  records.forEach(r => m.set(r.id, r));
+  const finale = [...m.values()];
+  const ok = await dbSalva(k, finale);
+  if(!ok){ aggiungiPending(k, records); return false; }
+  svuotaPending(k);
+  localStorage.setItem(k, JSON.stringify(finale));
+  return true;
+}
+async function allinea(k){
+  if(!db) return false;
+  const { data, error } = await db.from('dati').select('valore').eq('chiave', k).maybeSingle();
+  if(error){ console.error('allinea', k, error); toast('⚠️ Lettura dal server non riuscita: ' + error.message,'err'); return false; }
+  const base = (data && Array.isArray(data.valore)) ? data.valore : [];
+  const pend = getPending(k);
+  const m = new Map(base.map(x => [x.id, x]));
+  pend.forEach(r => m.set(r.id, r));
+  const finale = [...m.values()];
+  // Tiene le foto locali non ancora caricate (base64) che il server non ha
+  let locale = [];
+  try{ locale = JSON.parse(localStorage.getItem(k)) || []; }catch(e){}
+  const locMap = new Map(locale.map(x => [x.id, x]));
+  const unito = finale.map(r => { const l = locMap.get(r.id); return (l && (l.foto||[]).length > (r.foto||[]).length) ? {...r, foto:l.foto} : r; });
+  localStorage.setItem(k, JSON.stringify(unito));
+  if(pend.length){
+    const ok = await dbSalva(k, finale);
+    if(ok) svuotaPending(k);
+  }
+  return true;
+}
+// Toglie foto e note vocali non ancora sul cloud, come in sopralluogo.html
+function alleggerisci(s){
+  const fotoOk = (s.foto||[]).filter(f => typeof (f && f.url) === 'string' && f.url.startsWith('http'));
+  const noteOk = (s.noteVocali||[]).filter(n => { const u = (n && (n.url||n.b64)) || ''; return typeof u === 'string' && u.startsWith('http'); });
+  return {...s, foto:fotoOk, noteVocali:noteOk};
+}
+
+// ── UTILITA ──
+const g = id => document.getElementById(id);
+function toast(msg,tipo){
+  const t=g('toast'); t.textContent=msg; t.className='toast '+(tipo||'inf')+' show';
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),3500);
+}
+function esc(t){ return String(t??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+const toNum = v => { const x = parseFloat(String(v || '').replace(',', '.')); return isNaN(x) ? 0 : x; };
+const fmt = x => x.toFixed(2).replace('.', ',');
+const dataIt = d => { if(!d) return '-'; const p=String(d).split('-'); return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d; };
+
+// ── STATO ──
+const sopId = new URLSearchParams(location.search).get('id');
+let rec = null;                 // record del sopralluogo (fase 1)
+let st = null;                  // dati della fase 2 (rec.sviluppo)
+let step = 0;
+let vista = 'lista';            // step 2: lista | tipi | modulo ; step 4: lista | forn | testo
+let bozza = null;               // lavorazione o fornitura in modifica: {k, vals, sel, foto, idx}
+let saveTimer = null;
+
+function vuoto(){ return { sel:{}, vals:{}, lav:[], forn:[], note:'' }; }
+function getLista(){ try{ return (JSON.parse(localStorage.getItem(LIST_KEY))||[]).filter(s=>!s.eliminato); }catch{ return []; } }
+
+// ── DEFINIZIONE DEI CAMPI (dal prototipo della scheda) ──
+// Ogni campo legge e scrive su un contesto {vals, sel}: la scheda generale
+// (st) oppure la lavorazione/fornitura in modifica (bozza).
+const head = label => ({ t:'head', label });
+const hint = label => ({ t:'hint', label });
+const num = (key, label, unit, ph) => ({ t:'num', key, label, unit, ph });
+const text = (key, label, ph) => ({ t:'text', key, label, ph });
+const auto = (label, calc) => ({ t:'auto', label, calc });
+const chips = (key, label, opts) => ({ t:'chips', key, label, opts });
+const misure = (p, secondo) => [
+  num(p + '_L', 'Lunghezza', 'm', '0,00'),
+  num(p + '_W', secondo || 'Larghezza', 'm', '0,00'),
+  auto('Superficie', c => fmt(toNum(c.vals[p + '_L']) * toNum(c.vals[p + '_W'])) + ' mq')
+];
+
+function campiCantiere(c){
+  const F = [
+    head('Accesso e macerie'),
+    text('piano', 'Piano di lavoro', 'es. terra, 2, -1'),
+    chips('asc', 'Ascensore utilizzabile per le macerie', ['Sì', 'No']),
+    chips('dep', 'Deposito materiali', ['Cassone su strada', 'Area interna', 'Nessuno']),
+    head('Condizioni di lavoro'),
+    chips('occ', 'Locali in uso durante i lavori (uffici, mensa aperta)', ['Sì', 'No']),
+    hint('Se sì: protezioni di arredi e pavimenti, pulizie giornaliere, lavori rumorosi da concordare.'),
+    chips('orario', 'Orario', ['Diurno', 'Dopo le 17', 'Weekend'])
+  ];
+  if (c.sel.orario && c.sel.orario !== 'Diurno') F.push(auto('Maggiorazione manodopera', () => '+35%'));
+  F.push(
+    text('periodo', 'Periodo vincolato', 'es. metà novembre o febbraio'),
+    head('Opere provvisionali'),
+    chips('alt', 'Altezza massima di lavoro', ['Fino a 3,6 m', '3,6 - 5,4 m', 'Oltre 5,4 m']),
+    chips('mezzo', 'Mezzo', ['Nessuno', 'Trabattello', 'Ponteggio', 'Piattaforma'])
+  );
+  if (c.sel.mezzo && c.sel.mezzo !== 'Nessuno') F.push(num('mezzo_n', 'Quantità', 'n.', '1'), num('mezzo_mesi', 'Durata', 'mesi', '1'));
+  if (c.sel.mezzo === 'Ponteggio') F.push(...misure('pont', 'Altezza'));
+  return F;
+}
+
+const M = {
+  dem: { nome: 'Demolizioni e rimozioni', f: () => [
+    text('dem_zona', 'Zona', 'es. bagno piano 2'),
+    chips('dem_cosa', 'Cosa', ['Pavimento', 'Rivestimento', 'Massetto', 'Intonaco', 'Controsoffitto', 'Guaina', 'Battiscopa']),
+    text('dem_mat', 'Materiale', 'es. gres 20x20'),
+    ...misure('dem', 'Larghezza o altezza'),
+    num('dem_S', 'Spessore', 'cm', '0'),
+    auto('Volume macerie', c => fmt(toNum(c.vals.dem_L) * toNum(c.vals.dem_W) * toNum(c.vals.dem_S) / 100) + ' mc'),
+    chips('dem_rec', 'Con recupero del materiale', ['Sì', 'No'])] },
+  tin: { nome: 'Preparazione e tinteggiatura', f: () => [
+    text('tin_zona', 'Zona', 'es. soffitto mensa'),
+    ...misure('tin', 'Larghezza o altezza'),
+    chips('tin_amb', 'Ambiente', ['Interno', 'Esterno']),
+    chips('tin_sup', 'Supporto', ['Intonaco', 'Calcestruzzo', 'Cartongesso', 'Ferro', 'Legno']),
+    num('tin_r', 'Da raschiare', '%', '0'), num('tin_s', 'Da stuccare', '%', '0'), num('tin_ra', 'Da rasare', '%', '0'),
+    chips('tin_muf', 'Muffa o efflorescenze', ['Sì', 'No']),
+    chips('tin_pit', 'Pittura', ['Lavabile', 'Silossanica', 'Minerale', 'Smalto']),
+    chips('tin_col', 'Colore', ['Bianca', 'Colorata'])] },
+  imp: { nome: 'Impermeabilizzazioni', f: () => [
+    text('imp_zona', 'Zona', 'es. terrazzo piano 4'),
+    ...misure('imp'),
+    chips('imp_es', 'Esistente da rimuovere', ['Nessuno', 'Monostrato', 'Doppio strato', 'Liquida']),
+    chips('imp_nu', 'Nuovo sistema', ['Guaina 3 mm', 'Guaina 4 mm', 'Doppio strato', 'Liquida']),
+    num('imp_ris', 'Risvolti', 'cm', '20'),
+    num('imp_boc', 'Bocchettoni', 'n.', '0'),
+    num('imp_gn', 'Giunti', 'n.', '0'), num('imp_gl', 'Lunghezza giunti', 'm', '0,00')] },
+  pav: { nome: 'Pavimenti e rivestimenti', f: () => [
+    text('pav_zona', 'Zona', 'es. zona lavaggio'),
+    ...misure('pav', 'Larghezza o altezza'),
+    chips('pav_mat', 'Materiale', ['Gres', 'Ceramica', 'Gomma o PVC', 'Pietra', 'Parquet']),
+    text('pav_fmt', 'Formato', 'es. 60x60'),
+    chips('pav_pos', 'Posa', ['Colla', 'Galleggiante su piedini']),
+    num('pav_bat', 'Battiscopa', 'm', '0,00'), num('pav_mas', 'Massetto', 'cm', '0')] },
+  int: { nome: 'Intonaci e rasature', f: () => [
+    text('int_zona', 'Zona', 'es. muretti ingresso'),
+    ...misure('int', 'Altezza'),
+    chips('int_tip', 'Tipo', ['Civile', 'Premiscelato', 'Idrofugo', 'Solo rasatura']),
+    num('int_sp', 'Spessore', 'cm', '1,5')] },
+  con: { nome: 'Controsoffitti e cartongesso', f: () => [
+    text('con_zona', 'Zona', 'es. corridoio'),
+    ...misure('con'),
+    chips('con_las', 'Lastra', ['Standard', 'Idrorepellente', 'Ignifuga']),
+    chips('con_fin', 'Finitura', ['Q2', 'Q3', 'Q4'])] },
+  lat: { nome: 'Lattoneria e opere metalliche', f: () => [
+    text('lat_zona', 'Zona', 'es. tettoia motorini'),
+    chips('lat_el', 'Elemento', ['Scossalina', 'Gronda', 'Pluviale', 'Profilo', 'Grata']),
+    num('lat_L', 'Lunghezza', 'm', '0,00'), num('lat_sv', 'Sviluppo', 'cm', '33'),
+    chips('lat_mat', 'Materiale', ['Alluminio', 'Rame', 'Zincato', 'Inox'])] },
+  alt: { nome: 'Altro', f: () => [
+    text('alt_zona', 'Zona', 'es. ingresso'),
+    text('alt_desc', 'Descrizione', 'cosa va fatto'),
+    ...misure('alt', 'Larghezza o altezza'),
+    num('alt_pz', 'Pezzi', 'n.', '0')] }
+};
+const chipKeys = {
+  dem: ['dem_cosa', 'dem_rec'], tin: ['tin_amb', 'tin_sup', 'tin_muf', 'tin_pit', 'tin_col'],
+  imp: ['imp_es', 'imp_nu'], pav: ['pav_mat', 'pav_pos'], int: ['int_tip'], con: ['con_las', 'con_fin'],
+  lat: ['lat_el', 'lat_mat'], alt: []
+};
+
+function riassunto(l){
+  const v = l.vals, p = l.k, parti = [];
+  const L = toNum(v[p + '_L']), W = toNum(v[p + '_W']);
+  if (L && W) parti.push(fmt(L) + ' x ' + fmt(W) + ' m = ' + fmt(L * W) + ' mq');
+  if (p === 'lat' && L) parti.push(fmt(L) + ' m');
+  if (p === 'dem' && L && W && toNum(v.dem_S)) parti.push('macerie ' + fmt(L * W * toNum(v.dem_S) / 100) + ' mc');
+  if (p === 'tin') {
+    if (toNum(v.tin_r)) parti.push('raschiatura ' + v.tin_r + '%');
+    if (toNum(v.tin_s)) parti.push('stuccatura ' + v.tin_s + '%');
+    if (toNum(v.tin_ra)) parti.push('rasatura ' + v.tin_ra + '%');
+  }
+  chipKeys[p].forEach(k => { if (l.sel[k]) parti.push((k === 'tin_muf' ? 'muffa ' : '') + l.sel[k].toLowerCase()); });
+  return parti.length ? parti.join(' · ') : 'misure da completare';
+}
+const volDem = () => st.lav.filter(l => l.k === 'dem').reduce((t, l) => t + toNum(l.vals.dem_L) * toNum(l.vals.dem_W) * toNum(l.vals.dem_S) / 100, 0);
+
+function campiRifiuti(){
+  return [
+    head('Rifiuti'),
+    chips('rif', 'Tipo di rifiuto', ['Cemento, mattoni, ceramica', 'Misti da demolizione', 'Guaina bituminosa', 'Altro']),
+    auto('Volume dalle demolizioni', () => { const v = volDem(); return v > 0 ? fmt(v) + ' + 5% = ' + fmt(Math.ceil(v * 1.05 * 100) / 100) + ' mc' : 'nessuna demolizione'; }),
+    chips('car', 'Caratterizzazione del rifiuto', ['Sì', 'No']),
+    head('Squadra'),
+    num('sq_s', 'Operai specializzati', 'n.', '1'),
+    num('sq_c', 'Operai comuni', 'n.', '1'),
+    num('sq_g', 'Giorni stimati', 'gg', '1'),
+    auto('Ore totali', c => String((toNum(c.vals.sq_s) + toNum(c.vals.sq_c)) * toNum(c.vals.sq_g) * 8) + ' h')
+  ];
+}
+function campiFornitura(){
+  const zone = st.lav.map(l => l.vals[l.k + '_zona'] || M[l.k].nome).concat(['Generale']);
+  return [
+    text('f_descr', 'Cosa serve', 'es. chiusino zincato 60x60'),
+    num('f_q', 'Quantità', '', '1'),
+    chips('f_udm', 'Unità di misura', ['cad', 'mq', 'm', 'c.po']),
+    chips('f_cat', 'Categoria fornitore', ['Infissi e serramenti', 'Fabbro e carpenteria metallica', 'Materiali edili', 'Impianti elettrici', 'Smaltimento rifiuti e discarica', 'Altro']),
+    chips('f_lav', 'Per quale lavorazione', zone),
+    hint('La categoria serve a scegliere i fornitori e preparare le richieste d\'offerta.')
+  ];
+}
+
+// ── RENDER DEI CAMPI ──
+let campiCorrenti = [], ctxCorrente = null;
+function renderCampi(campi, ctx){
+  campiCorrenti = campi; ctxCorrente = ctx;
+  return campi.map((f, i) => {
+    if (f.t === 'head') return `<div class="sec-title">${esc(f.label)}</div>`;
+    if (f.t === 'hint') return `<div class="hint">${esc(f.label)}</div>`;
+    if (f.t === 'auto') return `<div class="auto"><span>${esc(f.label)}</span><b data-auto="${i}">${esc(f.calc(ctx))}</b></div>`;
+    if (f.t === 'chips') return `<div class="fg"><span class="lbl">${esc(f.label)}</span><div class="chips">${
+      f.opts.map(o => `<button type="button" class="chip${ctx.sel[f.key] === o ? ' on' : ''}" data-chip="${esc(f.key)}" data-val="${esc(o)}" aria-pressed="${ctx.sel[f.key] === o}">${esc(o)}</button>`).join('')}</div></div>`;
+    const id = 'c_' + f.key;
+    if (f.t === 'num') return `<div class="fg"><label for="${id}">${esc(f.label)}</label><div class="num-wrap"><input id="${id}" type="text" inputmode="decimal" data-key="${esc(f.key)}" value="${esc(ctx.vals[f.key] || '')}" placeholder="${esc(f.ph)}"><span class="unit">${esc(f.unit)}</span></div></div>`;
+    return `<div class="fg"><label for="${id}">${esc(f.label)}</label><input id="${id}" type="text" data-key="${esc(f.key)}" value="${esc(ctx.vals[f.key] || '')}" placeholder="${esc(f.ph)}"></div>`;
+  }).join('');
+}
+function aggiornaAuto(){
+  document.querySelectorAll('[data-auto]').forEach(el => {
+    const f = campiCorrenti[+el.dataset.auto];
+    if (f) el.textContent = f.calc(ctxCorrente);
+  });
+}
+
+// ── RENDER DELLA PAGINA ──
+const ETICHETTE = ['Dati base', 'Cantiere', 'Lavorazioni', 'Rifiuti', 'Forniture'];
+function render(){
+  campiCorrenti = []; ctxCorrente = null;
+  g('steps').innerHTML = ETICHETTE.map((l, i) =>
+    `<button type="button" class="step${i <= step ? ' on' : ''}${i === step ? ' cur' : ''}" onclick="vaiStep(${i})"><div class="step-bar"></div><div class="step-lbl">${l}</div></button>`).join('');
+  let h = '', barra = '';
+  const nav = (avanti) => `<button class="btn-sec" onclick="indietro()">← Indietro</button><button class="btn-main" onclick="avanti()">${avanti || 'Avanti →'}</button>`;
+  if (step === 0){
+    h = renderDatiBase();
+    barra = `<a class="btn-sec" href="sopralluogo.html?id=${encodeURIComponent(sopId)}" style="text-align:center;text-decoration:none;font-size:13px;display:flex;align-items:center;justify-content:center">Fase 1</a><button class="btn-main" onclick="avanti()">Inizia →</button>`;
+  } else if (step === 1){
+    h = `<div class="section">${renderCampi(campiCantiere(st), st)}</div>`;
+    barra = nav();
+  } else if (step === 2){
+    if (vista === 'tipi'){
+      h = `<div class="sec-title">Che lavorazione aggiungi?</div>` + Object.keys(M).map(k => `<button type="button" class="tipo" onclick="scegliTipo('${k}')">${esc(M[k].nome)}</button>`).join('');
+      barra = `<button class="btn-sec" onclick="vista='lista';render()">← Annulla</button>`;
+    } else if (vista === 'modulo'){
+      h = `<div class="section"><div class="sec-title">${bozza.idx === null ? 'Nuova' : 'Modifica'}: ${esc(M[bozza.k].nome)}</div>${renderCampi(M[bozza.k].f(), bozza)}${renderFotoScelta()}</div>`;
+      barra = `<button class="btn-sec" onclick="annullaBozza()">← ${bozza.idx === null ? 'Cambia tipo' : 'Annulla'}</button><button class="btn-main green" onclick="salvaLavorazione()">${bozza.idx === null ? 'Aggiungi alla lista' : 'Salva modifiche'}</button>`;
+    } else {
+      h = (st.lav.length ? st.lav.map((l, i) => `<div class="card"><div class="card-tipo">${esc(M[l.k].nome)}</div><div class="card-zona">${esc(l.vals[l.k + '_zona'] || 'Zona da indicare')}</div><div class="card-riass">${esc(riassunto(l))}${(l.foto||[]).length ? ' · foto ' + l.foto.join(', ') : ''}</div><div class="card-act"><button class="btn-sm" onclick="modificaLavorazione(${i})">Modifica</button><button class="btn-sm danger" onclick="eliminaLavorazione(${i})">Elimina</button></div></div>`).join('')
+        : '<div class="empty">Nessuna lavorazione. Aggiungi la prima.</div>') + `<button class="btn-add" onclick="vista='tipi';render()">+ Aggiungi lavorazione</button>`;
+      barra = nav();
+    }
+  } else if (step === 3){
+    h = `<div class="section">${renderCampi(campiRifiuti(), st)}</div>`;
+    barra = nav();
+  } else if (step === 4){
+    if (vista === 'forn'){
+      h = `<div class="section"><div class="sec-title">${bozza.idx === null ? 'Nuova fornitura' : 'Modifica fornitura'}</div>${renderCampi(campiFornitura(), bozza)}</div>`;
+      barra = `<button class="btn-sec" onclick="annullaBozza()">← Annulla</button><button class="btn-main green" onclick="salvaFornitura()">${bozza.idx === null ? 'Aggiungi' : 'Salva modifiche'}</button>`;
+    } else if (vista === 'testo'){
+      h = `<div class="sec-title">Testo per la bozza di preventivo</div><div class="hint">Copialo e incollalo nella chat con Claude insieme al report della fase 1, poi chiedi la bozza di preventivo.</div><textarea class="export" id="export" readonly>${esc(testoExport())}</textarea>`;
+      barra = `<button class="btn-sec" onclick="vista='lista';render()">← Scheda</button><button class="btn-main green" onclick="copiaTesto()">Copia testo</button>`;
+    } else {
+      h = `<div class="sec-title">Forniture da quotare</div>` + (st.forn.length ? st.forn.map((f, i) => `<div class="card"><div class="card-zona">${esc(f.vals.f_descr || 'Fornitura senza descrizione')}</div><div class="card-riass">${esc((f.vals.f_q || '1') + ' ' + (f.sel.f_udm || 'cad') + ' · ' + (f.sel.f_cat || 'categoria da indicare') + ' · ' + (f.sel.f_lav || 'Generale'))}</div><div class="card-act"><button class="btn-sm" onclick="modificaFornitura(${i})">Modifica</button><button class="btn-sm danger" onclick="eliminaFornitura(${i})">Elimina</button></div></div>`).join('')
+        : '<div class="empty">Nessuna fornitura da quotare.</div>') + `<button class="btn-add" onclick="nuovaFornitura()">+ Aggiungi fornitura</button>`
+        + `<div class="section" style="margin-top:14px"><label for="note-sv">Note</label><textarea id="note-sv" placeholder="Accordi col cliente, vincoli, dubbi da chiarire">${esc(st.note)}</textarea></div>`;
+      barra = `<button class="btn-sec" onclick="indietro()">← Indietro</button><button class="btn-main green" onclick="vista='testo';render()">Prepara testo bozza</button>`;
+    }
+  }
+  g('contenuto').innerHTML = h;
+  g('barra').innerHTML = barra;
+  window.scrollTo(0, 0);
+}
+
+function renderDatiBase(){
+  const r = rec;
+  const righe = [['Commessa', r.commessa], ['Titolo', r.titolo], ['Cliente', r.cliente], ['Indirizzo', r.indirizzo], ['Data sopralluogo', dataIt(r.data)], ['Responsabile', r.resp], ['Foto', (r.foto||[]).length + ' foto']];
+  return `<div class="section"><div class="sec-title">Dalla fase 1</div><dl class="riepilogo">${righe.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v || '-')}</dd>`).join('')}</dl></div>
+    <div class="section"><div class="sec-title">Lavorazioni richieste</div><div class="riepilogo" style="white-space:pre-wrap">${esc(r.lavori || '-')}</div></div>
+    ${st.lav.length ? `<div class="hint">Scheda già iniziata: ${st.lav.length} ${st.lav.length === 1 ? 'lavorazione' : 'lavorazioni'}, ${st.forn.length} forniture.</div>` : ''}`;
+}
+function renderFotoScelta(){
+  const foto = (rec.foto || []).filter(f => f && f.url);
+  if (!foto.length) return '';
+  return `<div class="fg" style="margin-top:6px"><span class="lbl">Foto della fase 1 collegate</span><div class="foto-grid">${foto.map((f, i) =>
+    `<button type="button" class="foto-sel${(bozza.foto || []).includes(i + 1) ? ' on' : ''}" onclick="toggleFoto(${i + 1})" aria-label="Foto ${i + 1}" aria-pressed="${(bozza.foto || []).includes(i + 1)}"><img src="${esc(f.url)}" alt="" loading="lazy"><span>${i + 1}</span></button>`).join('')}</div></div>`;
+}
+
+// ── EVENTI DEI CAMPI (delegati) ──
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-chip]');
+  if (!b || !ctxCorrente) return;
+  const k = b.dataset.chip, v = b.dataset.val;
+  ctxCorrente.sel[k] = ctxCorrente.sel[k] === v ? '' : v;   // ritocco = deseleziona
+  const y = window.scrollY; render(); window.scrollTo(0, y);
+  if (ctxCorrente === st) salvaPresto();
+});
+document.addEventListener('input', e => {
+  const el = e.target;
+  if (el.id === 'note-sv'){ st.note = el.value; salvaPresto(); return; }
+  if (!el.dataset.key || !ctxCorrente) return;
+  ctxCorrente.vals[el.dataset.key] = el.value;
+  aggiornaAuto();
+  if (ctxCorrente === st) salvaPresto();
+});
+
+// ── NAVIGAZIONE ──
+function vaiStep(i){ if (bozza && !confirm('Uscire senza salvare la lavorazione in corso?')) return; bozza = null; step = i; vista = 'lista'; render(); }
+function avanti(){ step = Math.min(4, step + 1); vista = 'lista'; bozza = null; render(); }
+function indietro(){ step = Math.max(0, step - 1); vista = 'lista'; bozza = null; render(); }
+
+// ── LAVORAZIONI ──
+function scegliTipo(k){ bozza = { k, vals:{}, sel:{}, foto:[], idx:null }; vista = 'modulo'; render(); }
+function annullaBozza(){
+  const torna = (step === 2 && bozza && bozza.idx === null) ? 'tipi' : 'lista';
+  bozza = null; vista = torna; render();
+}
+function toggleFoto(n){
+  const f = bozza.foto || (bozza.foto = []);
+  const i = f.indexOf(n); if (i >= 0) f.splice(i, 1); else { f.push(n); f.sort((a, b) => a - b); }
+  const y = window.scrollY; render(); window.scrollTo(0, y);
+}
+function salvaLavorazione(){
+  const item = { k: bozza.k, vals: { ...bozza.vals }, sel: { ...bozza.sel }, foto: [...(bozza.foto || [])] };
+  if (bozza.idx === null) st.lav.push(item); else st.lav[bozza.idx] = item;
+  bozza = null; vista = 'lista'; render(); salvaPresto(0);
+}
+function modificaLavorazione(i){
+  const l = st.lav[i];
+  bozza = { k: l.k, vals: { ...l.vals }, sel: { ...l.sel }, foto: [...(l.foto || [])], idx: i };
+  vista = 'modulo'; render();
+}
+function eliminaLavorazione(i){
+  if (!confirm('Eliminare questa lavorazione?')) return;
+  st.lav.splice(i, 1); render(); salvaPresto(0);
+}
+
+// ── FORNITURE ──
+function nuovaFornitura(){ bozza = { vals:{}, sel:{}, idx:null }; vista = 'forn'; render(); }
+function modificaFornitura(i){ const f = st.forn[i]; bozza = { vals: { ...f.vals }, sel: { ...f.sel }, idx: i }; vista = 'forn'; render(); }
+function salvaFornitura(){
+  const item = { vals: { ...bozza.vals }, sel: { ...bozza.sel } };
+  if (bozza.idx === null) st.forn.push(item); else st.forn[bozza.idx] = item;
+  bozza = null; vista = 'lista'; render(); salvaPresto(0);
+}
+function eliminaFornitura(i){
+  if (!confirm('Eliminare questa fornitura?')) return;
+  st.forn.splice(i, 1); render(); salvaPresto(0);
+}
+
+// ── TESTO PER LA BOZZA (stesso formato letto dall'agente preventivi) ──
+function testoExport(){
+  const sel = st.sel, vals = st.vals;
+  const v0 = (k, d) => (vals[k] ? vals[k] : (d || '-'));
+  const righe = [];
+  righe.push('SCHEDA SVILUPPO SOPRALLUOGO (fase 2)');
+  righe.push('');
+  righe.push('DATI FASE 1');
+  righe.push('- Commessa: ' + (rec.commessa || '-'));
+  righe.push('- Titolo: ' + (rec.titolo || '-'));
+  righe.push('- Cliente: ' + (rec.cliente || '-'));
+  righe.push('- Indirizzo: ' + (rec.indirizzo || '-'));
+  righe.push('- Data sopralluogo: ' + dataIt(rec.data));
+  righe.push('');
+  righe.push('CANTIERE');
+  righe.push('- Piano di lavoro: ' + v0('piano', 'non indicato'));
+  righe.push('- Ascensore utilizzabile per le macerie: ' + (sel.asc || '-'));
+  righe.push('- Deposito materiali: ' + (sel.dep || '-'));
+  righe.push('- Locali in uso durante i lavori: ' + (sel.occ || '-'));
+  righe.push('- Orario: ' + (sel.orario || '-') + (sel.orario && sel.orario !== 'Diurno' ? ' (maggiorazione 35%)' : ''));
+  righe.push('- Periodo vincolato: ' + v0('periodo', 'nessuno'));
+  righe.push('');
+  righe.push('OPERE PROVVISIONALI');
+  righe.push('- Altezza massima di lavoro: ' + (sel.alt || '-'));
+  righe.push('- Mezzo: ' + (sel.mezzo || '-') + (sel.mezzo && sel.mezzo !== 'Nessuno' ? ', quantita ' + v0('mezzo_n') + ', durata ' + v0('mezzo_mesi') + ' mesi' : ''));
+  if (sel.mezzo === 'Ponteggio') righe.push('- Ponteggio: ' + v0('pont_L') + ' x ' + v0('pont_W') + ' m');
+  righe.push('');
+  righe.push('LAVORAZIONI');
+  if (!st.lav.length) righe.push('- nessuna');
+  st.lav.forEach((l, i) => {
+    righe.push((i + 1) + '. ' + M[l.k].nome + ' - ' + (l.vals[l.k + '_zona'] || 'zona non indicata'));
+    righe.push('   ' + riassunto(l));
+    Object.keys(l.vals).forEach(k => {
+      if (/_(mat|fmt|desc)$/.test(k) && l.vals[k]) righe.push('   ' + k.split('_')[1] + ': ' + l.vals[k]);
+      if (/^(dem_S|imp_ris|imp_boc|imp_gn|imp_gl|pav_bat|pav_mas|int_sp|lat_sv|alt_pz)$/.test(k) && l.vals[k]) righe.push('   ' + k + ': ' + l.vals[k]);
+    });
+    righe.push('   foto: ' + ((l.foto || []).length ? (l.foto || []).join(', ') : 'nessuna'));
+  });
+  righe.push('');
+  righe.push('RIFIUTI');
+  righe.push('- Tipo: ' + (sel.rif || '-'));
+  const v = volDem();
+  righe.push('- Volume dalle demolizioni: ' + (v > 0 ? fmt(v) + ' mc (+5% = ' + fmt(Math.ceil(v * 1.05 * 100) / 100) + ' mc)' : 'nessuna demolizione'));
+  righe.push('- Caratterizzazione: ' + (sel.car || '-'));
+  righe.push('');
+  righe.push('SQUADRA');
+  righe.push('- Specializzati ' + v0('sq_s') + ', comuni ' + v0('sq_c') + ', giorni ' + v0('sq_g'));
+  righe.push('');
+  righe.push('FORNITURE DA QUOTARE');
+  if (!st.forn.length) righe.push('- nessuna');
+  st.forn.forEach((f, i) => righe.push((i + 1) + '. ' + (f.vals.f_descr || 'senza descrizione') + ' - ' + (f.vals.f_q || '1') + ' ' + (f.sel.f_udm || 'cad') + ' - categoria: ' + (f.sel.f_cat || 'da indicare') + ' - per: ' + (f.sel.f_lav || 'Generale')));
+  righe.push('');
+  righe.push('NOTE');
+  righe.push(st.note || '-');
+  return righe.join('\n');
+}
+function copiaTesto(){
+  const t = testoExport();
+  const fallback = () => { const ta = g('export'); ta.removeAttribute('readonly'); ta.select(); try{ document.execCommand('copy'); toast('✓ Copiato','ok'); }catch(e){ toast('Seleziona il testo e copialo a mano','err'); } ta.setAttribute('readonly',''); };
+  if (navigator.clipboard) navigator.clipboard.writeText(t).then(() => toast('✓ Copiato','ok'), fallback); else fallback();
+}
+
+// ── SALVATAGGIO sullo stesso record del sopralluogo ──
+function salvaPresto(ritardo){
+  clearTimeout(saveTimer);
+  g('si').textContent = '● salvando...'; g('si').className = 'save-ind';
+  saveTimer = setTimeout(salvaOra, ritardo === undefined ? 800 : ritardo);
+}
+async function salvaOra(){
+  saveTimer = null;
+  // Riparte dalla copia locale piu' recente del record, cosi' non tocca i campi della fase 1
+  const attuale = getLista().find(x => x.id === sopId) || rec;
+  rec = { ...attuale, sviluppo: { ...st, aggiornato: new Date().toISOString() } };
+  scriviLocale(LIST_KEY, [rec]);
+  const ok = await salvaRecord(LIST_KEY, [alleggerisci(rec)]);
+  scriviLocale(LIST_KEY, [rec]);
+  g('si').textContent = ok ? '✓ salvato' : '● solo sul dispositivo';
+  g('si').className = 'save-ind' + (ok ? ' ok' : '');
+}
+window.addEventListener('beforeunload', e => { if (saveTimer){ e.preventDefault(); e.returnValue = ''; } });
+
+// ── CARICAMENTO ──
+function carica(){
+  rec = getLista().find(x => x.id === sopId) || null;
+  if (!rec){
+    g('contenuto').innerHTML = '<div class="empty">Sopralluogo non trovato su questo dispositivo.<br><br><a href="sopralluogo.html" style="color:var(--brick)">Torna ai sopralluoghi</a></div>';
+    g('barra').innerHTML = ''; g('si').textContent = '';
+    return false;
+  }
+  const sv = rec.sviluppo || {};
+  st = { ...vuoto(), ...sv, sel: { ...(sv.sel || {}) }, vals: { ...(sv.vals || {}) }, lav: [...(sv.lav || [])], forn: [...(sv.forn || [])] };
+  delete st.aggiornato;
+  g('titolo').textContent = (rec.commessa ? rec.commessa + ' · ' : '') + (rec.titolo || 'Scheda di sviluppo');
+  g('link-indietro').href = 'sopralluogo.html?id=' + encodeURIComponent(sopId);
+  g('si').textContent = sv.aggiornato ? '✓ salvato' : '● nuova'; g('si').className = 'save-ind' + (sv.aggiornato ? ' ok' : '');
+  render();
+  return true;
+}
+
+// ── INIT ──
+initDB();
+if (!sopId){ window.location.replace('sopralluogo.html'); }
+else {
+  const presente = carica();
+  // Allinea col server; se la scheda era gia' aperta, ricarica solo se non si sta scrivendo
+  allinea(LIST_KEY).then(ok => { if (ok && (!presente || (!saveTimer && !bozza && step === 0))) carica(); }).catch(() => {});
+}
+</script>
+</body>
+</html>

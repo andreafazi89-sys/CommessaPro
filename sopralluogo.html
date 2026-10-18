@@ -23,7 +23,7 @@ html,body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--whi
 .btn-back{color:var(--muted);background:none;border:none;cursor:pointer;font-size:22px;padding:0;}
 .prog{display:flex;gap:6px;padding:8px 16px 0;}
 .ps{height:3px;flex:1;background:var(--border);border-radius:2px;transition:background .3s;}.ps.done{background:var(--brick);}
-.content{padding:16px 16px 150px;}
+.content{padding:16px 16px 220px;}
 .section{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px;margin-bottom:14px;}
 .sec-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--sand);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
 .sec-icon{width:28px;height:28px;background:var(--brick-dim);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
@@ -212,6 +212,7 @@ input[type="file"]{display:none;}
       <button class="btn-sec" onclick="avvisaSegretariaSopralluogo()">📱 Apri commessa</button>
       <button class="btn-sec" onclick="generaReport()" style="flex:2">📄 Genera Report</button>
     </div>
+    <button class="btn-main" id="btn-sviluppa" onclick="sviluppaSopralluogo()" style="display:none">📐 Sviluppa sopralluogo (fase 2)</button>
     <button class="btn-main green" id="btn-avvia" onclick="avviaCantiere()">🏗️ Avvia Cantiere</button>
   </div>
 </div>
@@ -481,7 +482,7 @@ function renderLista(){
       <div class="sop-icon">${s.cantiereId?'🏗️':'📋'}</div>
       <div class="sop-info">
         <div class="sop-nome">${s.commessa?s.commessa+' — ':''}${s.titolo||s.cliente||'Sopralluogo senza titolo'}</div>
-        <div class="sop-meta">${s.cliente||'—'} · ${s.data||'—'}${s.cantiereId?' · <span style="color:var(--green)">Cantiere attivo</span>':''}${s.archiviato?' · <span style="color:var(--muted)">archiviato '+(s.archiviatoIl||'')+'</span>':''}</div>
+        <div class="sop-meta">${s.cliente||'—'} · ${s.data||'—'}${s.sviluppo&&s.sviluppo.aggiornato?' · <span style="color:var(--brick)">fase 2</span>':''}${s.cantiereId?' · <span style="color:var(--green)">Cantiere attivo</span>':''}${s.archiviato?' · <span style="color:var(--muted)">archiviato '+(s.archiviatoIl||'')+'</span>':''}</div>
       </div>
       <button class="sop-del" onclick="event.stopPropagation();eliminaSopralluogo('${s.id}')">🗑</button>
     </div>`).join('');
@@ -503,7 +504,7 @@ function nuovoSopralluogo(){
   g('si').textContent='● nuovo'; g('si').className='save-ind';
   impostaCliente(null);
   renderFoto(); renderNoteVocali();
-  aggiornaBottoneAvvia(null); aggiornaProg(); showView('form');
+  aggiornaBottoneAvvia(null); aggiornaBottoneSviluppa(); aggiornaProg(); showView('form');
 }
 
 function apriSopralluogo(id){
@@ -518,7 +519,7 @@ function apriSopralluogo(id){
   g('form-title').textContent=s.titolo||s.cliente||'Sopralluogo';
   g('si').textContent='✓ salvato'; g('si').className='save-ind ok';
   renderFoto(); renderNoteVocali();
-  aggiornaBottoneAvvia(s.cantiereId); aggiornaProg(); showView('form');
+  aggiornaBottoneAvvia(s.cantiereId); aggiornaBottoneSviluppa(); aggiornaProg(); showView('form');
 }
 
 function resetForm(){
@@ -536,7 +537,11 @@ function tornaLista(){
 function salva(){
   aggiornaProg(); clearTimeout(saveTimer);
   g('si').textContent='● salvando...'; g('si').className='save-ind';
-  saveTimer=setTimeout(()=>{
+  saveTimer=setTimeout(salvaOra,800);
+}
+async function salvaOra(){
+  clearTimeout(saveTimer); saveTimer=null;
+  {
     const lista=getLista(); const idx=lista.findIndex(s=>s.id===currentId);
     // Parte dal record esistente: i campi che il form non gestisce (fase 2,
     // archiviazione, ecc.) non devono andare persi a ogni salvataggio
@@ -549,13 +554,15 @@ function salva(){
       foto,noteVocali:noteVocali.map(n=>({dur:n.dur,b64:n.b64,type:n.type})),
       cantiereId:(idx>=0?lista[idx].cantiereId:null)||null};
     try{
-      salvaSopralluogo(dati);
+      const esito=salvaSopralluogo(dati);
       g('si').textContent='✓ salvato'; g('si').className='save-ind ok';
       // Aggiorna il cantiere collegato se esiste
       if(dati.cantiereId) aggiornaCantiere(dati);
+      aggiornaBottoneSviluppa();
+      return await esito;
     }
-    catch(e){ g('si').textContent='● bozza'; toast('Spazio pieno','err'); }
-  },800);
+    catch(e){ g('si').textContent='● bozza'; toast('Spazio pieno','err'); return false; }
+  }
 }
 
 function aggiornaCantiere(sop){
@@ -991,6 +998,25 @@ async function salvaSketch(){
     renderFoto();
     toast('⚠️ Schizzo non caricato (rete?)','inf');
   }
+}
+
+// ── FASE 2: SCHEDA DI SVILUPPO (solo admin) ──
+function isAdmin(){
+  let u=null; try{u=JSON.parse(localStorage.getItem('cp_user'))||null;}catch{}
+  return (u?.ruolo||'').toLowerCase()==='admin';
+}
+function aggiornaBottoneSviluppa(){
+  const btn=g('btn-sviluppa'); if(!btn) return;
+  const salvato=getLista().find(x=>x.id===currentId);
+  btn.style.display=(isAdmin()&&salvato)?'':'none';
+  if(salvato) btn.textContent=salvato.sviluppo&&salvato.sviluppo.aggiornato?'📐 Apri scheda di sviluppo (fase 2)':'📐 Sviluppa sopralluogo (fase 2)';
+}
+async function sviluppaSopralluogo(){
+  if(!isAdmin()) return;
+  if(!gv('fc')){ toast('Scegli prima il cliente','err'); return; }
+  // Salva subito la fase 1, poi apre la fase 2 sullo stesso record
+  await salvaOra();
+  window.location.href='sviluppo.html?id='+encodeURIComponent(currentId);
 }
 
 // ── AVVIA CANTIERE ──
@@ -1445,6 +1471,11 @@ mostraOnboarding();
 // Sync da Supabase in background
 setTimeout(()=>forcSync().catch(()=>{}), 500);
 allinea('rubrica_v1').then(()=>aggiornaMenuCliente()).catch(()=>{});
+// sopralluogo.html?id=... apre direttamente la scheda (es. ritorno dalla fase 2)
+(function(){
+  const id=new URLSearchParams(location.search).get('id');
+  if(id&&getLista().some(x=>x.id===id)) apriSopralluogo(id);
+})();
 </script>
 
 <!-- NUOVO REFERENTE MODAL -->
