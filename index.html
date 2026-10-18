@@ -23,7 +23,7 @@ html,body{font-family:var(--font-body);background:var(--bg);color:var(--white);m
 .logout-btn{width:40px;height:40px;background:var(--surface);border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;-webkit-user-select:none;color:var(--muted);}
 .readonly-badge{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;background:var(--brick-dim);color:var(--brick);border-radius:4px;padding:2px 5px;vertical-align:middle;margin-left:5px;}
 .greeting{font-size:12px;color:var(--muted);padding:0 24px 16px;}
-.riep-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 16px 16px;}
+.riep-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0 16px 16px;}
 .stat-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;}
 .stat-val{font-family:var(--font-head);font-size:22px;font-weight:700;margin-bottom:2px;}
 .stat-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
@@ -101,7 +101,6 @@ html,body{font-family:var(--font-body);background:var(--bg);color:var(--white);m
   <div class="stat-box"><div class="stat-val" id="st-sopralluoghi">—</div><div class="stat-lbl">Sopralluoghi totali</div></div>
   <div class="stat-box"><div class="stat-val" id="st-cantieri">—</div><div class="stat-lbl">Cantieri aperti</div></div>
   <div class="stat-box"><div class="stat-val" id="st-ore">—</div><div class="stat-lbl">Ore questa settimana</div></div>
-  <div class="stat-box"><div class="stat-val pos" id="st-margine">—</div><div class="stat-lbl">Margine del mese</div></div>
 </div>
 
 <div class="divider"></div>
@@ -410,6 +409,17 @@ function setColore(val){
 // ── RIEPILOGO ──
 function getCantieri(){try{return JSON.parse(localStorage.getItem('cantieri_v1'))||[];}catch{return[];}}
 function getSopralluoghi(){try{return JSON.parse(localStorage.getItem('sopralluoghi_v3'))||[];}catch{return[];}}
+// Rimuove dalla copia locale i dati economici (preventivo, tariffa, costi materiali),
+// eliminati dall'app il 18/10/2026: possono essere rimasti in cache sui telefoni.
+function pulisciDatiEconomiciLocali(){
+  try{
+    const lista=JSON.parse(localStorage.getItem('cantieri_v1'));
+    if(!Array.isArray(lista))return;
+    let cambiato=false;
+    lista.forEach(c=>{['preventivo','tariffa','costiMateriali'].forEach(k=>{if(c&&k in c){delete c[k];cambiato=true;}});});
+    if(cambiato)localStorage.setItem('cantieri_v1',JSON.stringify(lista));
+  }catch(e){}
+}
 
 function aggiornaRiepilogo(){
   const cantieri=getCantieri().filter(c=>!c.archiviato), sops=getSopralluoghi(), oggi=new Date();
@@ -422,22 +432,6 @@ function aggiornaRiepilogo(){
   let ore=0;
   cantieri.forEach(c=>(c.giornate||[]).forEach(g=>{const d=new Date(g.data+'T12:00:00');if(d>=lunedi&&d<=oggi)ore+=g.ore*(g.operai||[]).length;}));
   document.getElementById('st-ore').textContent=ore+'h';
-  let fat=0,cos=0;
-  cantieri.forEach(c=>{
-    const tar=parseFloat(c.tariffa)||22;
-    let o=0;(c.giornate||[]).forEach(g=>{const d=new Date(g.data+'T12:00:00');if(d.getMonth()===oggi.getMonth()&&d.getFullYear()===oggi.getFullYear())o+=g.ore*(g.operai||[]).length;});
-    cos+=o*tar+(c.costiMateriali||[]).reduce((s,m)=>s+(parseFloat(m.importo)||0),0);
-    if(parseFloat(c.preventivo)>0)fat+=parseFloat(c.preventivo);
-  });
-  const m=fat-cos,el=document.getElementById('st-margine');
-  const ruoloU=(getUser()?.ruolo||'').toLowerCase();
-  if(ruoloU!=='admin'&&ruoloU!=='segretaria'){
-    // Dato economico: mai visibile ai non privilegiati (regola non negoziabile 1)
-    el.closest('.stat-box').style.display='none';
-  } else {
-    el.textContent=(m>=0?'+':'')+new Intl.NumberFormat('it-IT',{minimumFractionDigits:0}).format(Math.round(m))+'€';
-    el.className='stat-val '+(m>=0?'pos':'neg');
-  }
 }
 
 async function syncData(){
@@ -450,6 +444,7 @@ async function syncData(){
     if(rc.data?.valore?.length>0){const l=getCantieri(),ids=new Set(rc.data.valore.map(x=>x.id)),ex=l.filter(x=>!ids.has(x.id));localStorage.setItem('cantieri_v1',JSON.stringify([...rc.data.valore,...ex]));}
     if(rs.data?.valore?.length>0){const l=getSopralluoghi(),ids=new Set(rs.data.valore.map(x=>x.id)),ex=l.filter(x=>!ids.has(x.id));localStorage.setItem('sopralluoghi_v3',JSON.stringify([...rs.data.valore,...ex]));}
   }catch(e){}
+  pulisciDatiEconomiciLocali();
   aggiornaRiepilogo();
 }
 
@@ -533,6 +528,7 @@ async function tentaExportAuto(){
 initDB();
 applicaSettings(getSettings());
 renderTools();
+pulisciDatiEconomiciLocali();
 aggiornaRiepilogo();
 if(isPrivilegedUser())document.getElementById('export-tool').style.display='';
 setTimeout(()=>syncData().catch(()=>aggiornaRiepilogo()).finally(()=>tentaExportAuto()),400);
