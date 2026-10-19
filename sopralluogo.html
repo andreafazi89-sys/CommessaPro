@@ -1192,7 +1192,7 @@ function getRubrica(){ try{ return (JSON.parse(localStorage.getItem('rubrica_v1'
 const normCli = n => (n||'').trim().toUpperCase();
 function puoModificareRubrica(){
   let u=null; try{u=JSON.parse(localStorage.getItem('cp_user'))||null;}catch{}
-  const r=(u?.ruolo||'').toLowerCase(); return r==='admin'||r==='segretaria';
+  const r=(u?.ruolo||'').toLowerCase(); return ['admin','direzione','ufficio'].includes(r);
 }
 function esc(t){ return String(t??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 // Elenco dei clienti senza doppioni, con la grafia del primo contatto trovato
@@ -1446,7 +1446,7 @@ function idbExportHandle(){
 async function tentaExportAuto(){
   let u=null; try{u=JSON.parse(localStorage.getItem('cp_user'))||null;}catch{}
   const ruolo=(u?.ruolo||'').toLowerCase();
-  if(ruolo!=='admin'&&ruolo!=='segretaria')return;
+  if(ruolo!=='admin')return;
   if(!window.showDirectoryPicker)return;
   try{
     const dir=await idbExportHandle();

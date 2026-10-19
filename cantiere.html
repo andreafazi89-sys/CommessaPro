@@ -390,14 +390,16 @@ function ruoloUtente(){
 function mostraStato(stato){
   g('det-stato').textContent=stato;g('det-stato').style.background=stato==='Completato'?'rgba(200,184,154,.1)':'var(--green-dim)';g('det-stato').style.color=stato==='Completato'?'var(--muted)':'var(--green)';
 }
-function privilegiato(){ return ruoloUtente()==='admin'||ruoloUtente()==='segretaria'; }
-// Fine Cantiere e Archivia solo per admin e segretaria: chiudere fa partire la mail per la fattura
+// Fine Cantiere e Riapri solo per admin e direzione: chiudere fa partire la mail per la fattura
+function privilegiato(){ return ruoloUtente()==='admin'||ruoloUtente()==='direzione'; }
+// Archivia solo per l'admin
+function isAdmin(){ return ruoloUtente()==='admin'; }
 function aggiornaBottoni(){
   const priv=privilegiato();
   const chiuso=currentCant&&currentCant.stato==='Completato';
   g('btn-fine').style.display=priv&&!chiuso?'':'none';
   g('btn-riapri').style.display=priv&&chiuso?'':'none';
-  g('btn-archivia').style.display=priv?'':'none';
+  g('btn-archivia').style.display=isAdmin()?'':'none';
 }
 
 function tornaLista(){showView('lista');renderLista();}
@@ -527,7 +529,7 @@ function riapriCantiere(){
 }
 
 function archiviaCantiere(){
-  if(ruoloUtente()!=='admin'&&ruoloUtente()!=='segretaria'){toast('Operazione riservata','err');return;}
+  if(!isAdmin()){toast('Operazione riservata','err');return;}
   // L'archiviazione vive nella pagina dedicata: crea il pacchetto ZIP completo
   // (scheda sopralluogo, foto, giornate, dati.json) e archivia insieme
   // sopralluogo e cantiere. Qui si rimanda solo a quella pagina.

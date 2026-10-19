@@ -68,7 +68,7 @@ button:disabled{opacity:.5;}
   let u=null; try{u=JSON.parse(localStorage.getItem('cp_user'))||null;}catch(e){}
   if(!u||!u.email){ window.location.replace('login.html'); return; }
   const r=(u.ruolo||'').toLowerCase();
-  if(r!=='admin'&&r!=='segretaria'){ window.location.replace('index.html'); }
+  if(r!=='admin'){ window.location.replace('index.html'); }
 })();
 
 // ── SUPABASE ──
