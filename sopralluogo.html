@@ -252,7 +252,13 @@ input[type="file"]{display:none;}
 // ── GUARD AUTH: gira prima di qualsiasi lettura dati o render ──
 (function(){
   let u=null; try{u=JSON.parse(localStorage.getItem('cp_user'))||null;}catch{}
-  if(!u||!u.email) window.location.replace('login.html');
+  if(!u||!u.email){ window.location.replace('login.html'); return; }
+  const ruolo=(u.ruolo||'').toLowerCase();
+  if(!['admin','direzione','ufficio'].includes(ruolo)||(u.permessi||{}).sopralluogo==='hidden'){
+    // Gli operai non fanno sopralluoghi: la coda locale non verrebbe mai accettata dal server
+    if(ruolo==='operaio') localStorage.removeItem('cp_pending_sopralluoghi_v3');
+    window.location.replace('index.html');
+  }
 })();
 
 // ── SUPABASE ──
