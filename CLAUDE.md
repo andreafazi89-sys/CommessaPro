@@ -25,6 +25,11 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
     opere provvisionali, lavorazioni con misure, rifiuti, squadra, forniture.
     Salvata nel campo `sviluppo` del record; produce il testo per la bozza
     di preventivo. Piano, superficie, accesso e misure NON stanno in fase 1.
+- Attivita' fisse: record di `cantieri_v1` con `fisso:true` (oggi Magazzino
+  Giardinetti e Ricerca materiali). Sempre selezionabili nei rapportini, in
+  fondo alla scelta, a prescindere da stato e `dataFine`. Non compaiono in
+  Cantiere, SAL, Contabilita, Archivio e nei conteggi della Home. Nessun
+  sopralluogo collegato. Si creano solo a mano sul DB, non c'e' pulsante.
 - `rubrica_v1`: ogni record e' un referente. `nome` = cliente (WFP, IFAD...),
   `ref` = persona, `indirizzo` = sede del cliente.
 - Dati locali: localStorage con chiavi `sopralluoghi_v3`, `cantieri_v1`, `note_v1`, `rubrica_v1`, `cp_user`, `cp_settings`.
