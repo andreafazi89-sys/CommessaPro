@@ -42,6 +42,10 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
 - Fine Cantiere: stato `Completato` e `dataFine`. Nei rapportini il cantiere
   resta selezionabile per 30 giorni da `dataFine`, poi sparisce dalla scelta.
   `archiviato` non influisce sulla scelta del rapportino.
+- Riepilogo mese (in `rapporto.html`, scheda "Riepilogo mese"): SOLO segretaria.
+  Griglia operai x giorni, sola lettura: ore proprie, citato come collega,
+  giorni lavorativi vuoti. Nessun avviso agli operai: le discordanze si
+  sistemano a fine mese.
 
 ## Regole NON negoziabili
 1. La sezione Contabilita e i dati economici (margini, preventivi, tariffe, costi)
