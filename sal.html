@@ -409,7 +409,7 @@ function modificaSAL(cantId, salId){
 async function nascondiForm(){
   const paths=fotoForm.filter(f=>f.state==='ok' && f.path).map(f=>f.path);
   g('sal-form').style.display='none';
-  // Rollback foto appena caricate solo se admin (operaio e segretaria non hanno i permessi DELETE).
+  // Rollback foto appena caricate solo se admin (gli altri ruoli non hanno i permessi DELETE).
   if(paths.length && db && puoEliminareFoto()){
     try{ await db.from('sal_foto').update({eliminato:true}).in('path',paths); }catch(_){}
     try{ await db.storage.from('Foto').remove(paths); }catch(_){}
