@@ -105,7 +105,7 @@ html,body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--whi
   if(!u||!u.email){ window.location.replace('login.html'); return; }
   const ruolo=(u.ruolo||'').toLowerCase();
   const permessi=u.permessi||{};
-  if((ruolo!=='admin'&&ruolo!=='segretaria')||permessi['note']==='hidden')
+  if(ruolo!=='admin'||permessi['note']==='hidden')
     window.location.replace('index.html');
 })();
 

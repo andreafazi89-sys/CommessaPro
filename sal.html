@@ -121,7 +121,7 @@ input[type="file"]{display:none;}
       <button class="btn-back" onclick="tornaLista()">←</button>
       <div class="topbar-title" id="sal-title">SAL</div>
     </div>
-    <div style="display:flex;gap:6px"><button class="btn-top" onclick="esportaWord()">📄 Word</button><button class="btn-top" onclick="esportaSAL()">📤 Esporta</button><button class="btn-top" onclick="mostraForm()">+ Nuovo</button></div>
+    <div style="display:flex;gap:6px"><button class="btn-top" onclick="esportaWord()">📄 Word</button><button class="btn-top" onclick="esportaSAL()">📤 Esporta</button><button class="btn-top" id="btn-nuovo-sal" onclick="mostraForm()">+ Nuovo</button></div>
   </div>
   <div class="content">
     <div id="sal-form" style="display:none">
@@ -300,7 +300,10 @@ function showView(n){document.querySelectorAll('.view').forEach(v=>v.classList.r
 function getUser(){ try{ return JSON.parse(localStorage.getItem('cp_user'))||{}; }catch{ return {}; } }
 function nomeUtente(){ const u=getUser(); return u.nome||u.email||''; }
 function ruoloUtente(){ return (getUser().ruolo||'').toLowerCase(); }
-function isAdmin(){ const r=ruoloUtente(); return r==='admin'||r==='segretaria'; }
+// Modifica di data, percentuale e descrizione dei SAL: admin e direzione
+function isAdmin(){ const r=ruoloUtente(); return r==='admin'||r==='direzione'; }
+// L'ufficio vede i SAL in sola lettura: niente nuovi SAL e niente foto aggiunte
+function solaLettura(){ return ruoloUtente()==='ufficio'||(getUser().permessi||{}).sal==='readonly'; }
 // Eliminare foto SAL (e interi aggiornamenti SAL, che le cancellano) e riservato al solo admin.
 function puoEliminareFoto(){ return ruoloUtente()==='admin'; }
 
@@ -372,6 +375,7 @@ function abilitaCampiForm(enabled){
 }
 
 function mostraForm(){
+  if(solaLettura()){ toast('SAL in sola lettura','err'); return; }
   editingSalId=null;
   formSalId='sal_'+Date.now();
   fotoForm=[];
@@ -385,6 +389,7 @@ function mostraForm(){
 }
 
 function modificaSAL(cantId, salId){
+  if(solaLettura()){ toast('SAL in sola lettura','err'); return; }
   const c=getCantieri().find(x=>x.id===cantId); if(!c) return;
   const s=(c.sal||[]).find(x=>x.id===salId); if(!s) return;
   editingSalId=salId;
@@ -404,7 +409,7 @@ function modificaSAL(cantId, salId){
 async function nascondiForm(){
   const paths=fotoForm.filter(f=>f.state==='ok' && f.path).map(f=>f.path);
   g('sal-form').style.display='none';
-  // Rollback foto appena caricate solo se admin (operaio e segretaria non hanno i permessi DELETE).
+  // Rollback foto appena caricate solo se admin (gli altri ruoli non hanno i permessi DELETE).
   if(paths.length && db && puoEliminareFoto()){
     try{ await db.from('sal_foto').update({eliminato:true}).in('path',paths); }catch(_){}
     try{ await db.storage.from('Foto').remove(paths); }catch(_){}
@@ -574,6 +579,7 @@ async function salvaEntrata(){
 
 function renderStorico(c){
   const el=g('sal-storico'); const sal=c.sal||[];
+  g('btn-nuovo-sal').style.display=solaLettura()?'none':'';
   if(!sal.length){ el.innerHTML=`<div class="empty-state"><div class="empty-icon">📷</div><div class="empty-txt">Nessun aggiornamento</div><div style="font-size:13px;color:var(--muted)">Premi "+ Nuovo" per aggiungere il primo SAL</div></div>`; return; }
   const remote=fotoRemoteByCant[c.id]||[];
   const admin=isAdmin();
@@ -583,7 +589,7 @@ function renderStorico(c){
     const fLegacy=(s.foto||[]).filter(x=>typeof x==='string' && x.startsWith('data:'));
     const tutte=[...fRemote,...fLegacy];
     const fotoHtml = tutte.length ? `<div class="sal-foto-grid">${tutte.map(url=>`<div class="sal-foto-item"><img src="${url}" loading="lazy"></div>`).join('')}</div>` : '';
-    const btnMod = `<button class="sal-btn mod" onclick="modificaSAL('${c.id}','${s.id}')" title="${admin?'Modifica':'Aggiungi foto'}">${admin?'✏️':'📷+'}</button>`;
+    const btnMod = solaLettura() ? '' : `<button class="sal-btn mod" onclick="modificaSAL('${c.id}','${s.id}')" title="${admin?'Modifica':'Aggiungi foto'}">${admin?'✏️':'📷+'}</button>`;
     const btnDel = puoEliminareFoto() ? `<button class="sal-btn" onclick="delSAL('${c.id}','${s.id}')" title="Elimina">🗑</button>` : '';
     return `<div class="sal-entry">
       <div class="sal-header">

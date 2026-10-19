@@ -67,7 +67,8 @@ html,body{font-family:var(--font-body);background:var(--bg);color:var(--white);m
 .utente-nome{font-size:13px;font-weight:600;}
 .role-badge{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;border-radius:4px;padding:2px 6px;margin-left:4px;vertical-align:middle;}
 .role-badge.admin{background:var(--brick-dim);color:var(--brick);}
-.role-badge.segretaria{background:rgba(37,99,235,0.12);color:#2563EB;}
+.role-badge.direzione{background:rgba(124,58,237,0.12);color:#7C3AED;}
+.role-badge.ufficio{background:rgba(37,99,235,0.12);color:#2563EB;}
 .role-badge.operaio{background:var(--green-dim);color:var(--green);}
 .edit-btn{padding:5px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:12px;font-family:var(--font-body);cursor:pointer;color:var(--sand);flex-shrink:0;}
 .edit-btn.open{border-color:var(--brick);color:var(--brick);background:var(--brick-dim);}
@@ -108,7 +109,7 @@ html,body{font-family:var(--font-body);background:var(--bg);color:var(--white);m
 
 <div class="tools" id="tools-list"></div>
 
-<!-- EXPORT DATI (solo admin/segretaria) -->
+<!-- EXPORT DATI (solo admin) -->
 <div class="tools" id="export-tool" style="display:none">
   <a href="#" class="tool-card" onclick="esportaDati(event)">
     <div class="tool-icon" style="background:rgba(74,120,180,0.15)">💾</div>
@@ -176,40 +177,41 @@ function initDB(){if(window.supabase)db=window.supabase.createClient(SUPA_URL,SU
 
 // ── TOOLS PER RUOLO ──
 const ALL_TOOLS=[
-  {key:'sopralluogo',href:'sopralluogo.html',icon:'🔍',bg:'rgba(212,81,30,0.15)',name:'Sopralluogo',desc:'Scheda cliente, foto, note, report PDF',roles:['admin','segretaria','operaio'],readonly:['operaio']},
-  {key:'rapporto',href:'rapporto.html',icon:'⏱️',bg:'rgba(212,81,30,0.15)',name:'I miei rapporti',desc:'Carica le tue ore sui cantieri del giorno',roles:['admin','segretaria','operaio']},
-  {key:'cantiere',href:'cantiere.html',icon:'🏗️',bg:'rgba(58,122,76,0.15)',name:'Cantiere',desc:'Diario operai e ore lavorate',roles:['admin','segretaria','operaio']},
-  {key:'sal',href:'sal.html',icon:'📸',bg:'rgba(74,120,180,0.15)',name:'S.A.L.',desc:'Storico fotografico avanzamento lavori',roles:['admin','segretaria','operaio']},
-  {key:'contabilita',href:'contabilita.html',icon:'📊',bg:'rgba(58,122,76,0.15)',name:'Contabilità',desc:'Preventivi, costi e margini',roles:['admin','segretaria']},
-  {key:'note',href:'note.html',icon:'📝',bg:'rgba(212,81,30,0.12)',name:'Note & Agenda',desc:'Attività giornaliere per mese',roles:['admin','segretaria']},
-  {key:'rubrica',href:'rubrica.html',icon:'👥',bg:'rgba(58,122,76,0.12)',name:'Rubrica Clienti',desc:'Anagrafica nome, telefono, email',roles:['admin','segretaria']},
-  {key:'archivio',href:'archivio.html',icon:'🗄️',bg:'rgba(74,120,180,0.15)',name:'Archivio commesse',desc:'Pacchetto ZIP della commessa e archiviazione',roles:['admin','segretaria']},
-  {key:'manutenzione',href:'manutenzione.html',icon:'🛠️',bg:'rgba(138,138,138,0.15)',name:'Manutenzione',desc:'Backup e ripristino sincronizzazione',roles:['admin','segretaria','operaio']},
+  {key:'sopralluogo',href:'sopralluogo.html',icon:'🔍',bg:'rgba(212,81,30,0.15)',name:'Sopralluogo',desc:'Scheda cliente, foto, note, report PDF',roles:['admin','direzione','ufficio','operaio'],readonly:['operaio']},
+  {key:'rapporto',href:'rapporto.html',icon:'⏱️',bg:'rgba(212,81,30,0.15)',name:'I miei rapporti',desc:'Carica le tue ore sui cantieri del giorno',roles:['admin','direzione','ufficio','operaio'],
+    // Direzione e ufficio non compilano rapportini: consultano e scaricano quelli degli operai
+    nomeUfficio:'Rapportini',descUfficio:'Consulta e scarica i rapportini degli operai'},
+  {key:'cantiere',href:'cantiere.html',icon:'🏗️',bg:'rgba(58,122,76,0.15)',name:'Cantiere',desc:'Diario operai e ore lavorate',roles:['admin','direzione','ufficio','operaio']},
+  {key:'sal',href:'sal.html',icon:'📸',bg:'rgba(74,120,180,0.15)',name:'S.A.L.',desc:'Storico fotografico avanzamento lavori',roles:['admin','direzione','ufficio','operaio'],readonly:['ufficio']},
+  {key:'contabilita',href:'contabilita.html',icon:'📊',bg:'rgba(58,122,76,0.15)',name:'Contabilità',desc:'Preventivi, costi e margini',roles:['admin']},
+  {key:'note',href:'note.html',icon:'📝',bg:'rgba(212,81,30,0.12)',name:'Note & Agenda',desc:'Attività giornaliere per mese',roles:['admin']},
+  {key:'rubrica',href:'rubrica.html',icon:'👥',bg:'rgba(58,122,76,0.12)',name:'Rubrica Clienti',desc:'Anagrafica nome, telefono, email',roles:['admin','direzione','ufficio']},
+  {key:'archivio',href:'archivio.html',icon:'🗄️',bg:'rgba(74,120,180,0.15)',name:'Archivio commesse',desc:'Pacchetto ZIP della commessa e archiviazione',roles:['admin']},
+  // Manutenzione resta raggiungibile da link per tutti (recupero rapportini rimasti sul telefono)
+  {key:'manutenzione',href:'manutenzione.html',icon:'🛠️',bg:'rgba(138,138,138,0.15)',name:'Manutenzione',desc:'Backup e ripristino sincronizzazione',roles:['admin']},
 ];
 // Flag per attivare/disattivare le tab: 1 = visibile, 0 = spenta per tutti
 const TOOLS_ATTIVI={sopralluogo:1,rapporto:1,cantiere:1,sal:1,contabilita:0,note:0,rubrica:1,manutenzione:1,archivio:1};
 function renderTools(){
   const user=getUser();
   const ruolo=(user?.ruolo||'operatore').toLowerCase();
-  const isPrivileged=ruolo==='admin'||ruolo==='segretaria';
-  const permessi=user?.permessi||null;
+  const isAdmin=ruolo==='admin';
+  // I permessi per utente possono solo togliere (nascosto, sola lettura), mai aggiungere sezioni al ruolo
+  const permessi=(!isAdmin&&user?.permessi)||{};
+  const ufficio=ruolo==='direzione'||ruolo==='ufficio';
   const list=document.getElementById('tools-list');
   list.innerHTML=ALL_TOOLS
     .filter(t=>TOOLS_ATTIVI[t.key])
-    .filter(t=>{
-      if(isPrivileged) return true;
-      if(permessi&&t.key in permessi) return permessi[t.key]!=='hidden';
-      return t.roles.includes(ruolo);
-    })
+    .filter(t=>t.roles.includes(ruolo)&&permessi[t.key]!=='hidden')
     .map(t=>{
-      let ro;
-      if(!isPrivileged&&permessi&&t.key in permessi) ro=permessi[t.key]==='readonly';
-      else ro=!isPrivileged&&t.readonly&&t.readonly.includes(ruolo);
+      const ro=permessi[t.key]==='readonly'||(t.readonly||[]).includes(ruolo);
+      const nome=ufficio&&t.nomeUfficio?t.nomeUfficio:t.name;
+      const desc=ufficio&&t.descUfficio?t.descUfficio:t.desc;
       return `<a href="${t.href}" class="tool-card">
         <div class="tool-icon" style="background:${t.bg}">${t.icon}</div>
         <div class="tool-info">
-          <div class="tool-name">${t.name}${ro?'<span class="readonly-badge">sola lettura</span>':''}</div>
-          <div class="tool-desc">${t.desc}</div>
+          <div class="tool-name">${nome}${ro?'<span class="readonly-badge">sola lettura</span>':''}</div>
+          <div class="tool-desc">${desc}</div>
         </div>
         <div class="tool-arrow">→</div>
       </a>`;
@@ -452,8 +454,7 @@ async function syncData(){
 // ── EXPORT DATI (smistamento foto) ──
 const EXPORT_FILENAME='cantieri_export.json';
 function isPrivilegedUser(){
-  const r=(getUser()?.ruolo||'').toLowerCase();
-  return r==='admin'||r==='segretaria';
+  return (getUser()?.ruolo||'').toLowerCase()==='admin';
 }
 function exportPayload(){
   return JSON.stringify({
@@ -525,6 +526,25 @@ async function tentaExportAuto(){
   }catch(e){}
 }
 
+// ── PROFILO ──
+// Il ruolo in cp_user viene salvato al login: lo riallineo con la tabella utenti,
+// cosi' un cambio di ruolo vale senza dover rifare l'accesso.
+async function aggiornaProfilo(){
+  const u=getUser();
+  if(!db||!u||!u.email)return;
+  try{
+    const {data,error}=await db.from('utenti').select('nome,ruolo,attivo,permessi').eq('email',u.email).maybeSingle();
+    if(error||!data)return;
+    if(data.attivo===false){logout();return;}
+    const ruolo=data.ruolo||'operatore';
+    const nuovo={...u,nome:data.nome||u.nome,ruolo,permessi:ruolo==='admin'?{}:(data.permessi||null)};
+    if(JSON.stringify(nuovo)===JSON.stringify(u))return;
+    localStorage.setItem(USER_KEY,JSON.stringify(nuovo));
+    renderTools();
+    document.getElementById('export-tool').style.display=isPrivilegedUser()?'':'none';
+  }catch(e){}
+}
+
 // ── INIT ──
 initDB();
 applicaSettings(getSettings());
@@ -532,6 +552,7 @@ renderTools();
 pulisciDatiEconomiciLocali();
 aggiornaRiepilogo();
 if(isPrivilegedUser())document.getElementById('export-tool').style.display='';
+aggiornaProfilo();
 setTimeout(()=>syncData().catch(()=>aggiornaRiepilogo()).finally(()=>tentaExportAuto()),400);
 </script>
 </body>

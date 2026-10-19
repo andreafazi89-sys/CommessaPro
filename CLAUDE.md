@@ -35,10 +35,27 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
 - Dati locali: localStorage con chiavi `sopralluoghi_v3`, `cantieri_v1`, `note_v1`, `rubrica_v1`, `cp_user`, `cp_settings`.
 - Nessun build step, nessun framework, nessun npm. Librerie solo via CDN (gia presente supabase-js).
 
-## Ruoli
-- admin, segretaria: accesso completo.
-- operaio: solo Sopralluogo (sola lettura), I miei rapporti, Cantiere, SAL.
+## Ruoli (dal 19/10/2026; il ruolo `segretaria` non esiste piu)
+- admin (solo Andrea): vede e puo' tutto. Solo lui: Archivio e Archivia,
+  Manutenzione in Home, Esporta dati, scheda di sviluppo (fase 2), gestione
+  utenti, eliminazione foto SAL, Contabilita e Note (spente in Home).
+- direzione (Fabio, Rino): Sopralluogo, Rapportini in consultazione, Cantiere
+  con Fine Cantiere e Riapri, SAL completo, Rubrica.
+- ufficio (Pamela, Antonella): Sopralluogo, Rapportini in consultazione,
+  Cantiere senza Fine e Riapri, SAL in sola lettura, Rubrica.
+- operaio: Sopralluogo (sola lettura), I miei rapporti, Cantiere, SAL.
   In Cantiere l'operaio non vede Fine Cantiere, Riapri cantiere e Archivia.
+- I rapportini li compilano solo gli operai (l'admin puo' ancora inserirli).
+  Direzione e ufficio vedono "Rapportini": tutti i rapporti, scarico PDF,
+  niente Nuova giornata.
+- Manutenzione resta raggiungibile da link per tutti: serve a recuperare i
+  rapportini rimasti solo sul telefono di un operaio.
+- Permessi per utente (`utenti.permessi`, matita in Home): valgono per tutti
+  tranne l'admin e possono solo togliere (nascosto, sola lettura), mai
+  aggiungere sezioni al ruolo.
+- Il ruolo in `cp_user` viene riletto da `utenti` all'apertura della Home.
+- Sul DB: vincolo `utenti_ruolo_valido` sui quattro ruoli; `dati` scrivibile
+  da admin, direzione e ufficio, gli operai scrivono solo `rapporti_v1`.
 - Fine Cantiere: stato `Completato` e `dataFine`. Nei rapportini il cantiere
   resta selezionabile per 30 giorni da `dataFine`, poi sparisce dalla scelta.
   `archiviato` non influisce sulla scelta del rapportino.

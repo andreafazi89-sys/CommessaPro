@@ -140,7 +140,7 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
   <div class="topbar">
     <div style="display:flex;align-items:center;gap:10px">
       <a href="index.html" style="color:var(--muted);text-decoration:none;font-size:22px">←</a>
-      <div class="topbar-title">📝 I miei rapporti</div>
+      <div class="topbar-title" id="lista-title">📝 I miei rapporti</div>
     </div>
     <div style="display:flex;gap:8px">
       <button class="btn-top" onclick="forcSync()" title="Sincronizza">🔄</button>
@@ -151,7 +151,7 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
     <div id="lista-container"></div>
   </div>
   <div class="bottom-bar">
-    <button class="btn-main" onclick="nuovoRapporto()">➕ Nuova giornata</button>
+    <button class="btn-main" id="btn-nuovo" onclick="nuovoRapporto()">➕ Nuova giornata</button>
   </div>
 </div>
 
@@ -479,7 +479,7 @@ function isOperaio(){
 
 // Renderizza il campo "Operaio" in base al ruolo:
 // - operaio: card bloccata col proprio nome (non può scegliere)
-// - admin/capo/segretaria: dropdown libero con tutti gli operai
+// - admin: dropdown libero con tutti gli operai
 function renderCampoOperaio(valoreCorrente){
   const wrap = g('operaio-wrap');
   const cpUser = getCpUser();
@@ -501,7 +501,7 @@ function renderCampoOperaio(valoreCorrente){
       <input type="hidden" id="f-operaio" value="${mioNome}">
     `;
   } else {
-    // Dropdown libero per capo/admin/segretaria
+    // Dropdown libero per l'admin
     wrap.innerHTML = `
       <label>Nome operaio *</label>
       <select id="f-operaio" onchange="renderColleghiTutteRighe()">
@@ -524,26 +524,36 @@ function renderCampoOperaio(valoreCorrente){
 }
 
 // ── LISTA ──
-// Modalità vista corrente: 'miei' | 'tutti' (solo admin/capo possono usare 'tutti')
-let modVista = 'miei';
-
 // Ritorna true se l'utente può vedere la modalità "Tutti i rapporti"
 function isPrivilegiato(){
   const r = (getCpUser().ruolo || '').toLowerCase();
-  return r === 'admin' || r === 'segretaria' || r === 'capo';
+  return r === 'admin' || r === 'direzione' || r === 'ufficio';
 }
+// I rapportini li compilano solo gli operai (e l'admin, che vede e puo' tutto).
+// Direzione e ufficio consultano e scaricano quelli degli operai.
+function puoCompilare(){
+  const r = (getCpUser().ruolo || '').toLowerCase();
+  return r === 'operaio' || r === 'admin';
+}
+
+// Modalità vista corrente: 'miei' | 'tutti' (solo admin, direzione e ufficio possono usare 'tutti')
+let modVista = isPrivilegiato() ? 'tutti' : 'miei';
 
 function renderToggle(){
   const bar = g('filtro-bar');
-  if(!isPrivilegiato()){
+  g('lista-title').textContent = puoCompilare() ? '📝 I miei rapporti' : '📝 Rapportini';
+  g('btn-nuovo').style.display = puoCompilare() ? '' : 'none';
+  const viste = [];
+  if(isPrivilegiato() && puoCompilare()) viste.push(['miei', 'I miei rapporti']);
+  if(isPrivilegiato()) viste.push(['tutti', 'Tutti i rapporti']);
+  if(viste.length < 2){
     bar.style.display = 'none';
     return;
   }
   bar.style.display = 'block';
   bar.innerHTML = `
     <div class="filtro-toggle">
-      <button class="${modVista==='miei'?'on':''}" onclick="cambiaVista('miei')">I miei rapporti</button>
-      <button class="${modVista==='tutti'?'on':''}" onclick="cambiaVista('tutti')">Tutti i rapporti</button>
+      ${viste.map(([v, nome]) => `<button class="${modVista===v?'on':''}" onclick="cambiaVista('${v}')">${nome}</button>`).join('')}
     </div>
   `;
 }
@@ -699,6 +709,7 @@ function tornaLista(){
 
 // ── FORM: nuovo / modifica ──
 function nuovoRapporto(){
+  if(!puoCompilare()){ toast('I rapportini li compilano gli operai','err'); return; }
   currentEditId = null;
   g('form-title').textContent = 'Nuova giornata';
   g('f-data').value = new Date().toISOString().split('T')[0];
@@ -930,7 +941,7 @@ const LOGO_PIERANTONI = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHY
 // Ritorna true se l'utente può scaricare il rapportino dell'operaio indicato
 function puoScaricareRapporto(record){
   if(!record) return false;
-  if(isPrivilegiato()) return true; // admin/capo/segretaria: sempre ok
+  if(isPrivilegiato()) return true; // admin, direzione, ufficio: sempre ok
   const cpUser = getCpUser();
   const emailUtente = (cpUser.email || '').toLowerCase();
   const nomeUtente = cpUser.nome || '';

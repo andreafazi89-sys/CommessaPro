@@ -120,7 +120,7 @@ input::placeholder{color:var(--muted);}
   if(!u||!u.email){ window.location.replace('login.html'); return; }
   const ruolo=(u.ruolo||'').toLowerCase();
   const permessi=u.permessi||{};
-  if((ruolo!=='admin'&&ruolo!=='segretaria')||permessi['contabilita']==='hidden')
+  if(ruolo!=='admin'||permessi['contabilita']==='hidden')
     window.location.replace('index.html');
 })();
 

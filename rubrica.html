@@ -90,7 +90,7 @@ input::placeholder{color:var(--muted);}
   if(!u||!u.email){ window.location.replace('login.html'); return; }
   const ruolo=(u.ruolo||'').toLowerCase();
   const permessi=u.permessi||{};
-  if((ruolo!=='admin'&&ruolo!=='segretaria')||permessi['rubrica']==='hidden')
+  if(!['admin','direzione','ufficio'].includes(ruolo)||permessi['rubrica']==='hidden')
     window.location.replace('index.html');
 })();
 
