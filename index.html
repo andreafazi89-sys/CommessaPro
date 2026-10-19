@@ -423,7 +423,7 @@ function pulisciDatiEconomiciLocali(){
 
 function aggiornaRiepilogo(){
   // Le attivita' fisse (fisso:true) non contano come cantieri
-  const cantieri=getCantieri().filter(c=>!c.archiviato&&!c.fisso), sops=getSopralluoghi(), oggi=new Date();
+  const cantieri=getCantieri().filter(c=>!c.eliminato&&!c.archiviato&&!c.fisso), sops=getSopralluoghi().filter(s=>!s.eliminato), oggi=new Date();
   const ora=oggi.getHours();
   const nomeUtente=getUser()?.nome||getUser()?.email?.split('@')[0]||'';
   document.getElementById('greeting').textContent=(ora<12?'Buongiorno':ora<18?'Buon pomeriggio':'Buonasera')+(nomeUtente?', '+nomeUtente:'')+' 👋';
