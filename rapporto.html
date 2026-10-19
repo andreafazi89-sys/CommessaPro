@@ -388,6 +388,19 @@ function getCantieri(){
 function getCantieriAperti(){
   return getCantieri().filter(c => c.stato !== 'Completato');
 }
+// Dopo "Fine Cantiere" il cantiere resta selezionabile per GIORNI_DOPO_CHIUSURA
+// giorni, per i rapportini arretrati. Senza dataFine non si sa quando e' stato chiuso.
+const GIORNI_DOPO_CHIUSURA = 30;
+function chiusoDaPoco(c){
+  if(c.stato !== 'Completato' || !c.dataFine) return false;
+  const fine = new Date(c.dataFine + 'T00:00:00');
+  if(isNaN(fine)) return false;
+  const oggi = new Date(); oggi.setHours(0,0,0,0);
+  return Math.round((oggi - fine) / 86400000) <= GIORNI_DOPO_CHIUSURA;
+}
+function getCantieriChiusiDaPoco(){
+  return getCantieri().filter(chiusoDaPoco);
+}
 // Stesso ordine dei sopralluoghi: commessa dalla piu' alta, l'ultimo cantiere in cima
 function ordinaPerCommessa(a,b){
   const ca=(a.commessa||'').trim(), cb=(b.commessa||'').trim();
@@ -396,10 +409,10 @@ function ordinaPerCommessa(a,b){
   if(!cb) return 1;
   return cb.localeCompare(ca,'it',{numeric:true,sensitivity:'base'});
 }
-// Cantieri aperti in ordine; in modifica tiene anche il cantiere gia' scelto
-// se nel frattempo e' stato completato, per non perderlo
+// Cantieri aperti in ordine, poi quelli chiusi da poco; in modifica tiene anche
+// il cantiere gia' scelto se nel frattempo e' stato completato, per non perderlo
 function cantieriPerScelta(idPreset){
-  const lista = getCantieriAperti().sort(ordinaPerCommessa);
+  const lista = [...getCantieriAperti().sort(ordinaPerCommessa), ...getCantieriChiusiDaPoco().sort(ordinaPerCommessa)];
   if(idPreset && !lista.some(c => c.id === idPreset)){
     const c = getCantieri().find(x => x.id === idPreset);
     if(c) lista.unshift(c);
@@ -411,7 +424,8 @@ function cantieriPerScelta(idPreset){
 function etichettaCantiere(c){
   const cliente = (c.cliente || '').split(' - ')[0].trim();
   const tit = c.titolo || c.cliente || 'Cantiere';
-  const sub = [c.titolo ? cliente : '', c.indirizzo || ''].filter(Boolean).join(' · ');
+  const chiuso = c.stato === 'Completato' && c.dataFine ? 'Chiuso il ' + c.dataFine.split('-').reverse().join('/') : '';
+  const sub = [chiuso, c.titolo ? cliente : '', c.indirizzo || ''].filter(Boolean).join(' · ');
   return { tit, sub };
 }
 function esc(t){ return String(t ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }

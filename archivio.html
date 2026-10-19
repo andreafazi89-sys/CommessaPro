@@ -290,6 +290,17 @@ ${salFoto.length ? `<div class="stitle">Foto SAL (${salFoto.length})</div><div c
 </body></html>`;
 }
 
+// Stessa finestra di rapporto.html: dopo "Fine Cantiere" gli operai possono
+// ancora scegliere il cantiere per i rapportini arretrati
+const GIORNI_DOPO_CHIUSURA = 30;
+function giorniDallaChiusura(cant){
+  if(!cant || cant.stato !== 'Completato' || !cant.dataFine) return null;
+  const fine = new Date(cant.dataFine + 'T00:00:00');
+  if(isNaN(fine)) return null;
+  const oggi = new Date(); oggi.setHours(0,0,0,0);
+  return Math.round((oggi - fine) / 86400000);
+}
+
 async function creaPacchetto(id){
   const c = commesse().find(x => x.id === id);
   if(!c){ toast('Commessa non trovata','err'); return; }
@@ -400,8 +411,13 @@ async function creaPacchetto(id){
     }
     if(c.archiviato){ btn.disabled = false; return; }
 
+    const gg = giorniDallaChiusura(c.cant);
+    const avvisoRapportini = (gg !== null && gg <= GIORNI_DOPO_CHIUSURA)
+      ? 'ATTENZIONE: il cantiere e\' chiuso da ' + gg + ' giorni. Gli operai possono ancora inserire rapportini arretrati fino a ' + GIORNI_DOPO_CHIUSURA + ' giorni dalla chiusura: quelli inseriti dopo non saranno in questo pacchetto (restano nel database, puoi riscaricarlo).\n\n'
+      : '';
     const conferma = confirm(
       'Pacchetto scaricato (' + mb + ' MB).\n\n' +
+      avvisoRapportini +
       'Salvalo nella cartella della commessa sul server, poi conferma qui per archiviare.\n\n' +
       'Archiviare adesso? Sopralluogo e cantiere spariranno dagli elenchi attivi, i dati restano nel database.'
     );
