@@ -33,6 +33,10 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
 ## Ruoli
 - admin, segretaria: accesso completo.
 - operaio: solo Sopralluogo (sola lettura), I miei rapporti, Cantiere, SAL.
+  In Cantiere l'operaio non vede Fine Cantiere, Riapri cantiere e Archivia.
+- Fine Cantiere: stato `Completato` e `dataFine`. Nei rapportini il cantiere
+  resta selezionabile per 30 giorni da `dataFine`, poi sparisce dalla scelta.
+  `archiviato` non influisce sulla scelta del rapportino.
 
 ## Regole NON negoziabili
 1. La sezione Contabilita e i dati economici (margini, preventivi, tariffe, costi)

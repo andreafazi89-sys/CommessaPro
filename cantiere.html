@@ -137,7 +137,8 @@ textarea{resize:none;min-height:80px;line-height:1.6;}
     </div>
   </div>
   <div class="bottom-bar">
-    <button class="btn-main" onclick="chiudiCantiere()">✓ Fine Cantiere</button>
+    <button class="btn-main" id="btn-fine" style="display:none" onclick="chiudiCantiere()">✓ Fine Cantiere</button>
+    <button class="btn-main" id="btn-riapri" style="display:none;background:var(--surface2);color:var(--sand);border:1.5px solid var(--border)" onclick="riapriCantiere()">↺ Riapri cantiere</button>
     <button class="btn-main" id="btn-archivia" style="display:none;background:var(--surface2);color:var(--sand);border:1.5px solid var(--border)" onclick="archiviaCantiere()">🗄 Archivia commessa</button>
   </div>
 </div>
@@ -375,20 +376,27 @@ function renderLista(){
 function apriCantiere(id){
   const c=getCantieri().find(x=>x.id===id);if(!c)return;
   currentCant=c;g('det-title').textContent=(c.commessa?c.commessa+' — ':'')+' '+(c.titolo||c.cliente||'Cantiere');
-  const stato=c.stato||'In corso';
-  g('det-stato').textContent=stato;g('det-stato').style.background=stato==='Completato'?'rgba(200,184,154,.1)':'var(--green-dim)';g('det-stato').style.color=stato==='Completato'?'var(--muted)':'var(--green)';
+  mostraStato(c.stato||'In corso');
   g('det-info').innerHTML=`${c.commessa?`<div class="info-row"><span class="info-lbl">Commessa</span><span class="info-val" style="color:var(--brick);font-weight:700">${c.commessa}</span></div>`:''} ${c.titolo?`<div class="info-row"><span class="info-lbl">Lavoro</span><span class="info-val" style="color:var(--sand);font-weight:600">${c.titolo}</span></div>`:''}<div class="info-row"><span class="info-lbl">Cliente</span><span class="info-val">${c.cliente||'—'}</span></div><div class="info-row"><span class="info-lbl">Indirizzo</span><span class="info-val">${c.indirizzo||'—'}</span></div><div class="info-row"><span class="info-lbl">Responsabile</span><span class="info-val">${c.resp||'—'}</span></div><div class="info-row"><span class="info-lbl">Data inizio</span><span class="info-val">${c.dataInizio||'—'}</span></div><div class="info-row"><span class="info-lbl">Superficie</span><span class="info-val">${c.mq?c.mq+' mq':'—'}</span></div>`;
   g('g-data').value=new Date().toISOString().split('T')[0];g('g-ore').value='8';g('g-note').value='';
-  aggiornaBottoneArchivia();
+  aggiornaBottoni();
   operaiSel=[];renderChips();renderDiario();showView('dettaglio');
 }
 
 function ruoloUtente(){
   try{return (JSON.parse(localStorage.getItem('cp_user')||'{}').ruolo||'').toLowerCase();}catch{return '';}
 }
-function aggiornaBottoneArchivia(){
-  const privilegiato=ruoloUtente()==='admin'||ruoloUtente()==='segretaria';
-  g('btn-archivia').style.display=privilegiato?'':'none';
+function mostraStato(stato){
+  g('det-stato').textContent=stato;g('det-stato').style.background=stato==='Completato'?'rgba(200,184,154,.1)':'var(--green-dim)';g('det-stato').style.color=stato==='Completato'?'var(--muted)':'var(--green)';
+}
+function privilegiato(){ return ruoloUtente()==='admin'||ruoloUtente()==='segretaria'; }
+// Fine Cantiere e Archivia solo per admin e segretaria: chiudere fa partire la mail per la fattura
+function aggiornaBottoni(){
+  const priv=privilegiato();
+  const chiuso=currentCant&&currentCant.stato==='Completato';
+  g('btn-fine').style.display=priv&&!chiuso?'':'none';
+  g('btn-riapri').style.display=priv&&chiuso?'':'none';
+  g('btn-archivia').style.display=priv?'':'none';
 }
 
 function tornaLista(){showView('lista');renderLista();}
@@ -496,13 +504,25 @@ function delContributo(id){
 }
 
 function chiudiCantiere(){
+  if(!privilegiato()){toast('Operazione riservata','err');return;}
   if(!confirm('Chiudere il cantiere e avvisare la segretaria per la fattura?'))return;
   currentCant.stato='Completato';currentCant.dataFine=new Date().toISOString().split('T')[0];
-  salvaCantiere();g('det-stato').textContent='Completato';g('det-stato').style.background='rgba(200,184,154,.1)';g('det-stato').style.color='var(--muted)';
-  aggiornaBottoneArchivia();
+  salvaCantiere();mostraStato('Completato');
+  aggiornaBottoni();
   // Notifica segretaria via mail per emissione fattura
   notificaFineCantiere();
   toast('Cantiere chiuso','ok');
+}
+
+// Per un Fine Cantiere premuto per sbaglio: torna In corso e toglie la data di fine,
+// cosi' il cantiere torna tra quelli aperti anche nei rapportini
+function riapriCantiere(){
+  if(!privilegiato()){toast('Operazione riservata','err');return;}
+  if(!confirm('Riaprire il cantiere? Torna In corso e la data di fine viene tolta.'))return;
+  currentCant.stato='In corso';currentCant.dataFine='';
+  salvaCantiere();mostraStato('In corso');
+  aggiornaBottoni();
+  toast('Cantiere riaperto','ok');
 }
 
 function archiviaCantiere(){
