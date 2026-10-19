@@ -177,7 +177,7 @@ function initDB(){if(window.supabase)db=window.supabase.createClient(SUPA_URL,SU
 
 // ── TOOLS PER RUOLO ──
 const ALL_TOOLS=[
-  {key:'sopralluogo',href:'sopralluogo.html',icon:'🔍',bg:'rgba(212,81,30,0.15)',name:'Sopralluogo',desc:'Scheda cliente, foto, note, report PDF',roles:['admin','direzione','ufficio','operaio'],readonly:['operaio']},
+  {key:'sopralluogo',href:'sopralluogo.html',icon:'🔍',bg:'rgba(212,81,30,0.15)',name:'Sopralluogo',desc:'Scheda cliente, foto, note, report PDF',roles:['admin','direzione','ufficio']},
   {key:'rapporto',href:'rapporto.html',icon:'⏱️',bg:'rgba(212,81,30,0.15)',name:'I miei rapporti',desc:'Carica le tue ore sui cantieri del giorno',roles:['admin','direzione','ufficio','operaio'],
     // Direzione e ufficio non compilano rapportini: consultano e scaricano quelli degli operai
     nomeUfficio:'Rapportini',descUfficio:'Consulta e scarica i rapportini degli operai'},
