@@ -113,6 +113,22 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
 .filtro-toggle{display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:3px;}
 .filtro-toggle button{flex:1;padding:10px;background:none;border:none;border-radius:7px;font-family:Epilogue,sans-serif;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .15s;}
 .filtro-toggle button.on{background:var(--brick);color:#fff;}
+.mese-nav{display:flex;align-items:center;justify-content:space-between;margin:4px 4px 10px;}
+.mese-nav button{background:var(--surface2);border:1px solid var(--border);border-radius:8px;width:36px;height:32px;font-size:16px;cursor:pointer;color:var(--white);}
+.mese-nav-txt{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;text-transform:capitalize;}
+.mese-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);}
+.mese-tab{border-collapse:collapse;font-size:11px;min-width:100%;}
+.mese-tab th,.mese-tab td{border:1px solid var(--border);padding:4px 3px;text-align:center;min-width:26px;white-space:nowrap;}
+.mese-tab th{background:var(--surface2);color:var(--muted);font-weight:600;}
+.mese-tab .mt-nome{text-align:left;padding:4px 8px;position:sticky;left:0;background:var(--surface);font-weight:600;z-index:1;}
+.mese-tab .mt-ok{background:var(--green-dim);color:var(--green);font-weight:700;}
+.mese-tab .mt-col{background:var(--sand-dim);color:var(--sand);font-weight:700;}
+.mese-tab .mt-manca{background:rgba(212,81,30,0.35);}
+.mese-tab .mt-off{background:var(--surface2);color:var(--muted);}
+.mese-tab .mt-tot{font-weight:700;}
+.mese-leg{display:flex;flex-wrap:wrap;gap:10px;margin:10px 4px;font-size:11px;color:var(--muted);}
+.mese-leg span{display:inline-flex;align-items:center;gap:4px;}
+.mese-leg i{display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid var(--border);}
 /* Card aggregata (vista Tutti) */
 .agg-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;}
 .agg-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px;}
@@ -532,6 +548,10 @@ function isPrivilegiato(){
   const r = (getCpUser().ruolo || '').toLowerCase();
   return r === 'admin' || r === 'segretaria' || r === 'capo';
 }
+// Il riepilogo mensile e' uno strumento della segretaria per i controlli di fine mese
+function isSegretaria(){
+  return (getCpUser().ruolo || '').toLowerCase() === 'segretaria';
+}
 
 function renderToggle(){
   const bar = g('filtro-bar');
@@ -544,6 +564,7 @@ function renderToggle(){
     <div class="filtro-toggle">
       <button class="${modVista==='miei'?'on':''}" onclick="cambiaVista('miei')">I miei rapporti</button>
       <button class="${modVista==='tutti'?'on':''}" onclick="cambiaVista('tutti')">Tutti i rapporti</button>
+      ${isSegretaria() ? `<button class="${modVista==='mese'?'on':''}" onclick="cambiaVista('mese')">Riepilogo mese</button>` : ''}
     </div>
   `;
 }
@@ -556,6 +577,7 @@ function cambiaVista(v){
 
 function renderLista(){
   const el = g('lista-container');
+  if(modVista === 'mese' && isSegretaria()){ renderRiepilogoMese(el); return; }
   const tutti = getRapporti();
   const cpUser = getCpUser();
   const email = (cpUser.email || '').toLowerCase();
@@ -691,6 +713,103 @@ function renderLista(){
   }
 }
 
+// ── RIEPILOGO MESE (solo segretaria) ──
+// Griglia operai x giorni del mese, calcolata dai rapportini gia' in locale.
+// Sola lettura: non salva nulla e non mostra avvisi agli operai.
+// Verde = ore del rapportino proprio, nocciola = citato come collega (ore di chi l'ha citato),
+// rosso = giorno lavorativo passato senza nulla, grigio = sabato, domenica, festivi.
+let meseRiepilogo = null; // 'AAAA-MM'
+// Nomi scritti in modo diverso nei rapportini che indicano la stessa persona
+const ALIAS_OPERAI = {'Michele Poveste':'Mihai Poveste'};
+function nomeOperaio(n){ const t = (n || '').trim(); return ALIAS_OPERAI[t] || t; }
+function isoData(d){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+// Pasqua (algoritmo di Gauss/Meeus), serve per il Lunedi' dell'Angelo
+function pasqua(y){
+  const a=y%19, b=Math.floor(y/100), c=y%100, d=Math.floor(b/4), e=b%4, f=Math.floor((b+8)/25), gg=Math.floor((b-f+1)/3);
+  const h=(19*a+b-d-gg+15)%30, i=Math.floor(c/4), k=c%4, l=(32+2*e+2*i-h-k)%7, m=Math.floor((a+11*h+22*l)/451);
+  const mese=Math.floor((h+l-7*m+114)/31), giorno=((h+l-7*m+114)%31)+1;
+  return new Date(y, mese-1, giorno);
+}
+// Festivita' nazionali piu' il 29/06 (Santi Pietro e Paolo, patrono di Roma)
+function festivi(y){
+  const f = ['01-01','01-06','04-25','05-01','06-02','06-29','08-15','11-01','12-08','12-25','12-26'].map(md => y + '-' + md);
+  const lun = pasqua(y); lun.setDate(lun.getDate() + 1);
+  f.push(isoData(lun));
+  return new Set(f);
+}
+function cambiaMese(delta){
+  const [y, m] = meseRiepilogo.split('-').map(Number);
+  meseRiepilogo = isoData(new Date(y, m - 1 + delta, 1)).slice(0, 7);
+  renderLista();
+}
+function renderRiepilogoMese(el){
+  if(!meseRiepilogo) meseRiepilogo = isoData(new Date()).slice(0, 7);
+  const [y, m] = meseRiepilogo.split('-').map(Number);
+  const nGiorni = new Date(y, m, 0).getDate();
+  const fest = festivi(y);
+  const oggi = isoData(new Date());
+  const tutti = getRapporti();
+  // Primo giorno in cui ogni persona compare: prima di allora non risulta mancante
+  const primaVolta = {};
+  const segna = (nome, data) => { if(nome && data && (!primaVolta[nome] || data < primaVolta[nome])) primaVolta[nome] = data; };
+  tutti.forEach(r => {
+    segna(nomeOperaio(r.operaio), r.data);
+    (Array.isArray(r.colleghi) ? r.colleghi : []).forEach(c => segna(nomeOperaio(c), r.data));
+  });
+  // Per ogni persona e giorno del mese: ore proprie e chi l'ha citata come collega
+  const celle = {};
+  const cella = (nome, data) => { celle[nome] = celle[nome] || {}; return celle[nome][data] = celle[nome][data] || {ore:0, oreCol:0, proprio:false, citatoDa:new Set()}; };
+  tutti.filter(r => (r.data || '').slice(0, 7) === meseRiepilogo).forEach(r => {
+    const op = nomeOperaio(r.operaio);
+    if(op){ const c = cella(op, r.data); c.proprio = true; c.ore += parseFloat(r.ore) || 0; }
+    (Array.isArray(r.colleghi) ? r.colleghi : []).forEach(n => {
+      const nome = nomeOperaio(n);
+      if(nome && nome !== op){ const c = cella(nome, r.data); c.citatoDa.add(op || '?'); c.oreCol += parseFloat(r.ore) || 0; }
+    });
+  });
+  const fineMese = meseRiepilogo + '-' + String(nGiorni).padStart(2, '0');
+  const persone = [...new Set([...OPERAI.map(nomeOperaio), ...Object.keys(celle)])]
+    .filter(n => primaVolta[n] && primaVolta[n] <= fineMese)
+    .sort((a, b) => a.localeCompare(b, 'it'));
+  const giorni = [];
+  for(let d = 1; d <= nGiorni; d++){
+    const dt = new Date(y, m - 1, d);
+    const iso = isoData(dt);
+    giorni.push({d, iso, lav: dt.getDay() !== 0 && dt.getDay() !== 6 && !fest.has(iso), sett:'DLMMGVS'[dt.getDay()]});
+  }
+  const titolo = new Date(y, m - 1, 1).toLocaleDateString('it-IT', {month:'long', year:'numeric'});
+  const fmtOre = n => String(Math.round(n * 10) / 10).replace('.', ',');
+  const righe = persone.map(p => {
+    let totOre = 0, mancanti = 0;
+    const tds = giorni.map(gi => {
+      const c = (celle[p] || {})[gi.iso];
+      const dataIt = gi.iso.split('-').reverse().join('/');
+      if(c && c.proprio){ totOre += c.ore; return `<td class="mt-ok" title="${esc(p)} - ${dataIt}: ${fmtOre(c.ore)} ore">${fmtOre(c.ore)}</td>`; }
+      if(c && c.citatoDa.size){ totOre += c.oreCol; return `<td class="mt-col" title="${esc(p)} - ${dataIt}: citato come collega da ${esc([...c.citatoDa].join(', '))}, ${fmtOre(c.oreCol)} ore del suo rapportino">${fmtOre(c.oreCol)}</td>`; }
+      if(!gi.lav) return '<td class="mt-off"></td>';
+      if(gi.iso < oggi && gi.iso >= primaVolta[p]){ mancanti++; return `<td class="mt-manca" title="${esc(p)} - ${dataIt}: nessun rapportino"></td>`; }
+      return '<td></td>';
+    }).join('');
+    return `<tr><td class="mt-nome">${esc(p)}</td>${tds}<td class="mt-tot">${fmtOre(totOre)}</td><td class="mt-tot">${mancanti || ''}</td></tr>`;
+  }).join('');
+  el.innerHTML = `
+    <div class="mese-nav">
+      <button type="button" onclick="cambiaMese(-1)" aria-label="Mese precedente">‹</button>
+      <div class="mese-nav-txt">${titolo}</div>
+      <button type="button" onclick="cambiaMese(1)" aria-label="Mese successivo">›</button>
+    </div>
+    ${persone.length ? `<div class="mese-wrap"><table class="mese-tab">
+      <thead><tr><th class="mt-nome">Operaio</th>${giorni.map(gi => `<th class="${gi.lav ? '' : 'mt-off'}">${gi.sett}<br>${gi.d}</th>`).join('')}<th>Ore</th><th>Mancanti</th></tr></thead>
+      <tbody>${righe}</tbody>
+    </table></div>
+    <div class="mese-leg">
+      <span><i style="background:var(--green-dim)"></i>Ore dal suo rapportino</span>
+      <span><i style="background:var(--sand-dim)"></i>Citato come collega (ore di chi l'ha citato)</span>
+      <span><i style="background:rgba(212,81,30,0.35)"></i>Giorno lavorativo senza nulla</span>
+      <span><i style="background:var(--surface2)"></i>Sabato, domenica, festivi</span>
+    </div>` : '<div class="empty-state"><div class="empty-sub">Nessun rapportino in questo mese</div></div>'}
+  `;
+}
 function tornaLista(){
   renderToggle();
   showView('lista');
