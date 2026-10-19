@@ -132,7 +132,8 @@ function leggi(k){
 // Una commessa e' un sopralluogo con il suo cantiere, oppure un cantiere senza
 // sopralluogo collegato, oppure un sopralluogo mai diventato cantiere.
 function commesse(){
-  const sops = leggi(SOP_KEY), cants = leggi(CANT_KEY), rapp = leggi(RPT_KEY);
+  // Le attivita' fisse (fisso:true) non sono commesse e non si archiviano
+  const sops = leggi(SOP_KEY), cants = leggi(CANT_KEY).filter(c => !c.fisso), rapp = leggi(RPT_KEY);
   const out = [];
   const cantUsati = new Set();
 

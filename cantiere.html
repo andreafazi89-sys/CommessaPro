@@ -362,8 +362,9 @@ function ordinaPerCommessa(a,b){
   if(!cb) return 1;
   return cb.localeCompare(ca,'it',{numeric:true,sensitivity:'base'});
 }
+// Le attivita' fisse (fisso:true) servono solo ai rapportini: qui non compaiono
 function renderLista(){
-  const lista=getCantieri().filter(c=>!c.archiviato).sort(ordinaPerCommessa);const el=g('lista-container');
+  const lista=getCantieri().filter(c=>!c.archiviato&&!c.fisso).sort(ordinaPerCommessa);const el=g('lista-container');
   if(!lista.length){el.innerHTML=`<div class="empty-state"><div class="empty-icon">🏗️</div><div class="empty-txt">Nessun cantiere</div><div style="font-size:13px;color:var(--muted)">Avvia un cantiere dalla scheda Sopralluogo</div></div>`;return;}
   el.innerHTML=lista.map(c=>`
     <div class="cant-card" onclick="apriCantiere('${c.id}')">
