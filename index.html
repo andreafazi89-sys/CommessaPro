@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="CommessaPro">
@@ -12,32 +12,40 @@
 <title>CommessaPro</title>
 <link id="font-link" href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Epilogue:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<link rel="stylesheet" href="stile.css?v=1">
 <style>
-:root{--bg:#FFFFFF;--surface:#F5F5F5;--surface2:#EBEBEB;--brick:#D4511E;--brick-dim:rgba(212,81,30,0.12);--sand:#8A6A50;--sand-dim:rgba(138,106,80,0.12);--white:#1A1612;--muted:#888280;--border:rgba(0,0,0,0.1);--green:#3A7A4C;--green-dim:rgba(58,122,76,0.12);--r:14px;--r-sm:10px;--font-head:'Syne',sans-serif;--font-body:'Epilogue',sans-serif;}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html,body{font-family:var(--font-body);background:var(--bg);color:var(--white);min-height:100vh;transition:background .2s,color .2s;}
-.header{padding:32px 24px 16px;display:flex;align-items:center;justify-content:space-between;}
+.header{padding:32px 24px 12px;}
+/* Logo e, sotto, i pulsanti allineati alla fine di "Pro" */
+.header-blocco{display:inline-flex;flex-direction:column;align-items:flex-end;gap:10px;max-width:100%;}
+.header-btns{display:flex;gap:8px;align-items:center;}
 .logo{font-family:var(--font-head);font-size:26px;font-weight:800;color:var(--white);}
 .logo span{color:var(--brick);}
-.settings-btn{width:40px;height:40px;background:var(--surface);border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;-webkit-user-select:none;}
-.logout-btn{width:40px;height:40px;background:var(--surface);border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;-webkit-user-select:none;color:var(--muted);}
+.settings-btn{height:44px;padding:0 14px;gap:6px;font-size:14px;font-weight:600;color:var(--white);font-family:var(--font-body);background:var(--surface);border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-user-select:none;}
+.logout-btn{height:44px;padding:0 16px;font-weight:600;font-family:var(--font-body);background:var(--surface);border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;-webkit-user-select:none;color:var(--white);}
 .readonly-badge{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;background:var(--brick-dim);color:var(--brick);border-radius:4px;padding:2px 5px;vertical-align:middle;margin-left:5px;}
-.greeting{font-size:12px;color:var(--muted);padding:0 24px 16px;}
+.greeting{font-size:14px;color:var(--muted);padding:0 24px 16px;}
 .riep-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0 16px 16px;}
 .stat-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;}
-.stat-val{font-family:var(--font-head);font-size:22px;font-weight:700;margin-bottom:2px;}
-.stat-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+.stat-val{font-family:var(--font-body);font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;margin-bottom:2px;}
+.stat-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
 .stat-val.pos{color:var(--green);}
 .stat-val.neg{color:#C84040;}
 .divider{height:1px;background:var(--border);margin:4px 16px 16px;}
-.section-label{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);padding:0 20px;margin-bottom:10px;}
+.section-label{font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);padding:0 20px;margin-bottom:10px;}
 .tools{padding:0 16px;display:flex;flex-direction:column;gap:10px;margin-bottom:24px;}
 .tool-card{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;text-decoration:none;color:var(--white);}
 .tool-card:active{background:var(--surface2);}
 .tool-icon{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
 .tool-info{flex:1;}
 .tool-name{font-family:var(--font-head);font-size:15px;font-weight:700;margin-bottom:2px;}
-.tool-desc{font-size:11px;color:var(--muted);}
+.tool-desc{font-size:13px;color:var(--muted);}
+/* Voce principale del ruolo (operai: I miei rapporti) */
+.tool-card.main{background:var(--brick);border-color:var(--brick);color:#fff;}
+.tool-card.main .tool-icon{background:rgba(255,255,255,.2)!important;}
+.tool-card.main .tool-desc,.tool-card.main .tool-arrow{color:rgba(255,255,255,.9);}
+.tools .section-label{padding:10px 4px 0;margin-bottom:0;}
 .tool-arrow{color:var(--brick);font-size:18px;}
 .footer{text-align:center;font-size:11px;color:var(--border);padding:8px 16px 24px;}
 
@@ -87,12 +95,13 @@ html,body{font-family:var(--font-body);background:var(--bg);color:var(--white);m
 <body>
 
 <div class="header">
-  <div>
+  <div class="header-blocco">
     <div class="logo">Commessa<span>Pro</span></div>
-  </div>
-  <div style="display:flex;gap:8px;align-items:center;">
-    <div class="logout-btn" onclick="logout()" title="Esci">⏏</div>
-    <div class="settings-btn" onclick="apriSettings()">⚙️</div>
+    <div class="header-btns">
+      <!-- Impostazioni: solo admin (mostrato da renderTools) -->
+      <div class="settings-btn" id="settings-btn" onclick="apriSettings()" style="display:none">⚙️ Impostazioni</div>
+      <div class="logout-btn" onclick="logout()" title="Esci">Esci</div>
+    </div>
   </div>
 </div>
 <div class="greeting" id="greeting">Caricamento…</div>
@@ -200,14 +209,21 @@ function renderTools(){
   const permessi=(!isAdmin&&user?.permessi)||{};
   const ufficio=ruolo==='direzione'||ruolo==='ufficio';
   const list=document.getElementById('tools-list');
-  list.innerHTML=ALL_TOOLS
+  document.getElementById('settings-btn').style.display=isAdmin?'':'none';
+  // Le voci solo admin vanno in fondo, sotto l'etichetta Gestione
+  const soloAdmin=t=>t.roles.length===1&&t.roles[0]==='admin';
+  const visibili=ALL_TOOLS
     .filter(t=>TOOLS_ATTIVI[t.key])
-    .filter(t=>t.roles.includes(ruolo)&&permessi[t.key]!=='hidden')
-    .map(t=>{
+    .filter(t=>t.roles.includes(ruolo)&&permessi[t.key]!=='hidden');
+  const ordinati=[...visibili.filter(t=>!soloAdmin(t)),...visibili.filter(soloAdmin)];
+  list.innerHTML=ordinati
+    .map((t,i)=>{
       const ro=permessi[t.key]==='readonly'||(t.readonly||[]).includes(ruolo);
       const nome=ufficio&&t.nomeUfficio?t.nomeUfficio:t.name;
       const desc=ufficio&&t.descUfficio?t.descUfficio:t.desc;
-      return `<a href="${t.href}" class="tool-card">
+      const gestione=soloAdmin(t)&&(i===0||!soloAdmin(ordinati[i-1]))?'<div class="section-label">Gestione</div>':'';
+      const main=ruolo==='operaio'&&t.key==='rapporto'?' main':'';
+      return `${gestione}<a href="${t.href}" class="tool-card${main}">
         <div class="tool-icon" style="background:${t.bg}">${t.icon}</div>
         <div class="tool-info">
           <div class="tool-name">${nome}${ro?'<span class="readonly-badge">sola lettura</span>':''}</div>
@@ -255,12 +271,8 @@ function applicaSettings(s){
     root.style.setProperty('--border','rgba(200,184,154,0.12)');
     document.querySelector('meta[name=theme-color]').content='#0F0D0A';
   } else {
-    root.style.setProperty('--bg','#FFFFFF');
-    root.style.setProperty('--surface','#F5F5F5');
-    root.style.setProperty('--surface2','#EBEBEB');
-    root.style.setProperty('--white','#1A1612');
-    root.style.setProperty('--muted','#888280');
-    root.style.setProperty('--border','rgba(0,0,0,0.1)');
+    // Tema chiaro: valgono i colori di stile.css
+    ['--bg','--surface','--surface2','--white','--muted','--border'].forEach(v=>root.style.removeProperty(v));
     document.querySelector('meta[name=theme-color]').content='#FFFFFF';
   }
   // Colore accent
@@ -547,7 +559,7 @@ async function aggiornaProfilo(){
 
 // ── INIT ──
 initDB();
-applicaSettings(getSettings());
+applicaSettings((getUser()?.ruolo||'').toLowerCase()==='admin'?getSettings():{});
 renderTools();
 pulisciDatiEconomiciLocali();
 aggiornaRiepilogo();
