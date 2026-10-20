@@ -244,7 +244,7 @@ let db = null;
 let currentEditId = null;  // null = nuovo, altrimenti id del record in modifica
 let rigaCounter = 0;       // contatore incrementale per le righe del form
 // Elenco operai disponibili come "colleghi" (allineato con la select #f-operaio)
-const OPERAI = ['Adrian Lup','Fabio Cardini','Daniele Schedel','Michele Poveste','Vasile Banta'];
+const OPERAI = ['Adrian Lup','Fabio Cardini','Daniele Schedel','Mihai Poveste','Vasile Banta'];
 // Mappa rigaN -> array di nomi colleghi selezionati per quella riga
 let colleghiPerRiga = {};
 
@@ -525,7 +525,7 @@ function renderCampoOperaio(valoreCorrente){
         <option>Adrian Lup</option>
         <option>Fabio Cardini</option>
         <option>Daniele Schedel</option>
-        <option>Michele Poveste</option>
+        <option>Mihai Poveste</option>
         <option>Vasile Banta</option>
       </select>
       <div class="op-locked-hint">Puoi inserire anche per altri operai</div>
@@ -730,7 +730,7 @@ function renderLista(){
 // Verde = ore del rapportino proprio, nocciola = citato come collega (ore di chi l'ha citato),
 // rosso = giorno lavorativo passato senza nulla, grigio = sabato, domenica, festivi.
 let meseRiepilogo = null; // 'AAAA-MM'
-// Nomi scritti in modo diverso nei rapportini che indicano la stessa persona
+// Vecchio nome di Mihai Poveste, ancora presente nei rapportini salvati prima della correzione
 const ALIAS_OPERAI = {'Michele Poveste':'Mihai Poveste'};
 function nomeOperaio(n){ const t = (n || '').trim(); return ALIAS_OPERAI[t] || t; }
 function isoData(d){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
@@ -850,7 +850,7 @@ function modificaRapporto(id){
   currentEditId = id;
   g('form-title').textContent = 'Modifica rapporto';
   g('f-data').value = r.data;
-  renderCampoOperaio(r.operaio);
+  renderCampoOperaio(nomeOperaio(r.operaio));
   g('righe-container').innerHTML = '';
   rigaCounter = 0;
   colleghiPerRiga = {};
@@ -909,7 +909,7 @@ function aggiungiRiga(preset){
   g('righe-container').appendChild(div);
 
   // Inizializza stato colleghi della riga (eventuale preset in modifica)
-  colleghiPerRiga[n] = (preset && Array.isArray(preset.colleghi)) ? [...preset.colleghi] : [];
+  colleghiPerRiga[n] = (preset && Array.isArray(preset.colleghi)) ? preset.colleghi.map(nomeOperaio) : [];
   renderColleghiChips(n);
 
   if(preset){
