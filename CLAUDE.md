@@ -7,6 +7,9 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
 
 ## Architettura (NON cambiarla senza chiedere)
 - Pagine HTML single-file (HTML + CSS + JS inline), una per funzione, nella root del repo.
+  Unica eccezione: `stile.css` condiviso (colori, avvisi, spunte), caricato da
+  tutte le pagine con `<link rel="stylesheet" href="stile.css?v=N">` prima dello
+  `<style>` della pagina. Quando si modifica, aumentare N in tutte le pagine.
 - Hosting: GitHub Pages, branch main, root. Push su main = deploy in produzione.
 - Backend: Supabase (project `iradzlocobsipjazracw`).
   - Tabella `dati`: chiave/valore JSON (legacy, in dismissione graduale).
@@ -96,6 +99,19 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
    (es. 'l'agenda' -> 'l\'agenda'). Nei template literal non serve escape.
 3. Verificare che il file si apra senza errori in console (SyntaxError).
 4. Verificare che id HTML non siano duplicati nel file.
+
+## Grafica (decisa con Andrea il 20/10/2026)
+- Colori: mattone di oggi (`--brick`), definiti SOLO in `stile.css`. Le pagine
+  non ridefiniscono `:root`. `--white` e' il colore del testo (nome storico).
+- Colori di stato fissi e separati dal colore principale: verde salvato,
+  ambra attenzione/offline (`--amber`), rosso errore (`--red`).
+- Il nome "Pierantoni" non compare da nessuna parte nell'app.
+- Telefono in cantiere: testi minimo 12 px (eccetto PDF), pulsanti alti
+  almeno 40-44 px, zoom consentito (niente `user-scalable=no`), date gg/mm/aaaa.
+- Avvisi temporanei (`.toast`): barra in alto sopra la testata, non sopra le liste.
+- Home: Impostazioni (ingranaggio) solo admin; per gli operai "I miei rapporti"
+  e' in evidenza; le voci solo admin stanno in fondo sotto "Gestione".
+- I miei rapporti: i record nella coda offline mostrano "Solo sul telefono".
 
 ## Stile
 - Lingua: italiano (codice, commenti, commit, UI).
