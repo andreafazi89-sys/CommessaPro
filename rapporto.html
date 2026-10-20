@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CommessaPro">
 <meta name="theme-color" content="#0F0D0A">
@@ -11,15 +11,15 @@
 <title>I miei rapporti</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Epilogue:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<link rel="stylesheet" href="stile.css?v=1">
 <style>
-:root{--bg:#FFFFFF;--surface:#F5F5F5;--surface2:#EBEBEB;--brick:#D4511E;--brick-dim:rgba(212,81,30,0.12);--sand:#8A6A50;--sand-dim:rgba(138,106,80,0.12);--white:#1A1612;--muted:#888280;--border:rgba(0,0,0,0.1);--green:#3A7A4C;--green-dim:rgba(58,122,76,0.12);--r:14px;--r-sm:10px;}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html,body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--white);min-height:100vh;}
 .view{display:none;}.view.active{display:block;}
 .topbar{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;}
 .topbar-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;}
 .btn-back{color:var(--muted);background:none;border:none;cursor:pointer;font-size:22px;padding:0;}
-.btn-top{background:var(--sand-dim);color:var(--sand);border:none;border-radius:8px;padding:7px 12px;font-family:Epilogue,sans-serif;font-size:12px;font-weight:500;cursor:pointer;}
+.btn-top{background:var(--sand-dim);color:var(--sand);border:none;border-radius:10px;padding:7px 12px;min-height:40px;min-width:40px;font-family:Epilogue,sans-serif;font-size:13px;font-weight:500;cursor:pointer;}
 .content{padding:16px 16px 120px;}
 .section{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px;margin-bottom:14px;}
 .sec-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--sand);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
@@ -39,8 +39,6 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
 .btn-main.sec{background:var(--surface2);color:var(--white);border:1px solid var(--border);}
 .bottom-bar{position:fixed;bottom:0;left:0;right:0;padding:12px 16px;padding-bottom:max(12px,env(safe-area-inset-bottom));background:linear-gradient(to top,var(--bg) 70%,transparent);z-index:100;display:flex;gap:10px;}
 .bottom-bar .btn-main{flex:1;}
-.toast{position:fixed;top:70px;left:16px;right:16px;padding:14px 16px;border-radius:var(--r-sm);font-size:14px;font-weight:500;text-align:center;z-index:999;opacity:0;transform:translateY(-8px);transition:all .3s;pointer-events:none;}
-.toast.show{opacity:1;transform:translateY(0);}
 .toast.ok{background:var(--green);color:#fff;}
 .toast.err{background:#C8441A;color:#fff;}
 .toast.inf{background:var(--surface2);color:var(--white);border:1px solid var(--border);}
@@ -68,18 +66,18 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
 .rpt-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;}
 .rpt-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;gap:10px;}
 .rpt-data{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;}
-.rpt-cant{font-size:12px;color:var(--sand);margin-top:2px;font-weight:500;}
+.rpt-cant{font-size:13px;color:var(--sand);margin-top:2px;font-weight:500;}
 .rpt-ore{font-size:13px;font-weight:700;color:var(--brick);background:var(--brick-dim);padding:4px 10px;border-radius:20px;white-space:nowrap;}
-.rpt-desc{font-size:13px;line-height:1.5;color:var(--white);margin-top:4px;}
+.rpt-desc{font-size:14px;line-height:1.5;color:var(--white);margin-top:4px;}
 .rpt-sub{font-size:12px;color:var(--muted);margin-top:6px;font-style:italic;}
 .rpt-actions{display:flex;gap:8px;margin-top:10px;}
-.rpt-btn{flex:1;padding:8px;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:Epilogue,sans-serif;}
+.rpt-btn{flex:1;padding:12px 8px;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;font-family:Epilogue,sans-serif;}
 .rpt-btn.edit{background:var(--sand-dim);color:var(--sand);}
-.rpt-btn.del{background:rgba(200,68,26,.12);color:#C8441A;}
+.rpt-btn.del{background:var(--red-dim);color:var(--red);}
 .rpt-btn.pdf{background:var(--green-dim);color:var(--green);border:1px solid var(--green);}
 /* Bottoncino PDF sulla card aggregata (singolo contributo) */
 .agg-riga-row{display:flex;align-items:center;gap:8px;}
-.agg-riga-pdf{background:var(--green-dim);color:var(--green);border:1px solid var(--green);border-radius:6px;padding:4px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:Epilogue,sans-serif;white-space:nowrap;}
+.agg-riga-pdf{background:var(--green-dim);color:var(--green);border:1px solid var(--green);border-radius:8px;padding:7px 10px;min-height:34px;font-size:12px;font-weight:700;cursor:pointer;font-family:Epilogue,sans-serif;white-space:nowrap;}
 /* Overlay anteprima PDF */
 .report-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:999;background:#fff;display:none;flex-direction:column;}
 .report-overlay.show{display:flex;}
@@ -92,15 +90,15 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
 .report-frame{flex:1;border:none;width:100%;background:#fff;}
 /* Riga cantiere nel form (multi-riga) */
 .riga-cant{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px;margin-bottom:10px;position:relative;}
-.riga-cant .rc-num{position:absolute;top:8px;right:10px;font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;}
+.riga-cant .rc-num{position:absolute;top:10px;right:48px;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;}
 .riga-cant .rc-del{position:absolute;top:6px;right:6px;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:4px 8px;}
 .btn-add-riga{width:100%;padding:12px;background:transparent;color:var(--brick);border:2px dashed var(--brick);border-radius:var(--r-sm);font-family:Epilogue,sans-serif;font-size:13px;font-weight:600;cursor:pointer;margin-top:6px;}
 /* Chip colleghi (per riga) — stesso pattern di cantiere.html */
 .op-grid{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px;}
-.op-chip{padding:8px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:18px;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;-webkit-user-select:none;}
+.op-chip{padding:10px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:20px;font-size:14px;font-weight:500;cursor:pointer;transition:all .15s;-webkit-user-select:none;}
 .op-chip.on{background:var(--brick-dim);border-color:var(--brick);color:var(--brick);}
-.op-empty-hint{font-size:11px;color:var(--muted);font-style:italic;padding:4px 0;}
-.rpt-colleghi{font-size:12px;color:var(--sand);margin-top:6px;}
+.op-empty-hint{font-size:12px;color:var(--muted);font-style:italic;padding:4px 0;}
+.rpt-colleghi{font-size:13px;color:var(--sand);margin-top:6px;}
 /* Badge totale ore nel form */
 .tot-bar{background:var(--brick-dim);border:1px solid var(--brick);border-radius:var(--r-sm);padding:10px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:600;color:var(--brick);}
 .tot-bar .tot-val{font-family:'Syne',sans-serif;font-size:16px;}
@@ -108,7 +106,7 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
 .op-locked{background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:13px 14px;display:flex;align-items:center;gap:10px;}
 .op-locked-icon{width:32px;height:32px;background:var(--brick-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--brick);font-weight:700;}
 .op-locked-name{font-size:16px;font-weight:600;flex:1;}
-.op-locked-hint{font-size:11px;color:var(--muted);margin-top:4px;}
+.op-locked-hint{font-size:12px;color:var(--muted);margin-top:4px;}
 /* Toggle I miei / Tutti (solo admin/capo) */
 .filtro-toggle{display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:3px;}
 .filtro-toggle button{flex:1;padding:10px;background:none;border:none;border-radius:7px;font-family:Epilogue,sans-serif;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .15s;}
@@ -134,19 +132,21 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
 .agg-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px;}
 .agg-titolo{flex:1;min-width:0;}
 .agg-data{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;}
-.agg-cant{font-size:12px;color:var(--sand);margin-top:2px;font-weight:500;}
+.agg-cant{font-size:13px;color:var(--sand);margin-top:2px;font-weight:500;}
 .agg-tot{font-size:13px;font-weight:700;color:var(--brick);background:var(--brick-dim);padding:4px 10px;border-radius:20px;white-space:nowrap;}
 .agg-operai{border-top:1px solid var(--border);padding-top:10px;}
 .agg-riga{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:6px 0;font-size:13px;}
 .agg-riga:not(:last-child){border-bottom:1px dashed var(--border);}
 .agg-op-nome{font-weight:600;min-width:110px;}
-.agg-op-desc{flex:1;color:var(--muted);font-size:12px;line-height:1.4;}
+.agg-op-desc{flex:1;color:var(--muted);font-size:13px;line-height:1.4;}
 .agg-op-ore{font-weight:700;color:var(--brick);white-space:nowrap;}
 /* Intestazione data (con bottone/i rapportino giornaliero) */
 .data-head{margin:18px 4px 8px;display:flex;flex-wrap:wrap;align-items:center;gap:6px;}
-.data-head-txt{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-right:6px;}
-.data-head-pdf{background:var(--green-dim);color:var(--green);border:1px solid var(--green);border-radius:20px;padding:5px 12px;font-family:Epilogue,sans-serif;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.data-head-txt{font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-right:6px;}
+.data-head-pdf{background:var(--green-dim);color:var(--green);border:1px solid var(--green);border-radius:20px;padding:8px 14px;min-height:36px;font-family:Epilogue,sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;}
 .data-head-pdf:active{transform:scale(0.97);}
+/* Rapportino salvato solo sul telefono, in attesa di arrivare al server */
+.pill-attesa{display:inline-block;margin-top:8px;font-size:12px;font-weight:700;padding:4px 10px;border-radius:99px;background:var(--amber-dim);color:var(--amber);}
 </style>
 </head>
 <body>
@@ -595,6 +595,8 @@ function renderLista(){
 
   // Filtro base: se non sei privilegiato OR modalità "miei", mostra solo i tuoi
   const mostraTutti = isPrivilegiato() && modVista === 'tutti';
+  // Rapportini in coda offline: mostrati con l'etichetta "Solo sul telefono"
+  const inAttesa = new Set(getPending(RPT_KEY).map(x => x.id));
   const filtrati = mostraTutti
     ? tutti
     : tutti.filter(r => (r.autore || '').toLowerCase() === email);
@@ -657,7 +659,7 @@ function renderLista(){
               <div class="agg-op-desc">${r.descrizione || '<span style="opacity:.4">—</span>'}</div>
               <div class="agg-riga-row">
                 <div class="agg-op-ore">${r.ore}h</div>
-                <button class="agg-riga-pdf" onclick="generaRapportoContributo('${r.id}')" title="Scarica rapportino di questa lavorazione">📥</button>
+                <button class="agg-riga-pdf" onclick="generaRapportoContributo('${r.id}')" title="Scarica rapportino di questa lavorazione">📥 PDF</button>
               </div>
             </div>
           `).join('');
@@ -713,6 +715,7 @@ function renderLista(){
             ${r.descrizione ? `<div class="rpt-desc">${r.descrizione}</div>` : ''}
             ${r.subappaltatori ? `<div class="rpt-sub">Sub: ${r.subappaltatori}</div>` : ''}
             ${(Array.isArray(r.colleghi) && r.colleghi.length) ? `<div class="rpt-colleghi">👥 Con: ${r.colleghi.map(c => c.split(' ')[0]).join(', ')}</div>` : ''}
+            ${inAttesa.has(r.id) ? '<div class="pill-attesa">Solo sul telefono, non ancora sul server</div>' : ''}
             <div class="rpt-actions">
               <button class="rpt-btn edit" onclick="modificaRapporto('${r.id}')">✏️ Modifica</button>
               <button class="rpt-btn del" onclick="eliminaRapporto('${r.id}')">🗑 Elimina</button>
