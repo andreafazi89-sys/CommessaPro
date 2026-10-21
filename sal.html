@@ -780,6 +780,11 @@ function mostraOnboarding(){
 // ── INIT ──
 initDB();renderLista();
 mostraOnboarding();
+// sal.html?id=... apre direttamente il SAL del cantiere (scorciatoia dalla tab Cantiere)
+(function(){
+  const id=new URLSearchParams(location.search).get('id');
+  if(id&&getCantieri().some(x=>x.id===id)) apriSAL(id);
+})();
 setTimeout(()=>forcSync().catch(()=>{}),500);
 </script>
 </body>

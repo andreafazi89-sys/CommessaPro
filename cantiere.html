@@ -52,6 +52,8 @@ textarea{resize:none;min-height:80px;line-height:1.6;}
 .g-c-actions{position:absolute;top:6px;right:0;display:flex;gap:2px;align-items:center;}
 .g-c-pdf{background:var(--green-dim);color:var(--green);border:1px solid var(--green);border-radius:6px;padding:3px 7px;font-size:12px;text-decoration:none;cursor:pointer;line-height:1;}
 .g-c-pdf:active{transform:scale(0.95);}
+.det-link{display:flex;gap:8px;margin-top:12px;}
+.det-link a{flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r-sm);color:var(--white);font-size:14px;font-weight:600;text-decoration:none;}
 .g-sub-line{font-size:12px;color:var(--sand);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
 .bottom-bar{position:fixed;bottom:0;left:0;right:0;padding:12px 16px;padding-bottom:max(12px,env(safe-area-inset-bottom));background:linear-gradient(to top,var(--bg) 70%,transparent);z-index:100;}
 .btn-main{width:100%;padding:16px;background:var(--green);color:#fff;border:none;border-radius:var(--r);font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;-webkit-appearance:none;}
@@ -357,11 +359,20 @@ function apriCantiere(id){
   const c=getCantieri().find(x=>x.id===id);if(!c)return;
   currentCant=c;g('det-title').textContent=(c.commessa?c.commessa+' — ':'')+' '+(c.titolo||c.cliente||'Cantiere');
   mostraStato(c.stato||'In corso');
-  g('det-info').innerHTML=`${c.commessa?`<div class="info-row"><span class="info-lbl">Commessa</span><span class="info-val" style="color:var(--brick);font-weight:700">${c.commessa}</span></div>`:''} ${c.titolo?`<div class="info-row"><span class="info-lbl">Lavoro</span><span class="info-val" style="color:var(--sand);font-weight:600">${c.titolo}</span></div>`:''}<div class="info-row"><span class="info-lbl">Cliente</span><span class="info-val">${c.cliente||'—'}</span></div><div class="info-row"><span class="info-lbl">Indirizzo</span><span class="info-val">${c.indirizzo||'—'}</span></div><div class="info-row"><span class="info-lbl">Responsabile</span><span class="info-val">${c.resp||'—'}</span></div><div class="info-row"><span class="info-lbl">Data inizio</span><span class="info-val">${dataIt(c.dataInizio)||'—'}</span></div><div class="info-row"><span class="info-lbl">Superficie</span><span class="info-val">${c.mq?c.mq+' mq':'—'}</span></div>`;
+  g('det-info').innerHTML=`${c.commessa?`<div class="info-row"><span class="info-lbl">Commessa</span><span class="info-val" style="color:var(--brick);font-weight:700">${c.commessa}</span></div>`:''} ${c.titolo?`<div class="info-row"><span class="info-lbl">Lavoro</span><span class="info-val" style="color:var(--sand);font-weight:600">${c.titolo}</span></div>`:''}<div class="info-row"><span class="info-lbl">Cliente</span><span class="info-val">${c.cliente||'—'}</span></div><div class="info-row"><span class="info-lbl">Indirizzo</span><span class="info-val">${c.indirizzo||'—'}</span></div><div class="info-row"><span class="info-lbl">Responsabile</span><span class="info-val">${c.resp||'—'}</span></div><div class="info-row"><span class="info-lbl">Data inizio</span><span class="info-val">${dataIt(c.dataInizio)||'—'}</span></div><div class="info-row"><span class="info-lbl">Superficie</span><span class="info-val">${c.mq?c.mq+' mq':'—'}</span></div>${linkScheda(c)}`;
   aggiornaBottoni();
   renderDiario();showView('dettaglio');
 }
 
+// Scorciatoie al sopralluogo d'origine e al SAL del cantiere, solo se l'utente puo' aprirli
+function linkScheda(c){
+  let u={}; try{u=JSON.parse(localStorage.getItem('cp_user'))||{};}catch{}
+  const perm=u.permessi||{};
+  const vediSop=c.sopralluogoId&&['admin','direzione','ufficio'].includes(ruoloUtente())&&perm.sopralluogo!=='hidden';
+  const vediSal=perm.sal!=='hidden';
+  if(!vediSop&&!vediSal) return '';
+  return `<div class="det-link">${vediSop?`<a href="sopralluogo.html?id=${encodeURIComponent(c.sopralluogoId)}">📝 Sopralluogo</a>`:''}${vediSal?`<a href="sal.html?id=${encodeURIComponent(c.id)}">📸 SAL</a>`:''}</div>`;
+}
 function ruoloUtente(){
   try{return (JSON.parse(localStorage.getItem('cp_user')||'{}').ruolo||'').toLowerCase();}catch{return '';}
 }
