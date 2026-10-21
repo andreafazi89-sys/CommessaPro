@@ -76,6 +76,10 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
 - Il ruolo in `cp_user` viene riletto da `utenti` all'apertura della Home.
 - Sul DB: vincolo `utenti_ruolo_valido` sui quattro ruoli; `dati` scrivibile
   da admin, direzione e ufficio, gli operai scrivono solo `rapporti_v1`.
+- Utente disattivato (`utenti.attivo = false`, dal 21/10/2026): nessun permesso
+  sul DB anche con la sessione aperta. `mio_ruolo()` non restituisce il ruolo e
+  `utente_attivo()` e' falso: niente lettura/scrittura su `dati`, `sal_foto` e
+  bucket Foto. Resta leggibile solo la propria riga in `utenti` (serve al logout).
 - Fine Cantiere: stato `Completato` e `dataFine`. Nei rapportini il cantiere
   resta selezionabile per 30 giorni da `dataFine`, poi sparisce dalla scelta.
   `archiviato` non influisce sulla scelta del rapportino.
