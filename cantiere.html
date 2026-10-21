@@ -35,16 +35,12 @@ input::placeholder,textarea::placeholder{color:var(--muted);}
 select option{background:#1A1714;}
 textarea{resize:none;min-height:80px;line-height:1.6;}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.op-grid{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px;}
-.op-chip{padding:9px 14px;background:var(--surface2);border:1.5px solid var(--border);border-radius:20px;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;-webkit-user-select:none;}
-.op-chip.on{background:var(--brick-dim);border-color:var(--brick);}
 .giornata-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:14px;margin-bottom:10px;}
 .g-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;}
 .g-data{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;}
 .g-ore{font-size:12px;color:var(--muted);margin-top:2px;}
 .g-operai{font-size:12px;color:var(--sand);margin-bottom:4px;}
 .g-note{font-size:13px;line-height:1.5;}
-.g-del{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:4px;}
 /* Contributi individuali nel diario (vista aggregata) */
 .g-contributi{margin-top:8px;border-top:1px solid var(--border);padding-top:8px;}
 .g-contributo{padding:8px 0;border-bottom:1px dashed var(--border);position:relative;padding-right:70px;}
@@ -56,8 +52,8 @@ textarea{resize:none;min-height:80px;line-height:1.6;}
 .g-c-actions{position:absolute;top:6px;right:0;display:flex;gap:2px;align-items:center;}
 .g-c-pdf{background:var(--green-dim);color:var(--green);border:1px solid var(--green);border-radius:6px;padding:3px 7px;font-size:12px;text-decoration:none;cursor:pointer;line-height:1;}
 .g-c-pdf:active{transform:scale(0.95);}
-.g-c-del{background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:4px 6px;opacity:.5;}
-.g-c-del:hover{opacity:1;}
+.det-link{display:flex;gap:8px;margin-top:12px;}
+.det-link a{flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r-sm);color:var(--white);font-size:14px;font-weight:600;text-decoration:none;}
 .g-sub-line{font-size:12px;color:var(--sand);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
 .bottom-bar{position:fixed;bottom:0;left:0;right:0;padding:12px 16px;padding-bottom:max(12px,env(safe-area-inset-bottom));background:linear-gradient(to top,var(--bg) 70%,transparent);z-index:100;}
 .btn-main{width:100%;padding:16px;background:var(--green);color:#fff;border:none;border-radius:var(--r);font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;-webkit-appearance:none;}
@@ -113,21 +109,6 @@ textarea{resize:none;min-height:80px;line-height:1.6;}
     </div>
 
     <div class="section">
-      <div class="sec-title"><div class="sec-icon">📅</div>Registra giornata</div>
-      <div class="row2" style="margin-bottom:10px">
-        <div class="fg"><label>Data</label><input type="date" id="g-data"></div>
-        <div class="fg"><label>Ore / operaio</label><input type="number" id="g-ore" placeholder="8" min="0.5" max="24" step="0.5"></div>
-      </div>
-      <div class="fg"><label>Operai presenti</label><div class="op-grid" id="operai-chips"></div></div>
-      <div class="fg" style="margin-top:10px"><label>Lavori svolti oggi</label>
-        <textarea id="g-note" placeholder="Descrivi brevemente cosa è stato fatto..."></textarea>
-      </div>
-      <div class="fg" style="margin-top:10px"><label>Subappaltatori (opzionale)</label>
-        <input type="text" id="g-sub" placeholder="Es. Idraulico Mario, Elettricista Rossi...">
-      </div>
-      <button onclick="aggiungiGiornata()" style="width:100%;padding:14px;background:var(--brick);color:#fff;border:none;border-radius:var(--r-sm);font-family:'Syne',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-top:10px">+ Salva giornata</button>
-    </div>
-    <div class="section">
       <div class="sec-title"><div class="sec-icon">📋</div>Diario lavori
         <span id="tot-giorni" style="margin-left:auto;font-size:12px;color:var(--muted);font-family:Epilogue,sans-serif;text-transform:none;letter-spacing:0;font-weight:400"></span>
       </div>
@@ -159,8 +140,7 @@ const SEGRETARIA = {
   email: 'info@pierantonicm.com',
   whatsapp: '39XXXXXXXXXX'  // ← SOSTITUIRE con numero reale, formato '393331234567'
 };
-const OPERAI=['Adrian Lup','Fabio Cardini','Daniele Schedel','Mihai Poveste','Vasile Banta'];
-let db=null, currentCant=null, operaiSel=[];
+let db=null, currentCant=null;
 
 function initDB(){if(window.supabase)db=window.supabase.createClient(SUPA_URL,SUPA_KEY);}
 function avvisoSync(msg){ toast('\u26a0\ufe0f '+msg,'err'); }
@@ -292,8 +272,8 @@ function migraVecchieGiornate(){
   const backupKey = 'cantieri_v1_backup_premig_' + new Date().toISOString().replace(/[:.]/g,'-');
   try{ localStorage.setItem(backupKey, JSON.stringify(cantieri)); }catch(e){ console.warn('Backup migrazione fallito:',e); }
 
-  const rapporti = getRapporti();
-  const esistenti = new Set(rapporti.map(r => r.id));
+  const esistenti = new Set(getRapporti().map(r => r.id));
+  const rapporti = []; // solo i record nuovi: salvaRecord li aggiunge a quelli del server
   const cpUser = (()=>{try{return JSON.parse(localStorage.getItem('cp_user')||'{}');}catch{return{};}})();
   const autoreMig = '[MIGRATO]' + (cpUser.email ? ' ' + cpUser.email : '');
   let contatore = 0;
@@ -341,13 +321,14 @@ function migraVecchieGiornate(){
 function showView(n){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));g('view-'+n).classList.add('active');window.scrollTo(0,0);}
 
 function eliminaCantiere(id){
+  if(!isAdmin()){toast('Operazione riservata','err');return;}
   if(!confirm('Eliminare questo cantiere?')) return;
   // Rimuovi il cantiereId dal sopralluogo collegato
   const cant = getCantieri().find(c=>c.id===id);
   if(cant&&cant.sopralluogoId){
     const sops = JSON.parse(localStorage.getItem('sopralluoghi_v3')||'[]');
     const sopIdx = sops.findIndex(s=>s.id===cant.sopralluogoId);
-    if(sopIdx>=0){ sops[sopIdx].cantiereId=null; localStorage.setItem('sopralluoghi_v3',JSON.stringify(sops)); dbSalva('sopralluoghi_v3',sops); }
+    if(sopIdx>=0) salvaRecord('sopralluoghi_v3',[{...sops[sopIdx], cantiereId:null, timestamp:new Date().toISOString()}]);
   }
   if(cant) salvaRecord(CANT_KEY,[marcaEliminato(cant)]);
   renderLista(); toast('Eliminato','inf');
@@ -370,7 +351,7 @@ function renderLista(){
     <div class="cant-card" onclick="apriCantiere('${c.id}')">
       <div class="cant-icon">🏗️</div>
       <div class="cant-info"><div class="cant-nome">${c.commessa?c.commessa+' · ':''}${c.titolo||c.cliente||'—'}</div><div class="cant-meta">${c.cliente||'—'} · ${c.stato||'In corso'} · Dal ${dataIt(c.dataInizio)||'—'}</div></div>
-      <button style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:4px;" onclick="event.stopPropagation();eliminaCantiere('${c.id}')">🗑</button>
+      ${isAdmin()?`<button style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:4px;" onclick="event.stopPropagation();eliminaCantiere('${c.id}')">🗑</button>`:''}
     </div>`).join('');
 }
 
@@ -378,12 +359,20 @@ function apriCantiere(id){
   const c=getCantieri().find(x=>x.id===id);if(!c)return;
   currentCant=c;g('det-title').textContent=(c.commessa?c.commessa+' — ':'')+' '+(c.titolo||c.cliente||'Cantiere');
   mostraStato(c.stato||'In corso');
-  g('det-info').innerHTML=`${c.commessa?`<div class="info-row"><span class="info-lbl">Commessa</span><span class="info-val" style="color:var(--brick);font-weight:700">${c.commessa}</span></div>`:''} ${c.titolo?`<div class="info-row"><span class="info-lbl">Lavoro</span><span class="info-val" style="color:var(--sand);font-weight:600">${c.titolo}</span></div>`:''}<div class="info-row"><span class="info-lbl">Cliente</span><span class="info-val">${c.cliente||'—'}</span></div><div class="info-row"><span class="info-lbl">Indirizzo</span><span class="info-val">${c.indirizzo||'—'}</span></div><div class="info-row"><span class="info-lbl">Responsabile</span><span class="info-val">${c.resp||'—'}</span></div><div class="info-row"><span class="info-lbl">Data inizio</span><span class="info-val">${dataIt(c.dataInizio)||'—'}</span></div><div class="info-row"><span class="info-lbl">Superficie</span><span class="info-val">${c.mq?c.mq+' mq':'—'}</span></div>`;
-  g('g-data').value=new Date().toISOString().split('T')[0];g('g-ore').value='8';g('g-note').value='';
+  g('det-info').innerHTML=`${c.commessa?`<div class="info-row"><span class="info-lbl">Commessa</span><span class="info-val" style="color:var(--brick);font-weight:700">${c.commessa}</span></div>`:''} ${c.titolo?`<div class="info-row"><span class="info-lbl">Lavoro</span><span class="info-val" style="color:var(--sand);font-weight:600">${c.titolo}</span></div>`:''}<div class="info-row"><span class="info-lbl">Cliente</span><span class="info-val">${c.cliente||'—'}</span></div><div class="info-row"><span class="info-lbl">Indirizzo</span><span class="info-val">${c.indirizzo||'—'}</span></div><div class="info-row"><span class="info-lbl">Responsabile</span><span class="info-val">${c.resp||'—'}</span></div><div class="info-row"><span class="info-lbl">Data inizio</span><span class="info-val">${dataIt(c.dataInizio)||'—'}</span></div><div class="info-row"><span class="info-lbl">Superficie</span><span class="info-val">${c.mq?c.mq+' mq':'—'}</span></div>${linkScheda(c)}`;
   aggiornaBottoni();
-  operaiSel=[];renderChips();renderDiario();showView('dettaglio');
+  renderDiario();showView('dettaglio');
 }
 
+// Scorciatoie al sopralluogo d'origine e al SAL del cantiere, solo se l'utente puo' aprirli
+function linkScheda(c){
+  let u={}; try{u=JSON.parse(localStorage.getItem('cp_user'))||{};}catch{}
+  const perm=u.permessi||{};
+  const vediSop=c.sopralluogoId&&['admin','direzione','ufficio'].includes(ruoloUtente())&&perm.sopralluogo!=='hidden';
+  const vediSal=perm.sal!=='hidden';
+  if(!vediSop&&!vediSal) return '';
+  return `<div class="det-link">${vediSop?`<a href="sopralluogo.html?id=${encodeURIComponent(c.sopralluogoId)}">📝 Sopralluogo</a>`:''}${vediSal?`<a href="sal.html?id=${encodeURIComponent(c.id)}">📸 SAL</a>`:''}</div>`;
+}
 function ruoloUtente(){
   try{return (JSON.parse(localStorage.getItem('cp_user')||'{}').ruolo||'').toLowerCase();}catch{return '';}
 }
@@ -405,46 +394,6 @@ function aggiornaBottoni(){
 function tornaLista(){showView('lista');renderLista();}
 function salvaCantiere(){ return salvaRecord(CANT_KEY,[currentCant]); }
 
-function renderChips(){
-  g('operai-chips').innerHTML=OPERAI.map(op=>`<div class="op-chip ${operaiSel.includes(op)?'on':''}" onclick="toggleOp('${op}',this)">${op.split(' ')[0]}</div>`).join('');
-}
-function toggleOp(nome,el){const i=operaiSel.indexOf(nome);if(i>=0)operaiSel.splice(i,1);else operaiSel.push(nome);el.classList.toggle('on');}
-
-function aggiungiGiornata(){
-  if(!operaiSel.length){toast('Seleziona almeno un operaio','err');return;}
-  const ore=parseFloat(gv('g-ore'))||8;
-  const data = gv('g-data') || new Date().toISOString().split('T')[0];
-  const note = gv('g-note');
-  const sub = gv('g-sub');
-  const cpUser = (()=>{try{return JSON.parse(localStorage.getItem('cp_user')||'{}');}catch{return{};}})();
-  const autore = (cpUser.email || '').toLowerCase();
-  const now = new Date().toISOString();
-
-  // Crea un record per ogni operaio selezionato
-  const rapporti = [];
-  operaiSel.forEach((op, i) => {
-    rapporti.push({
-      id: 'rpt_' + Date.now() + '_' + i,
-      cantiereId: currentCant.id,
-      data,
-      operaio: op,
-      operaioEmail: null,
-      ore,
-      // Nota applicata solo al primo operaio (è descrizione condivisa della giornata)
-      descrizione: (i === 0) ? note : '',
-      subappaltatori: sub,
-      tipo: 'operaio',
-      autore,
-      timestamp: now
-    });
-  });
-  salvaRapporti(rapporti);
-
-  const numOp = operaiSel.length;
-  g('g-note').value='';g('g-sub').value='';operaiSel=[];renderChips();renderDiario();
-  toast(`✓ Giornata salvata (${numOp} ${numOp===1?'operaio':'operai'})`, 'ok');
-}
-
 function renderDiario(){
   const el = g('diario-list');
   const giornate = getGiornateCantiere(currentCant.id);
@@ -464,7 +413,6 @@ function renderDiario(){
         ${r._migrato ? '<div class="g-c-mig">[migrato]</div>' : ''}
         <div class="g-c-actions">
           <a class="g-c-pdf" href="rapporto.html?pdf=${r.id}" target="_blank" title="Scarica rapportino di ${r.operaio}">📥</a>
-          <button class="g-c-del" onclick="delContributo('${r.id}')" title="Elimina questo contributo">🗑</button>
         </div>
       </div>
     `).join('');
@@ -476,34 +424,12 @@ function renderDiario(){
             <div class="g-data">${d}</div>
             <div class="g-ore">${gr.totOre}h totali · ${gr.numOperai} ${gr.numOperai===1?'operaio':'operai'}</div>
           </div>
-          <div style="display:flex;gap:6px">
-            <button class="g-del" onclick="delGiornata('${gr.data}')" title="Elimina intera giornata">🗑</button>
-          </div>
         </div>
         <div class="g-contributi">${righe}</div>
         ${subs ? `<div class="g-sub-line">🛠 Sub: ${subs}</div>` : ''}
       </div>
     `;
   }).join('');
-}
-
-function delGiornata(data){
-  if(!confirm('Eliminare tutta la giornata? Tutti i contributi degli operai di quel giorno saranno rimossi.')) return;
-  const daEliminare = getRapporti()
-    .filter(r => r.cantiereId === currentCant.id && r.data === data)
-    .map(marcaEliminato);
-  salvaRecord(RPT_KEY, daEliminare);
-  renderDiario();
-  toast('Giornata eliminata','inf');
-}
-
-function delContributo(id){
-  if(!confirm('Eliminare solo questo contributo?')) return;
-  const r = getRapporti().find(x => x.id === id);
-  if(!r){ toast('Contributo non trovato','err'); return; }
-  salvaRecord(RPT_KEY, [marcaEliminato(r)]);
-  renderDiario();
-  toast('Contributo eliminato','inf');
 }
 
 function chiudiCantiere(){
@@ -593,23 +519,23 @@ function mostraOnboarding(){
   const div = document.createElement('div');
   div.id = 'ob-banner';
   div.style.cssText = 'position:fixed;bottom:80px;left:12px;right:12px;background:#FFF3ED;border:1.5px solid #D4511E;border-radius:12px;padding:14px;font-size:13px;color:#1A1612;line-height:1.6;font-family:Epilogue,sans-serif;z-index:999;box-shadow:0 4px 20px rgba(212,81,30,0.2)';
-  div.innerHTML = '<strong>🏗️ Cantiere</strong> — Registra ogni giornata lavorativa con gli operai presenti, le ore e i lavori svolti. Puoi scaricare il rapporto giornaliero in PDF con il pulsante 📥.<br><br><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;color:#D4511E"><input type="checkbox" onchange="if(this.checked){document.getElementById(\'ob-banner\').remove();localStorage.setItem(\'ob_cant\',\'1\');if(cpUser.email)localStorage.setItem(\'ob_cant_\'+cpUser.email,\'1\');}"> ✓ Ho capito, non mostrare più</label>';
+  div.innerHTML = '<strong>🏗️ Cantiere</strong>: qui trovi i dati del cantiere e il diario dei lavori, ricavato dai rapportini degli operai. Puoi scaricare il singolo rapportino in PDF con il pulsante 📥.<br><br><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;color:#D4511E"><input type="checkbox" onchange="if(this.checked){document.getElementById(\'ob-banner\').remove();localStorage.setItem(\'ob_cant\',\'1\');if(cpUser.email)localStorage.setItem(\'ob_cant_\'+cpUser.email,\'1\');}"> ✓ Ho capito, non mostrare più</label>';
   document.body.appendChild(div);
 }
 // ── INIT ──
 initDB();
 // Migrazione: popola titolo dai sopralluoghi collegati
 (function migraTitoli(){
-  const cantieri = getCantieri();
+  // Salva solo i cantieri a cui ha aggiunto il titolo, mai l'elenco intero
   const sops = JSON.parse(localStorage.getItem('sopralluoghi_v3')||'[]');
-  let changed = false;
-  cantieri.forEach(cant=>{
+  const toccati = [];
+  getCantieri().forEach(cant=>{
     if(!cant.titolo && cant.sopralluogoId){
       const sop = sops.find(s=>s.id===cant.sopralluogoId);
-      if(sop&&sop.titolo){ cant.titolo=sop.titolo; changed=true; }
+      if(sop&&sop.titolo) toccati.push({...cant, titolo:sop.titolo, timestamp:new Date().toISOString()});
     }
   });
-  if(changed){ localStorage.setItem('cantieri_v1',JSON.stringify(cantieri)); dbSalva('cantieri_v1',cantieri); }
+  if(toccati.length) salvaRecord(CANT_KEY, toccati);
 })();
 
 // Migrazione Step 2: vecchie giornate[] → record rapporti_v1 (solo prima volta)
