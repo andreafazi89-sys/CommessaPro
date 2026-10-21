@@ -47,9 +47,8 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
   con Fine Cantiere e Riapri, SAL completo, Rubrica.
 - ufficio (Pamela, Antonella): Sopralluogo, Rapportini in consultazione,
   Cantiere senza Fine e Riapri, SAL in sola lettura, Rubrica.
-- operaio: I miei rapporti, Cantiere, SAL. Niente Sopralluogo (non li fanno):
-  la pagina rimanda alla Home.
-  In Cantiere l'operaio non vede Fine Cantiere, Riapri cantiere e Archivia.
+- operaio: I miei rapporti e SAL. Niente Sopralluogo (non li fanno) e niente
+  Cantiere (dal 21/10/2026, meno distrazioni): le due pagine rimandano alla Home.
 - I rapportini li compilano solo gli operai (l'admin puo' ancora inserirli).
 - Tab Cantiere: scheda in sola lettura (dati, diario lavori dai rapportini,
   PDF del singolo rapportino, scorciatoie a Sopralluogo e SAL). Niente

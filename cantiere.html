@@ -128,7 +128,9 @@ textarea{resize:none;min-height:80px;line-height:1.6;}
 // ── GUARD AUTH: gira prima di qualsiasi lettura dati o render ──
 (function(){
   let u=null; try{u=JSON.parse(localStorage.getItem('cp_user'))||null;}catch{}
-  if(!u||!u.email) window.location.replace('login.html');
+  if(!u||!u.email){ window.location.replace('login.html'); return; }
+  // Gli operai non usano la scheda Cantiere: meno distrazioni, solo i rapportini
+  if(!['admin','direzione','ufficio'].includes((u.ruolo||'').toLowerCase())) window.location.replace('index.html');
 })();
 
 // ── SUPABASE ──
