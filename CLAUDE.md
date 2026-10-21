@@ -28,6 +28,9 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
     opere provvisionali, lavorazioni con misure, rifiuti, squadra, forniture.
     Salvata nel campo `sviluppo` del record; produce il testo per la bozza
     di preventivo. Piano, superficie, accesso e misure NON stanno in fase 1.
+    Misure delle lavorazioni in cm (dal 21/10/2026, superficie in mq e volume
+    in mc ricalcolati); il ponteggio resta in m. Le schede senza
+    `sviluppo.udm:'cm'` hanno le misure in m e si convertono al caricamento.
 - Attivita' fisse: record di `cantieri_v1` con `fisso:true` (oggi Magazzino
   Giardinetti e Ricerca materiali). Sempre selezionabili nei rapportini, in
   fondo alla scelta, a prescindere da stato e `dataFine`. Non compaiono in
