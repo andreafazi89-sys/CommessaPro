@@ -127,6 +127,18 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
 .mese-leg{display:flex;flex-wrap:wrap;gap:10px;margin:10px 4px;font-size:11px;color:var(--muted);}
 .mese-leg span{display:inline-flex;align-items:center;gap:4px;}
 .mese-leg i{display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid var(--border);}
+.mese-pdf{display:block;width:100%;min-height:44px;margin:0 0 10px;background:var(--green-dim);color:var(--green);border:1px solid var(--green);border-radius:var(--r-sm);font-family:Epilogue,sans-serif;font-size:14px;font-weight:700;cursor:pointer;}
+/* Dove hanno lavorato: giorni in riga, operai in colonna */
+.dv-tab{font-size:12px;}
+.dv-tab th,.dv-tab td{padding:5px 8px;}
+.dv-tab .dv-gg{text-align:left;position:sticky;left:0;background:var(--surface);font-weight:600;color:var(--muted);z-index:1;}
+.dv-tab tr.dv-off td{background:var(--surface2);color:var(--muted);padding:2px 8px;}
+.dv-voce{line-height:1.5;}
+.dv-voce small{font-weight:400;margin-left:4px;opacity:.8;}
+.dv-tit{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin:14px 4px 6px;}
+.dv-elenco{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:4px 16px;margin:0 4px;font-size:13px;}
+.dv-elenco b{color:var(--brick);}
+.dv-elenco span{color:var(--muted);}
 /* Card aggregata (vista Tutti) */
 .agg-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;}
 .agg-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px;}
@@ -217,7 +229,7 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
 
 <div class="report-overlay" id="report-overlay">
   <div class="report-topbar">
-    <div class="rep-title">📄 Rapporto di Cantiere</div>
+    <div class="rep-title" id="rep-title">📄 Rapporto di Cantiere</div>
     <div class="rep-actions">
       <button class="rep-btn close" onclick="chiudiRapporto()">✕ Chiudi</button>
       <button class="rep-btn print" onclick="stampaRapporto()">🖨️ PDF</button>
@@ -567,7 +579,7 @@ function renderToggle(){
   const viste = [];
   if(isPrivilegiato() && puoCompilare()) viste.push(['miei', 'I miei rapporti']);
   if(isPrivilegiato()) viste.push(['tutti', 'Tutti i rapporti']);
-  if(vediRiepilogo()) viste.push(['mese', 'Riepilogo mese']);
+  if(vediRiepilogo()) viste.push(['mese', 'Riepilogo mese'], ['dove', 'Dove hanno lavorato']);
   if(viste.length < 2){
     bar.style.display = 'none';
     return;
@@ -589,6 +601,7 @@ function cambiaVista(v){
 function renderLista(){
   const el = g('lista-container');
   if(modVista === 'mese' && vediRiepilogo()){ renderRiepilogoMese(el); return; }
+  if(modVista === 'dove' && vediRiepilogo()){ renderDoveMese(el); return; }
   const tutti = getRapporti();
   const cpUser = getCpUser();
   const email = (cpUser.email || '').toLowerCase();
@@ -756,7 +769,8 @@ function cambiaMese(delta){
   meseRiepilogo = isoData(new Date(y, m - 1 + delta, 1)).slice(0, 7);
   renderLista();
 }
-function renderRiepilogoMese(el){
+// Dati del mese scelto, comuni a "Riepilogo mese" e "Dove hanno lavorato"
+function calcolaMese(){
   if(!meseRiepilogo) meseRiepilogo = isoData(new Date()).slice(0, 7);
   const [y, m] = meseRiepilogo.split('-').map(Number);
   const nGiorni = new Date(y, m, 0).getDate();
@@ -770,15 +784,17 @@ function renderRiepilogoMese(el){
     segna(nomeOperaio(r.operaio), r.data);
     (Array.isArray(r.colleghi) ? r.colleghi : []).forEach(c => segna(nomeOperaio(c), r.data));
   });
-  // Per ogni persona e giorno del mese: ore proprie e chi l'ha citata come collega
+  // Per ogni persona e giorno del mese: ore proprie, chi l'ha citata come collega
+  // e le voci (cantiere e ore) per sapere dove ha lavorato
   const celle = {};
-  const cella = (nome, data) => { celle[nome] = celle[nome] || {}; return celle[nome][data] = celle[nome][data] || {ore:0, oreCol:0, proprio:false, citatoDa:new Set()}; };
+  const cella = (nome, data) => { celle[nome] = celle[nome] || {}; return celle[nome][data] = celle[nome][data] || {ore:0, oreCol:0, proprio:false, citatoDa:new Set(), voci:[]}; };
   tutti.filter(r => (r.data || '').slice(0, 7) === meseRiepilogo).forEach(r => {
     const op = nomeOperaio(r.operaio);
-    if(op){ const c = cella(op, r.data); c.proprio = true; c.ore += parseFloat(r.ore) || 0; }
+    const ore = parseFloat(r.ore) || 0;
+    if(op){ const c = cella(op, r.data); c.proprio = true; c.ore += ore; c.voci.push({cantiereId:r.cantiereId, ore, col:false}); }
     (Array.isArray(r.colleghi) ? r.colleghi : []).forEach(n => {
       const nome = nomeOperaio(n);
-      if(nome && nome !== op){ const c = cella(nome, r.data); c.citatoDa.add(op || '?'); c.oreCol += parseFloat(r.ore) || 0; }
+      if(nome && nome !== op){ const c = cella(nome, r.data); c.citatoDa.add(op || '?'); c.oreCol += ore; c.voci.push({cantiereId:r.cantiereId, ore, col:true}); }
     });
   });
   const fineMese = meseRiepilogo + '-' + String(nGiorni).padStart(2, '0');
@@ -789,40 +805,160 @@ function renderRiepilogoMese(el){
   for(let d = 1; d <= nGiorni; d++){
     const dt = new Date(y, m - 1, d);
     const iso = isoData(dt);
-    giorni.push({d, iso, lav: dt.getDay() !== 0 && dt.getDay() !== 6 && !fest.has(iso), sett:'DLMMGVS'[dt.getDay()]});
+    giorni.push({d, iso, lav: dt.getDay() !== 0 && dt.getDay() !== 6 && !fest.has(iso), sett:'DLMMGVS'[dt.getDay()], gs:['dom','lun','mar','mer','gio','ven','sab'][dt.getDay()]});
   }
   const titolo = new Date(y, m - 1, 1).toLocaleDateString('it-IT', {month:'long', year:'numeric'});
-  const fmtOre = n => String(Math.round(n * 10) / 10).replace('.', ',');
-  const righe = persone.map(p => {
+  const ultimo = tutti.map(r => r.data || '').filter(d => d.slice(0, 7) === meseRiepilogo).sort().pop() || '';
+  return {celle, persone, giorni, primaVolta, oggi, titolo, ultimo};
+}
+const fmtOre = n => String(Math.round(n * 10) / 10).replace('.', ',');
+const dataItIso = iso => iso.split('-').reverse().join('/');
+
+// Tabella operai x giorni con le ore (usata a schermo e nel PDF)
+function tabellaOre(M){
+  const righe = M.persone.map(p => {
     let totOre = 0, mancanti = 0;
-    const tds = giorni.map(gi => {
-      const c = (celle[p] || {})[gi.iso];
-      const dataIt = gi.iso.split('-').reverse().join('/');
+    const tds = M.giorni.map(gi => {
+      const c = (M.celle[p] || {})[gi.iso];
+      const dataIt = dataItIso(gi.iso);
       if(c && c.proprio){ totOre += c.ore; return `<td class="mt-ok" title="${esc(p)} - ${dataIt}: ${fmtOre(c.ore)} ore">${fmtOre(c.ore)}</td>`; }
       if(c && c.citatoDa.size){ totOre += c.oreCol; return `<td class="mt-col" title="${esc(p)} - ${dataIt}: citato come collega da ${esc([...c.citatoDa].join(', '))}, ${fmtOre(c.oreCol)} ore del suo rapportino">${fmtOre(c.oreCol)}</td>`; }
       if(!gi.lav) return '<td class="mt-off"></td>';
-      if(gi.iso < oggi && gi.iso >= primaVolta[p]){ mancanti++; return `<td class="mt-manca" title="${esc(p)} - ${dataIt}: nessun rapportino"></td>`; }
+      if(gi.iso < M.oggi && gi.iso >= M.primaVolta[p]){ mancanti++; return `<td class="mt-manca" title="${esc(p)} - ${dataIt}: nessun rapportino"></td>`; }
       return '<td></td>';
     }).join('');
     return `<tr><td class="mt-nome">${esc(p)}</td>${tds}<td class="mt-tot">${fmtOre(totOre)}</td><td class="mt-tot">${mancanti || ''}</td></tr>`;
   }).join('');
-  el.innerHTML = `
-    <div class="mese-nav">
-      <button type="button" onclick="cambiaMese(-1)" aria-label="Mese precedente">‹</button>
-      <div class="mese-nav-txt">${titolo}</div>
-      <button type="button" onclick="cambiaMese(1)" aria-label="Mese successivo">›</button>
-    </div>
-    ${persone.length ? `<div class="mese-wrap"><table class="mese-tab">
-      <thead><tr><th class="mt-nome">Operaio</th>${giorni.map(gi => `<th class="${gi.lav ? '' : 'mt-off'}">${gi.sett}<br>${gi.d}</th>`).join('')}<th>Ore</th><th>Mancanti</th></tr></thead>
+  return `<table class="mese-tab">
+      <thead><tr><th class="mt-nome">Operaio</th>${M.giorni.map(gi => `<th class="${gi.lav ? '' : 'mt-off'}">${gi.sett}<br>${gi.d}</th>`).join('')}<th>Ore</th><th>Mancanti</th></tr></thead>
       <tbody>${righe}</tbody>
-    </table></div>
-    <div class="mese-leg">
+    </table>`;
+}
+function legendaOre(){
+  return `<div class="mese-leg">
       <span><i style="background:var(--green-dim)"></i>Ore dal suo rapportino</span>
       <span><i style="background:var(--sand-dim)"></i>Citato come collega (ore di chi l'ha citato)</span>
       <span><i style="background:rgba(212,81,30,0.35)"></i>Giorno lavorativo senza nulla</span>
       <span><i style="background:var(--surface2)"></i>Sabato, domenica, festivi</span>
-    </div>` : '<div class="empty-state"><div class="empty-sub">Nessun rapportino in questo mese</div></div>'}
-  `;
+    </div>`;
+}
+
+// Codice breve della commessa: solo il primo pezzo ("P0080/26 SCUOLA GERMANICA" -> "P0080/26").
+// Attivita' fisse e cantieri senza commessa: il titolo.
+function codiceCommessa(c){
+  if(!c) return '?';
+  const cod = (c.commessa || '').trim().split(/\s+/)[0];
+  return (c.fisso || !cod) ? (c.titolo || c.cliente || '?') : cod;
+}
+// Tabella giorni x operai con la commessa di ogni giornata (usata a schermo e nel PDF)
+function tabellaDove(M){
+  const cantieri = getCantieri();
+  const usati = new Map();
+  const righe = M.giorni.map(gi => {
+    const etich = `${gi.gs} ${dataItIso(gi.iso).slice(0, 5)}`;
+    const qualcosa = M.persone.some(p => (M.celle[p] || {})[gi.iso]);
+    if(!gi.lav && !qualcosa) return `<tr class="dv-off"><td class="dv-gg">${etich}</td>${M.persone.map(() => '<td></td>').join('')}</tr>`;
+    const tds = M.persone.map(p => {
+      const c = (M.celle[p] || {})[gi.iso];
+      if(!c || !c.voci.length){
+        return (gi.lav && gi.iso < M.oggi && gi.iso >= (M.primaVolta[p] || '9')) ? '<td class="mt-manca"></td>' : '<td></td>';
+      }
+      // Stessa commessa citata piu' volte nel giorno: una voce sola con le ore sommate
+      const perCant = new Map();
+      c.voci.forEach(v => {
+        const x = perCant.get(v.cantiereId) || {ore:0, col:true};
+        x.ore += v.ore; x.col = x.col && v.col;
+        perCant.set(v.cantiereId, x);
+      });
+      const voci = [...perCant].map(([id, x]) => {
+        const cant = cantieri.find(k => k.id === id);
+        const cod = codiceCommessa(cant);
+        if(cant) usati.set(cod, cant);
+        return `<div class="dv-voce"><b>${esc(cod)}</b>${perCant.size > 1 ? `<small>${fmtOre(x.ore)} h</small>` : ''}</div>`;
+      }).join('');
+      return `<td class="${c.proprio ? 'mt-ok' : 'mt-col'}">${voci}</td>`;
+    }).join('');
+    return `<tr><td class="dv-gg">${etich}</td>${tds}</tr>`;
+  }).join('');
+  const elenco = [...usati].sort((a, b) => a[0].localeCompare(b[0], 'it', {numeric:true}))
+    .map(([cod, c]) => `<div><b>${esc(cod)}</b> ${esc(c.fisso ? 'Attività fissa' : (c.titolo || ''))} <span>${esc((c.cliente || '').split(' - ')[0])}</span></div>`).join('');
+  return {
+    tab: `<table class="mese-tab dv-tab">
+      <thead><tr><th class="dv-gg">Giorno</th>${M.persone.map(p => `<th>${esc(p)}</th>`).join('')}</tr></thead>
+      <tbody>${righe}</tbody>
+    </table>`,
+    elenco: elenco ? `<div class="dv-tit">Commesse del mese</div><div class="dv-elenco">${elenco}</div>` : ''
+  };
+}
+function legendaDove(){
+  return `<div class="mese-leg">
+      <span><i style="background:var(--green-dim)"></i>Dal suo rapportino</span>
+      <span><i style="background:var(--sand-dim)"></i>Citato come collega</span>
+      <span><i style="background:rgba(212,81,30,0.35)"></i>Giorno lavorativo senza nulla</span>
+      <span>Ore indicate solo se nel giorno ci sono piu commesse</span>
+    </div>`;
+}
+
+function navMese(M, tipo){
+  return `<div class="mese-nav">
+      <button type="button" onclick="cambiaMese(-1)" aria-label="Mese precedente">‹</button>
+      <div class="mese-nav-txt">${M.titolo}</div>
+      <button type="button" onclick="cambiaMese(1)" aria-label="Mese successivo">›</button>
+    </div>
+    ${M.persone.length ? `<button type="button" class="mese-pdf" onclick="esportaMesePDF('${tipo}')">📄 Esporta PDF</button>` : ''}`;
+}
+const VUOTO_MESE = '<div class="empty-state"><div class="empty-sub">Nessun rapportino in questo mese</div></div>';
+
+function renderRiepilogoMese(el){
+  const M = calcolaMese();
+  el.innerHTML = navMese(M, 'ore') + (M.persone.length ? `<div class="mese-wrap">${tabellaOre(M)}</div>${legendaOre()}` : VUOTO_MESE);
+}
+function renderDoveMese(el){
+  const M = calcolaMese();
+  if(!M.persone.length){ el.innerHTML = navMese(M, 'dove') + VUOTO_MESE; return; }
+  const D = tabellaDove(M);
+  el.innerHTML = navMese(M, 'dove') + `<div class="mese-wrap">${D.tab}</div>${legendaDove()}${D.elenco}`;
+}
+
+// PDF del mese: stesso contenuto della scheda, su foglio bianco.
+// Presenze in A4 orizzontale, commesse in A4 verticale.
+function esportaMesePDF(tipo){
+  if(!vediRiepilogo()) return;
+  const M = calcolaMese();
+  const ore = tipo === 'ore';
+  const titolo = (ore ? 'Presenze operai' : 'Dove hanno lavorato gli operai') + ' - ' + M.titolo;
+  const D = ore ? null : tabellaDove(M);
+  const corpo = ore ? tabellaOre(M) + legendaOre() : D.tab + legendaDove() + D.elenco;
+  const oggiIt = new Date().toLocaleDateString('it-IT');
+  const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><title>${esc(titolo)}</title>
+<style>
+  @page { size: A4 ${ore ? 'landscape' : 'portrait'}; margin: 1cm; }
+  :root { --green-dim:#dcefe1; --sand-dim:#efe5da; --surface2:#e6e6e6; }
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { font-family: Arial, sans-serif; color: #000; background: #fff; margin: 0; padding: 10px; }
+  .fh { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 10px; }
+  .fh b { font-size: 15pt; } .fh span { font-size: 9pt; color: #444; }
+  table { width: 100%; border-collapse: collapse; font-size: ${ore ? '8pt' : '9pt'}; }
+  th, td { border: 1px solid #777; padding: ${ore ? '2px 1px' : '2px 4px'}; text-align: center; white-space: nowrap; }
+  th { background: #eee; font-weight: bold; }
+  .mt-nome, .dv-gg { text-align: left; font-weight: bold; }
+  .mt-ok { background: #dcefe1; font-weight: bold; } .mt-col { background: #efe5da; font-weight: bold; }
+  .mt-manca { background: #f6c9b6; } .mt-off, .dv-off td { background: #e6e6e6; color: #555; }
+  .mt-tot { font-weight: bold; }
+  .dv-voce small { font-weight: normal; margin-left: 4px; }
+  .mese-leg { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; font-size: 8pt; color: #333; }
+  .mese-leg i { display: inline-block; width: 10px; height: 10px; border: 1px solid #999; margin-right: 4px; vertical-align: -1px; }
+  .dv-tit { font-weight: bold; font-size: 10pt; margin-top: 12px; }
+  .dv-elenco { columns: 2; font-size: 8pt; margin-top: 4px; } .dv-elenco div { break-inside: avoid; margin-bottom: 2px; }
+  .dv-elenco span { color: #555; }
+  .pie { margin-top: 10px; font-size: 7pt; color: #666; text-align: right; }
+</style></head><body>
+<div class="fh"><b>${esc(titolo)}</b><span>${M.ultimo ? 'Rapportini fino al ' + dataItIso(M.ultimo) : ''}</span></div>
+${corpo}
+<div class="pie">Generato da CommessaPro il ${oggiIt}</div>
+</body></html>`;
+  const clean = s => (s || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+  mostraPDFOverlay(html, (ore ? 'Presenze_' : 'Commesse_operai_') + clean(meseRiepilogo), ore ? 'Presenze operai' : 'Dove hanno lavorato');
 }
 function tornaLista(){
   renderToggle();
@@ -1184,7 +1320,8 @@ function renderPDFHtml({operai, subs, dataFmt, nomeCantiere, firma, totOre, comm
 }
 
 // Mostra il PDF HTML nell'overlay e imposta il nome file suggerito
-function mostraPDFOverlay(html, filename){
+function mostraPDFOverlay(html, filename, titolo){
+  g('rep-title').textContent = '📄 ' + (titolo || 'Rapporto di Cantiere');
   const frame = g('report-frame');
   const overlay = g('report-overlay');
   overlay.classList.add('show');

@@ -54,6 +54,37 @@ textarea{resize:none;min-height:80px;line-height:1.6;}
 .g-c-pdf:active{transform:scale(0.95);}
 .det-link{display:flex;gap:8px;margin-top:12px;}
 .det-link a{flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r-sm);color:var(--white);font-size:14px;font-weight:600;text-decoration:none;}
+.g-c-col{font-size:12px;color:var(--sand);margin-top:2px;}
+.vuoto{font-size:13px;color:var(--muted);padding:4px 0;}
+/* Riepilogo ore del cantiere */
+.ore-tot{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;}
+.ore-tot div{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 6px;text-align:center;}
+.ore-tot b{display:block;font-family:'Syne',sans-serif;font-size:22px;color:var(--brick);}
+.ore-tot span{font-size:12px;color:var(--muted);}
+.ore-op{display:flex;flex-direction:column;gap:10px;margin-bottom:12px;}
+.ore-op-riga{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:center;font-size:13px;}
+.ore-op-nome{font-weight:600;}
+.ore-op-h{font-weight:700;text-align:right;}
+.ore-op-h small{font-weight:400;color:var(--muted);margin-left:6px;font-size:12px;}
+.ore-bar{grid-column:1/-1;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;}
+.ore-bar i{display:block;height:100%;background:var(--brick);border-radius:3px;}
+.ore-mese{display:grid;grid-template-columns:1fr auto auto;gap:12px;padding:8px 12px;border-top:1px solid var(--border);font-size:13px;}
+.ore-mese span:first-child{text-transform:capitalize;}
+.ore-mese span:not(:first-child){color:var(--muted);text-align:right;}
+/* Gruppi apribili: mesi e giornate */
+.grp{border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);margin-bottom:8px;}
+.grp:last-child{margin-bottom:0;}
+.grp summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;min-height:44px;padding:8px 12px;font-size:14px;font-weight:600;}
+.grp summary::-webkit-details-marker{display:none;}
+.grp summary::after{content:"›";font-size:20px;color:var(--muted);transition:transform .15s;}
+.grp[open]>summary::after,.grp-g[open]>summary::after{transform:rotate(90deg);}
+.grp-r{margin-left:auto;font-weight:400;font-size:13px;color:var(--muted);text-align:right;}
+.grp-mese{text-transform:capitalize;}
+.grp-g{border-top:1px solid var(--border);}
+.grp-g summary{font-weight:500;font-size:13px;}
+.grp-g .grp-r{font-size:12px;}
+.grp-det{padding:0 12px 10px;}
+.grp-det .g-contributi{margin-top:0;border-top:none;padding-top:0;}
 .g-sub-line{font-size:12px;color:var(--sand);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
 .bottom-bar{position:fixed;bottom:0;left:0;right:0;padding:12px 16px;padding-bottom:max(12px,env(safe-area-inset-bottom));background:linear-gradient(to top,var(--bg) 70%,transparent);z-index:100;}
 .btn-main{width:100%;padding:16px;background:var(--green);color:#fff;border:none;border-radius:var(--r);font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;-webkit-appearance:none;}
@@ -109,6 +140,13 @@ textarea{resize:none;min-height:80px;line-height:1.6;}
     </div>
 
     <div class="section">
+      <div class="sec-title"><div class="sec-icon">⏱</div>Ore lavorate
+        <span style="margin-left:auto;font-size:12px;color:var(--muted);font-family:Epilogue,sans-serif;text-transform:none;letter-spacing:0;font-weight:400">dai rapportini</span>
+      </div>
+      <div id="ore-riep"></div>
+    </div>
+
+    <div class="section">
       <div class="sec-title"><div class="sec-icon">📋</div>Diario lavori
         <span id="tot-giorni" style="margin-left:auto;font-size:12px;color:var(--muted);font-family:Epilogue,sans-serif;text-transform:none;letter-spacing:0;font-weight:400"></span>
       </div>
@@ -128,7 +166,9 @@ textarea{resize:none;min-height:80px;line-height:1.6;}
 // ── GUARD AUTH: gira prima di qualsiasi lettura dati o render ──
 (function(){
   let u=null; try{u=JSON.parse(localStorage.getItem('cp_user'))||null;}catch{}
-  if(!u||!u.email) window.location.replace('login.html');
+  if(!u||!u.email){ window.location.replace('login.html'); return; }
+  // Gli operai non usano la scheda Cantiere: meno distrazioni, solo i rapportini
+  if(!['admin','direzione','ufficio'].includes((u.ruolo||'').toLowerCase())) window.location.replace('index.html');
 })();
 
 // ── SUPABASE ──
@@ -394,41 +434,108 @@ function aggiornaBottoni(){
 function tornaLista(){showView('lista');renderLista();}
 function salvaCantiere(){ return salvaRecord(CANT_KEY,[currentCant]); }
 
+// Vecchio nome di Mihai Poveste, ancora presente nei rapportini salvati prima della correzione
+const ALIAS_OPERAI = {'Michele Poveste':'Mihai Poveste'};
+function nomeOperaio(n){ const t = (n || '').trim(); return ALIAS_OPERAI[t] || t; }
+function esc(t){ return String(t ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+const fmtOre = n => String(Math.round(n * 10) / 10).replace('.', ',');
+const nomeMese = ym => { const [y, m] = ym.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('it-IT', {month:'long', year:'numeric'}); };
+// Persone di un rapportino: chi l'ha compilato piu' i colleghi citati, ognuno con le ore intere
+function personeRapporto(r){
+  const op = nomeOperaio(r.operaio);
+  const col = (Array.isArray(r.colleghi) ? r.colleghi : []).map(nomeOperaio).filter(n => n && n !== op);
+  return [...new Set([op, ...col].filter(Boolean))];
+}
+
+// Riepilogo ore del cantiere, sempre ricalcolato dai rapportini
+function renderOre(){
+  const el = g('ore-riep');
+  const rpt = getRapportiCantiere(currentCant.id);
+  if(!rpt.length){ el.innerHTML = '<div class="vuoto">Nessun rapportino su questo cantiere</div>'; return; }
+  const perOp = {}, perMese = {};
+  let tot = 0;
+  rpt.forEach(r => {
+    const ore = parseFloat(r.ore) || 0;
+    const ym = (r.data || '').slice(0, 7);
+    personeRapporto(r).forEach(p => {
+      const x = perOp[p] = perOp[p] || {ore:0, giorni:new Set()};
+      x.ore += ore; x.giorni.add(r.data);
+      const m = perMese[ym] = perMese[ym] || {ore:0, giorni:new Set()};
+      m.ore += ore; m.giorni.add(r.data);
+      tot += ore;
+    });
+  });
+  const giorni = new Set(rpt.map(r => r.data)).size;
+  const ops = Object.entries(perOp).sort((a, b) => b[1].ore - a[1].ore || a[0].localeCompare(b[0], 'it'));
+  const max = ops[0][1].ore || 1;
+  const mesi = Object.keys(perMese).sort().reverse();
+  el.innerHTML = `
+    <div class="ore-tot">
+      <div><b>${fmtOre(tot)}</b><span>ore totali</span></div>
+      <div><b>${giorni}</b><span>${giorni === 1 ? 'giornata' : 'giornate'}</span></div>
+      <div><b>${ops.length}</b><span>${ops.length === 1 ? 'operaio' : 'operai'}</span></div>
+    </div>
+    <div class="ore-op">${ops.map(([n, x]) => `
+      <div class="ore-op-riga">
+        <span class="ore-op-nome">${esc(n)}</span>
+        <span class="ore-op-h">${fmtOre(x.ore)} h<small>${x.giorni.size} gg</small></span>
+        <div class="ore-bar"><i style="width:${Math.round(x.ore / max * 100)}%"></i></div>
+      </div>`).join('')}
+    </div>
+    <details class="grp">
+      <summary>Ore per mese<span class="grp-r">${mesi.length} ${mesi.length === 1 ? 'mese' : 'mesi'}</span></summary>
+      ${mesi.map(m => `<div class="ore-mese"><span>${nomeMese(m)}</span><span>${perMese[m].giorni.size} gg</span><span>${fmtOre(perMese[m].ore)} h</span></div>`).join('')}
+    </details>`;
+}
+
+// Diario raggruppato per mese, tutto chiuso: si apre il mese, poi la giornata
 function renderDiario(){
+  renderOre();
   const el = g('diario-list');
   const giornate = getGiornateCantiere(currentCant.id);
   const tot = giornate.length;
   g('tot-giorni').textContent = tot + (tot === 1 ? ' giornata' : ' giornate');
   if(!giornate.length){
-    el.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:4px 0">Nessuna giornata registrata</div>';
+    el.innerHTML = '<div class="vuoto">Nessuna giornata registrata</div>';
     return;
   }
-  el.innerHTML = giornate.map((gr, idx) => {
-    const d = new Date(gr.data + 'T12:00:00').toLocaleDateString('it-IT',{day:'2-digit',month:'short',year:'numeric'});
-    // Riga per ogni contributo individuale (con bottone 📥 rapportino personale)
-    const righe = gr.record.map(r => `
-      <div class="g-contributo">
-        <div class="g-c-nome">${r.operaio || '—'} <span class="g-c-ore">${r.ore}h</span></div>
-        ${r.descrizione ? `<div class="g-c-desc">${r.descrizione}</div>` : ''}
-        ${r._migrato ? '<div class="g-c-mig">[migrato]</div>' : ''}
-        <div class="g-c-actions">
-          <a class="g-c-pdf" href="rapporto.html?pdf=${r.id}" target="_blank" title="Scarica rapportino di ${r.operaio}">📥</a>
-        </div>
-      </div>
-    `).join('');
-    const subs = [...new Set(gr.record.map(r => r.subappaltatori).filter(Boolean))].join(' · ');
-    return `
-      <div class="giornata-card">
-        <div class="g-header">
-          <div>
-            <div class="g-data">${d}</div>
-            <div class="g-ore">${gr.totOre}h totali · ${gr.numOperai} ${gr.numOperai===1?'operaio':'operai'}</div>
+  const perMese = {};
+  giornate.forEach(gr => (perMese[gr.data.slice(0, 7)] = perMese[gr.data.slice(0, 7)] || []).push(gr));
+  el.innerHTML = Object.keys(perMese).sort().reverse().map(ym => {
+    const gg = perMese[ym];
+    const oreMese = gg.reduce((s, gr) => s + gr.record.reduce((t, r) => t + (parseFloat(r.ore) || 0) * personeRapporto(r).length, 0), 0);
+    const giorniHtml = gg.map(gr => {
+      const persone = new Set(gr.record.flatMap(personeRapporto));
+      const oreGiorno = gr.record.reduce((t, r) => t + (parseFloat(r.ore) || 0) * personeRapporto(r).length, 0);
+      // Riga per ogni contributo individuale (con bottone 📥 rapportino personale)
+      const righe = gr.record.map(r => {
+        const col = personeRapporto(r).slice(1);
+        return `
+        <div class="g-contributo">
+          <div class="g-c-nome">${esc(nomeOperaio(r.operaio) || '—')} <span class="g-c-ore">${fmtOre(parseFloat(r.ore) || 0)}h</span></div>
+          ${col.length ? `<div class="g-c-col">con ${esc(col.join(', '))}</div>` : ''}
+          ${r.descrizione ? `<div class="g-c-desc">${esc(r.descrizione)}</div>` : ''}
+          ${r._migrato ? '<div class="g-c-mig">[migrato]</div>' : ''}
+          <div class="g-c-actions">
+            <a class="g-c-pdf" href="rapporto.html?pdf=${encodeURIComponent(r.id)}" target="_blank" title="Scarica rapportino di ${esc(r.operaio)}">📥</a>
           </div>
-        </div>
-        <div class="g-contributi">${righe}</div>
-        ${subs ? `<div class="g-sub-line">🛠 Sub: ${subs}</div>` : ''}
-      </div>
-    `;
+        </div>`;
+      }).join('');
+      const subs = [...new Set(gr.record.map(r => r.subappaltatori).filter(Boolean))].join(' · ');
+      return `
+        <details class="grp-g">
+          <summary>${dataIt(gr.data)}<span class="grp-r">${fmtOre(oreGiorno)} h · ${persone.size} ${persone.size === 1 ? 'operaio' : 'operai'}</span></summary>
+          <div class="grp-det">
+            <div class="g-contributi">${righe}</div>
+            ${subs ? `<div class="g-sub-line">🛠 Sub: ${esc(subs)}</div>` : ''}
+          </div>
+        </details>`;
+    }).join('');
+    return `
+      <details class="grp">
+        <summary><span class="grp-mese">${nomeMese(ym)}</span><span class="grp-r">${gg.length} ${gg.length === 1 ? 'giornata' : 'giornate'} · ${fmtOre(oreMese)} h</span></summary>
+        <div class="grp-giorni">${giorniHtml}</div>
+      </details>`;
   }).join('');
 }
 
