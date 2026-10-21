@@ -321,7 +321,17 @@ function campiRifiuti(){
   ];
 }
 function campiFornitura(){
-  const zone = st.lav.map(l => l.vals[l.k + '_zona'] || M[l.k].nome).concat(['Generale']);
+  // Una scelta per lavorazione: "Tipo - zona", numerata se due coincidono
+  const zone = [];
+  st.lav.forEach(l => {
+    const base = M[l.k].nome + (l.vals[l.k + '_zona'] ? ' - ' + l.vals[l.k + '_zona'] : '');
+    let et = base, n = 2;
+    while (zone.includes(et)) et = base + ' (' + n++ + ')';
+    zone.push(et);
+  });
+  zone.push('Generale');
+  // Le forniture salvate prima restano scelte anche se l'etichetta non c'e' piu'
+  if (bozza && bozza.sel.f_lav && !zone.includes(bozza.sel.f_lav)) zone.unshift(bozza.sel.f_lav);
   return [
     text('f_descr', 'Cosa serve', 'es. chiusino zincato 60x60'),
     num('f_q', 'Quantità', '', '1'),
