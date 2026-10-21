@@ -72,6 +72,10 @@ input[type="file"]{display:none;}
 .rep-btn.close{background:rgba(255,255,255,.1);color:#fff;}
 .rep-btn.print{background:var(--brick);color:#fff;}
 .report-frame{flex:1;border:none;width:100%;}
+.rep-opzioni{display:none;gap:18px;padding:8px 16px;background:#2A241E;color:#fff;font-size:13px;flex-shrink:0;}
+.rep-opzioni label{display:flex;align-items:center;gap:8px;min-height:40px;cursor:pointer;font-size:13px;text-transform:none;letter-spacing:0;color:#fff;margin:0;}
+.rep-opzioni input{width:20px;height:20px;accent-color:var(--brick);}
+.rep-btn:disabled{opacity:.6;}
 .sketch-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:999;background:#1A1612;display:none;flex-direction:column;}
 .sketch-overlay.show{display:flex;}
 .sketch-topbar{padding:10px 12px;display:flex;align-items:center;gap:8px;flex-shrink:0;}
@@ -224,7 +228,8 @@ input[type="file"]{display:none;}
   <div class="bottom-bar">
     <div class="btn-row">
       <button class="btn-sec" onclick="avvisaSegretariaSopralluogo()">📱 Apri commessa</button>
-      <button class="btn-sec" onclick="generaReport()" style="flex:2">📄 Genera Report</button>
+      <button class="btn-sec" onclick="generaReport('completo')">📄 Report</button>
+      <button class="btn-sec" onclick="generaReport('note')">📝 Solo note</button>
     </div>
     <button class="btn-main" id="btn-sviluppa" onclick="sviluppaSopralluogo()" style="display:none">📐 Sviluppa sopralluogo (fase 2)</button>
     <button class="btn-main green" id="btn-avvia" onclick="avviaCantiere()">🏗️ Avvia Cantiere</button>
@@ -233,11 +238,15 @@ input[type="file"]{display:none;}
 
 <div class="report-overlay" id="report-overlay">
   <div class="report-topbar">
-    <div class="rep-title">📄 Report Sopralluogo</div>
+    <div class="rep-title" id="rep-title">📄 Report Sopralluogo</div>
     <div class="rep-actions">
       <button class="rep-btn close" onclick="chiudiReport()">✕ Chiudi</button>
-      <button class="rep-btn print" onclick="document.getElementById('report-frame').contentWindow.print()">🖨️ PDF</button>
+      <button class="rep-btn print" id="rep-pdf" onclick="esportaPdf()">⬇️ PDF</button>
     </div>
+  </div>
+  <div class="rep-opzioni" id="rep-opzioni">
+    <label><input type="checkbox" id="rep-ind" onchange="aggiornaAnteprima()"> Indirizzo cantiere</label>
+    <label><input type="checkbox" id="rep-foto" checked onchange="aggiornaAnteprima()"> Foto</label>
   </div>
   <iframe id="report-frame" class="report-frame"></iframe>
 </div>
@@ -1119,56 +1128,252 @@ function copiaTesto(){
 }
 
 // ── GENERA REPORT ──
-function generaReport(){
-  const cliente=gv('fc'),indirizzo=gv('fi');
-  if(!cliente||!indirizzo){toast('Inserisci nome cliente e indirizzo','err');return;}
-  const data=gv('f-data')?new Date(gv('f-data')).toLocaleDateString('it-IT'):new Date().toLocaleDateString('it-IT');
-  const resp=gv('f-resp')||'—';
-  const rec=recordCorrente(), ambienti=rec.ambienti||[];
-  const rigaInfo=(l,v)=>v?`<tr><td>${l}</td><td>${v}</td></tr>`:'';
-  const ambHtml=ambienti.length?`<table style="width:100%;border-collapse:collapse">
-    <tr><th style="text-align:left;padding:5px 10px;background:#F5F0E8;font-size:11px;color:#6B6258">Ambiente</th><th style="text-align:right;padding:5px 10px;background:#F5F0E8;font-size:11px;color:#6B6258">mq</th></tr>
-    ${ambienti.map(a=>`<tr><td style="padding:7px 10px;border-top:1px solid #E8E2D9;font-size:13px">${a.nome||'—'}</td><td style="padding:7px 10px;border-top:1px solid #E8E2D9;font-size:13px;text-align:right;font-weight:600">${a.mq||'—'}</td></tr>`).join('')}</table>`:null;
+// Due versioni dallo stesso sopralluogo: 'completo' (con cliente e firme) e
+// 'note' (solo lavorazioni, note e foto, senza dati del cliente: da inviare
+// a fornitori e subappaltatori). Il PDF si crea nel browser con jsPDF, non con
+// la stampa: cosi' non compaiono l'indirizzo della pagina e la data del browser.
+let reportTipo = 'completo';
 
-  const COLS=2;
-  let fotoRows='<table style="width:100%;border-collapse:separate;border-spacing:4mm 3mm">';
-  for(let i=0;i<foto.length;i+=COLS){
-    fotoRows+='<tr style="break-inside:avoid;page-break-inside:avoid">';
-    for(let j=0;j<COLS;j++){
-      const f=foto[i+j];
-      fotoRows+=f?`<td style="vertical-align:top;padding:0;text-align:center;width:50%;break-inside:avoid;page-break-inside:avoid"><div style="font-size:7px;color:#9C9088;margin-bottom:2px;font-weight:700;letter-spacing:1px;text-align:center">FOTO ${i+j+1}</div><img src="${f.url}" style="width:100%;max-height:62mm;object-fit:cover;border-radius:4px;border:1px solid #E8E2D9;display:block"></td>`:'<td style="width:50%"></td>';
-    }
-    fotoRows+='</tr>';
+function generaReport(tipo){
+  reportTipo = tipo==='note' ? 'note' : 'completo';
+  if(reportTipo==='completo' && (!gv('fc')||!gv('fi'))){toast('Inserisci nome cliente e indirizzo','err');return;}
+  if(reportTipo==='note' && !gv('fl') && !gv('fn')){toast('Scrivi lavorazioni o note prima del PDF','err');return;}
+  g('rep-title').textContent = reportTipo==='note' ? '📄 Note sopralluogo' : '📄 Report Sopralluogo';
+  g('rep-opzioni').style.display = reportTipo==='note' ? 'flex' : 'none';
+  g('report-overlay').classList.add('show');
+  aggiornaAnteprima();
+}
+
+// Contenuto del report, uguale per anteprima e PDF.
+function datiReport(){
+  const note = reportTipo==='note';
+  const data = gv('f-data')?new Date(gv('f-data')).toLocaleDateString('it-IT'):new Date().toLocaleDateString('it-IT');
+  const resp = gv('f-resp');
+  const rec = recordCorrente();
+  const sezioni = [];
+  if(!note){
+    sezioni.push({titolo:'Cliente', righe:[['Cliente',gv('fc')],['Telefono',gv('ft')||'-'],['Email',gv('fe')||'-']]});
+    sezioni.push({titolo:'Cantiere', righe:[['Indirizzo',gv('fi')],['Piano',rec.piano],['Superficie',rec.mq?rec.mq+' mq':''],['Accesso',rec.accesso]].filter(r=>r[1])});
+    if((rec.ambienti||[]).length) sezioni.push({titolo:'Misure per ambiente', ambienti:rec.ambienti});
+  } else if(g('rep-ind').checked && gv('fi')){
+    sezioni.push({titolo:'Cantiere', righe:[['Indirizzo',gv('fi')]]});
   }
-  fotoRows+='</table>';
+  sezioni.push({titolo:'Lavorazioni richieste', testo:gv('fl')||'-'});
+  if(gv('fn')) sezioni.push({titolo:note?'Note':'Note aggiuntive', testo:gv('fn')});
+  if(!note && noteVocali.length) sezioni.push({titolo:`Note vocali (${noteVocali.length})`, audio:noteVocali, soloAnteprima:true});
+  const conFoto = !note || g('rep-foto').checked;
+  if(conFoto && foto.length) sezioni.push({titolo:`Foto (${foto.length})`, foto:foto.filter(f=>f.url)});
+  const dataFile = data.replace(/\//g,'-');
+  return {
+    intestazione: note ? 'NOTE DI SOPRALLUOGO' : 'REPORT DI SOPRALLUOGO',
+    sottotitolo: gv('f-titolo'),
+    info: `Data: ${data}`+(resp?` · Responsabile: ${resp}`:''),
+    sezioni,
+    firme: note ? null : [[resp,'Responsabile sopralluogo'],[gv('fc'),'Cliente - presa visione']],
+    // Nel nome del file delle note niente commessa: spesso e' il nome del cliente.
+    nomeFile: note ? `Note_sopralluogo_${dataFile}.pdf`
+                   : `Sopralluogo_${(gv('f-commessa')||'senza_commessa').replace(/[^\w\-]+/g,'_')}_${dataFile}.pdf`,
+    titoloDoc: note ? 'Note di sopralluogo' : 'Report di sopralluogo'
+  };
+}
 
-  const audioHtml=noteVocali.length?noteVocali.map((n,i)=>{
-    const m=Math.floor(n.dur/60),s=(n.dur%60).toString().padStart(2,'0');
-    return `<div style="display:flex;align-items:center;gap:10px;padding:8px;background:#F5F0E8;border-radius:6px;margin-bottom:6px">
-      <span style="font-size:12px;font-weight:600;color:#6B6258;min-width:70px">Nota ${i+1} (${m}:${s})</span>
-      <audio controls style="flex:1;height:32px" src="${n.b64}"></audio>
-    </div>`;}).join(''):'';
-
-  const html=`<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sopralluogo — ${cliente}</title>
-<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:#fff;color:#1A1612;padding:12px 16px;max-width:720px;margin:0 auto;font-size:13px;}.hdr{border-bottom:3px solid #D4511E;padding-bottom:10px;margin-bottom:14px;}.ttl{font-size:19px;font-weight:700;}.sub{font-size:11px;color:#9C9088;margin-top:2px;}.sec{margin-bottom:10px;}.stitle{font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#D4511E;border-bottom:1px solid #E8E2D9;padding-bottom:3px;margin-bottom:6px;break-after:avoid;page-break-after:avoid;}table.info{width:100%;border-collapse:collapse;}table.info td{padding:6px 8px;border:1px solid #E8E2D9;font-size:12px;vertical-align:top;}table.info td:first-child{background:#F5F0E8;font-weight:600;color:#6B6258;width:28%;}.btext{font-size:12px;line-height:1.7;white-space:pre-wrap;}.firma-box{margin-top:8mm;padding-top:10px;border-top:1px solid #E8E2D9;display:grid;grid-template-columns:1fr 1fr;gap:16px;page-break-inside:avoid;break-inside:avoid;break-before:auto;page-break-before:auto;}.fl{font-size:10px;color:#9C9088;}.fl strong{display:block;font-size:12px;color:#1A1612;margin-bottom:12px;}.fline{border-bottom:1px solid #ccc;height:16px;margin-top:3px;}.foto-sec{break-before:auto;page-break-before:auto;}@page{margin:12mm;}@media print{body{padding:0;max-width:none;}audio{display:none;}.firma-box{page-break-inside:avoid;break-inside:avoid;}}</style></head><body>
-<div class="hdr"><div class="ttl">REPORT DI SOPRALLUOGO</div><div class="sub">${gv('f-titolo')||''}</div><div class="sub">Data: ${data} &middot; Responsabile: ${resp}</div></div>
-<div class="sec"><div class="stitle">👤 Cliente</div><table class="info"><tr><td>Cliente</td><td>${cliente}</td></tr><tr><td>Telefono</td><td>${gv('ft')||'—'}</td></tr><tr><td>Email</td><td>${gv('fe')||'—'}</td></tr></table></div>
-<div class="sec"><div class="stitle">📍 Cantiere</div><table class="info"><tr><td>Indirizzo</td><td>${indirizzo}</td></tr>${rigaInfo('Piano',rec.piano)}${rigaInfo('Superficie',rec.mq?rec.mq+' mq':'')}${rigaInfo('Accesso',rec.accesso)}</table></div>
-${ambHtml?`<div class="sec"><div class="stitle">📐 Misure per ambiente</div>${ambHtml}</div>`:''}
-<div class="sec"><div class="stitle">🔨 Lavorazioni richieste</div><div class="btext">${gv('fl')||'—'}</div></div>
-${gv('fn')?`<div class="sec"><div class="stitle">📝 Note aggiuntive</div><div class="btext">${gv('fn')}</div></div>`:''}
-${audioHtml?`<div class="sec"><div class="stitle">🎙️ Note vocali (${noteVocali.length})</div>${audioHtml}</div>`:''}
-${foto.length?`<div class="sec foto-sec"><div class="stitle">📷 Foto (${foto.length})</div>${fotoRows}</div>`:''}
-<div class="firma-box"><div class="fl"><strong>${resp}</strong><div>Responsabile sopralluogo</div><div class="fline"></div><div style="margin-top:3px">Firma</div></div><div class="fl"><strong>${cliente}</strong><div>Cliente — presa visione</div><div class="fline"></div><div style="margin-top:3px">Firma</div></div></div>
-
+function aggiornaAnteprima(){
+  const d = datiReport();
+  const COLS = 2;
+  const fotoHtml = lista => {
+    let h = '<table style="width:100%;border-collapse:separate;border-spacing:4mm 3mm">';
+    for(let i=0;i<lista.length;i+=COLS){
+      h += '<tr>';
+      for(let j=0;j<COLS;j++){
+        const f = lista[i+j];
+        h += f?`<td style="vertical-align:top;padding:0;text-align:center;width:50%"><div style="font-size:7px;color:#9C9088;margin-bottom:2px;font-weight:700;letter-spacing:1px">FOTO ${i+j+1}</div><img src="${esc(f.url)}" style="width:100%;max-height:62mm;object-fit:contain;border-radius:4px;border:1px solid #E8E2D9;display:block"></td>`:'<td style="width:50%"></td>';
+      }
+      h += '</tr>';
+    }
+    return h + '</table>';
+  };
+  const corpo = s => {
+    if(s.righe) return `<table class="info">${s.righe.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join('')}</table>`;
+    if(s.ambienti) return `<table class="info"><tr><td>Ambiente</td><td style="text-align:right;font-weight:600;background:#F5F0E8;color:#6B6258">mq</td></tr>${s.ambienti.map(a=>`<tr><td style="background:#fff;font-weight:400;color:#1A1612">${esc(a.nome||'-')}</td><td style="text-align:right;font-weight:600">${esc(a.mq||'-')}</td></tr>`).join('')}</table>`;
+    if(s.testo!=null) return `<div class="btext">${esc(s.testo)}</div>`;
+    if(s.audio) return s.audio.map((n,i)=>{
+      const m=Math.floor(n.dur/60),sec=(n.dur%60).toString().padStart(2,'0');
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px;background:#F5F0E8;border-radius:6px;margin-bottom:6px"><span style="font-size:12px;font-weight:600;color:#6B6258;min-width:70px">Nota ${i+1} (${m}:${sec})</span><audio controls style="flex:1;height:32px" src="${n.b64}"></audio></div>`;
+    }).join('') + '<div style="font-size:10px;color:#9C9088">Le note vocali non vanno nel PDF.</div>';
+    if(s.foto) return fotoHtml(s.foto);
+    return '';
+  };
+  const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(d.titoloDoc)}</title>
+<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:#fff;color:#1A1612;padding:12px 16px;max-width:720px;margin:0 auto;font-size:13px;}.hdr{border-bottom:3px solid #D4511E;padding-bottom:10px;margin-bottom:14px;}.ttl{font-size:19px;font-weight:700;}.sub{font-size:12px;color:#9C9088;margin-top:2px;}.sec{margin-bottom:10px;}.stitle{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#D4511E;border-bottom:1px solid #E8E2D9;padding-bottom:3px;margin-bottom:6px;}table.info{width:100%;border-collapse:collapse;}table.info td{padding:6px 8px;border:1px solid #E8E2D9;font-size:12px;vertical-align:top;}table.info td:first-child{background:#F5F0E8;font-weight:600;color:#6B6258;width:28%;}.btext{font-size:12px;line-height:1.7;white-space:pre-wrap;}.firma-box{margin-top:8mm;padding-top:10px;border-top:1px solid #E8E2D9;display:grid;grid-template-columns:1fr 1fr;gap:16px;}.fl{font-size:12px;color:#9C9088;}.fl strong{display:block;font-size:12px;color:#1A1612;margin-bottom:12px;}.fline{border-bottom:1px solid #ccc;height:16px;margin-top:3px;}</style></head><body>
+<div class="hdr"><div class="ttl">${d.intestazione}</div>${d.sottotitolo?`<div class="sub">${esc(d.sottotitolo)}</div>`:''}<div class="sub">${esc(d.info)}</div></div>
+${d.sezioni.map(s=>`<div class="sec"><div class="stitle">${esc(s.titolo)}</div>${corpo(s)}</div>`).join('')}
+${d.firme?`<div class="firma-box">${d.firme.map(f=>`<div class="fl"><strong>${esc(f[0])||'&nbsp;'}</strong><div>${esc(f[1])}</div><div class="fline"></div><div style="margin-top:3px">Firma</div></div>`).join('')}</div>`:''}
 </body></html>`;
-
-  const frame=g('report-frame'); const overlay=g('report-overlay'); overlay.classList.add('show');
-  const doc=frame.contentDocument||frame.contentWindow.document;
+  const doc = g('report-frame').contentDocument || g('report-frame').contentWindow.document;
   doc.open(); doc.write(html); doc.close();
 }
 
 function chiudiReport(){ g('report-overlay').classList.remove('show'); }
+
+// jsPDF si carica solo quando serve (non pesa sull'apertura della pagina).
+let jspdfPromise = null;
+function caricaJsPDF(){
+  if(window.jspdf) return Promise.resolve();
+  if(!jspdfPromise) jspdfPromise = new Promise((ok,ko)=>{
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/jspdf@4.2.1/dist/jspdf.umd.min.js';
+    s.integrity = 'sha384-qovJwSBbRDPP5cEjCp8S0UP66wrvnjaa60XMOGzTNanrThcrGfXfnZkvgY8N1KT3';
+    s.crossOrigin = 'anonymous';
+    s.onload = ()=>ok();
+    s.onerror = ()=>{ jspdfPromise = null; ko(new Error('jsPDF non caricato')); };
+    document.head.appendChild(s);
+  });
+  return jspdfPromise;
+}
+
+// Scarica la foto e la riduce (max 1600 px, JPEG): il PDF resta leggero da inviare.
+async function fotoPerPdf(url){
+  const blob = await (await fetch(url)).blob();
+  const src = URL.createObjectURL(blob);
+  try{
+    const img = await new Promise((ok,ko)=>{ const i=new Image(); i.onload=()=>ok(i); i.onerror=ko; i.src=src; });
+    const k = Math.min(1, 1600/Math.max(img.naturalWidth,img.naturalHeight));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.naturalWidth*k); c.height = Math.round(img.naturalHeight*k);
+    const ctx = c.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,c.width,c.height);
+    ctx.drawImage(img,0,0,c.width,c.height);
+    return {data:c.toDataURL('image/jpeg',0.82), w:c.width, h:c.height};
+  } finally { URL.revokeObjectURL(src); }
+}
+
+// I font standard del PDF non hanno emoji e alcuni simboli: li sostituisco.
+function testoPdf(t){
+  return String(t??'')
+    .replace(/[‘’‛]/g,"'").replace(/[“”]/g,'"')
+    .replace(/[–—]/g,'-').replace(/…/g,'...').replace(/ /g,' ')
+    .replace(/[^\n\x20-\x7E¡-ÿ€]/g,'');
+}
+
+async function esportaPdf(){
+  const btn = g('rep-pdf');
+  if(btn.disabled) return;
+  btn.disabled = true; const etichetta = btn.textContent; btn.textContent = '⏳ Creo PDF...';
+  try{
+    await caricaJsPDF();
+    const d = datiReport();
+    const pdf = new window.jspdf.jsPDF({unit:'mm', format:'a4'});
+    pdf.setProperties({title:d.titoloDoc, creator:'CommessaPro'});
+    const M = 12, W = 210-2*M, H = 297, FONDO = H-M-6;
+    const BRICK=[212,81,30], GRIGIO=[156,144,136], RIGA=[232,226,217], FONDINO=[245,240,232], LABEL=[107,98,88], TESTO=[26,22,18];
+    let y = M;
+    const pagina = h => { if(y+h>FONDO){ pdf.addPage(); y=M; return true; } return false; };
+    const font = (stile,pt,col) => { pdf.setFont('helvetica',stile); pdf.setFontSize(pt); pdf.setTextColor(...col); };
+    const LH = pt => pt*0.3528*1.45;
+
+    // Intestazione
+    font('bold',17,TESTO); pdf.text(d.intestazione, M, y+6); y += 9;
+    font('normal',9.5,GRIGIO);
+    [d.sottotitolo, d.info].filter(Boolean).forEach(r=>{
+      pdf.splitTextToSize(testoPdf(r), W).forEach(l=>{ pdf.text(l, M, y+3.5); y += LH(9.5); });
+    });
+    y += 2; pdf.setDrawColor(...BRICK); pdf.setLineWidth(0.8); pdf.line(M,y,M+W,y); y += 6;
+
+    // Il titolo non resta mai da solo in fondo alla pagina: serve spazio anche per il contenuto.
+    const titoloSez = (t, spazio) => {
+      pagina(10+spazio);
+      font('bold',7.5,BRICK); pdf.text(testoPdf(t).toUpperCase(), M, y+2.5, {charSpace:0.5});
+      y += 4; pdf.setDrawColor(...RIGA); pdf.setLineWidth(0.25); pdf.line(M,y,M+W,y); y += 2.5;
+    };
+    const tabella = (righe, colL, intestata) => {
+      righe.forEach((r,i)=>{
+        font('normal',9.5,TESTO);
+        const lv = pdf.splitTextToSize(testoPdf(r[1]), W-colL-4);
+        const ll = pdf.splitTextToSize(testoPdf(r[0]), colL-4);
+        const h = Math.max(lv.length, ll.length)*LH(9.5) + 3.4;
+        pagina(h);
+        const labelFondo = !intestata || i===0;
+        pdf.setDrawColor(...RIGA); pdf.setLineWidth(0.25);
+        if(labelFondo){ pdf.setFillColor(...FONDINO); pdf.rect(M,y,colL,h,'FD'); } else pdf.rect(M,y,colL,h);
+        if(intestata && i===0){ pdf.setFillColor(...FONDINO); pdf.rect(M+colL,y,W-colL,h,'FD'); } else pdf.rect(M+colL,y,W-colL,h);
+        font(labelFondo?'bold':'normal',9.5,labelFondo?LABEL:TESTO); pdf.text(ll, M+2, y+4.2, {lineHeightFactor:1.45});
+        font(intestata?'bold':'normal',9.5,intestata&&i===0?LABEL:TESTO);
+        if(intestata) pdf.text(lv, M+W-2, y+4.2, {align:'right', lineHeightFactor:1.45});
+        else pdf.text(lv, M+colL+2, y+4.2, {lineHeightFactor:1.45});
+        y += h;
+      });
+      y += 4;
+    };
+    const testo = t => {
+      font('normal',9.5,TESTO);
+      pdf.splitTextToSize(testoPdf(t), W).forEach(l=>{ pagina(LH(9.5)); pdf.text(l, M, y+3.4); y += LH(9.5); });
+      y += 4;
+    };
+    const griglia = async lista => {
+      const GAP = 4, CW = (W-GAP)/2, MAXH = 62;
+      let mancanti = 0;
+      const immagini = await Promise.all(lista.map(f=>fotoPerPdf(f.url).catch(()=>{ mancanti++; return null; })));
+      for(let i=0;i<immagini.length;i+=2){
+        const coppia = [immagini[i], immagini[i+1]];
+        const dim = coppia.map(im=>{ if(!im) return {w:CW,h:12}; const k=Math.min(CW/im.w, MAXH/im.h); return {w:im.w*k, h:im.h*k}; });
+        const h = 4 + Math.max(...dim.map(x=>x.h));
+        pagina(h+3);
+        coppia.forEach((im,j)=>{
+          if(i+j>=immagini.length) return;
+          const x = M + j*(CW+GAP);
+          font('bold',6,GRIGIO); pdf.text(`FOTO ${i+j+1}`, x+CW/2, y+2.5, {align:'center', charSpace:0.3});
+          if(im){
+            const ix = x + (CW-dim[j].w)/2;
+            pdf.addImage(im.data,'JPEG',ix,y+4,dim[j].w,dim[j].h,undefined,'FAST');
+            pdf.setDrawColor(...RIGA); pdf.setLineWidth(0.25); pdf.rect(ix,y+4,dim[j].w,dim[j].h);
+          } else {
+            pdf.setDrawColor(...RIGA); pdf.rect(x,y+4,CW,12);
+            font('normal',8,GRIGIO); pdf.text('Foto non disponibile', x+CW/2, y+11, {align:'center'});
+          }
+        });
+        y += h + 3;
+      }
+      return mancanti;
+    };
+
+    let mancanti = 0;
+    for(const s of d.sezioni){
+      if(s.soloAnteprima) continue;
+      titoloSez(s.titolo, s.foto?70:12);
+      if(s.righe) tabella(s.righe, W*0.28, false);
+      else if(s.ambienti) tabella([['Ambiente','mq'], ...s.ambienti.map(a=>[a.nome||'-', String(a.mq||'-')])], W*0.72, true);
+      else if(s.testo!=null) testo(s.testo);
+      else if(s.foto) mancanti = await griglia(s.foto);
+    }
+
+    if(d.firme){
+      pagina(30); y += 4;
+      pdf.setDrawColor(...RIGA); pdf.setLineWidth(0.25); pdf.line(M,y,M+W,y); y += 5;
+      const CW = (W-6)/2;
+      d.firme.forEach((f,j)=>{
+        const x = M + j*(CW+6);
+        font('bold',9.5,TESTO); pdf.text(testoPdf(f[0]), x, y+3.5);
+        font('normal',8,GRIGIO); pdf.text(testoPdf(f[1]), x, y+9);
+        pdf.setDrawColor(204,204,204); pdf.line(x, y+17, x+CW, y+17);
+        pdf.text('Firma', x, y+21);
+      });
+      y += 24;
+    }
+
+    // Numero di pagina in fondo, nient'altro.
+    const n = pdf.getNumberOfPages();
+    for(let p=1;p<=n;p++){
+      pdf.setPage(p); font('normal',7.5,GRIGIO);
+      pdf.text(`Pagina ${p} di ${n}`, M+W, H-M+2, {align:'right'});
+    }
+    pdf.save(d.nomeFile);
+    toast(mancanti ? `PDF creato, ${mancanti} foto non scaricate` : '✓ PDF creato', mancanti?'err':'ok');
+  } catch(e){
+    console.error(e);
+    toast('PDF non creato: controlla la connessione e riprova','err');
+  } finally {
+    btn.disabled = false; btn.textContent = etichetta;
+  }
+}
 
 // ── EXPORT / IMPORT ──
 function esportaDati(){
