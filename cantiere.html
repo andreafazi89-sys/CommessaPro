@@ -41,7 +41,6 @@ textarea{resize:none;min-height:80px;line-height:1.6;}
 .g-ore{font-size:12px;color:var(--muted);margin-top:2px;}
 .g-operai{font-size:12px;color:var(--sand);margin-bottom:4px;}
 .g-note{font-size:13px;line-height:1.5;}
-.g-del{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:4px;}
 /* Contributi individuali nel diario (vista aggregata) */
 .g-contributi{margin-top:8px;border-top:1px solid var(--border);padding-top:8px;}
 .g-contributo{padding:8px 0;border-bottom:1px dashed var(--border);position:relative;padding-right:70px;}
@@ -53,8 +52,6 @@ textarea{resize:none;min-height:80px;line-height:1.6;}
 .g-c-actions{position:absolute;top:6px;right:0;display:flex;gap:2px;align-items:center;}
 .g-c-pdf{background:var(--green-dim);color:var(--green);border:1px solid var(--green);border-radius:6px;padding:3px 7px;font-size:12px;text-decoration:none;cursor:pointer;line-height:1;}
 .g-c-pdf:active{transform:scale(0.95);}
-.g-c-del{background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:4px 6px;opacity:.5;}
-.g-c-del:hover{opacity:1;}
 .g-sub-line{font-size:12px;color:var(--sand);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
 .bottom-bar{position:fixed;bottom:0;left:0;right:0;padding:12px 16px;padding-bottom:max(12px,env(safe-area-inset-bottom));background:linear-gradient(to top,var(--bg) 70%,transparent);z-index:100;}
 .btn-main{width:100%;padding:16px;background:var(--green);color:#fff;border:none;border-radius:var(--r);font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;-webkit-appearance:none;}
@@ -404,7 +401,6 @@ function renderDiario(){
         ${r._migrato ? '<div class="g-c-mig">[migrato]</div>' : ''}
         <div class="g-c-actions">
           <a class="g-c-pdf" href="rapporto.html?pdf=${r.id}" target="_blank" title="Scarica rapportino di ${r.operaio}">📥</a>
-          <button class="g-c-del" onclick="delContributo('${r.id}')" title="Elimina questo contributo">🗑</button>
         </div>
       </div>
     `).join('');
@@ -416,34 +412,12 @@ function renderDiario(){
             <div class="g-data">${d}</div>
             <div class="g-ore">${gr.totOre}h totali · ${gr.numOperai} ${gr.numOperai===1?'operaio':'operai'}</div>
           </div>
-          <div style="display:flex;gap:6px">
-            <button class="g-del" onclick="delGiornata('${gr.data}')" title="Elimina intera giornata">🗑</button>
-          </div>
         </div>
         <div class="g-contributi">${righe}</div>
         ${subs ? `<div class="g-sub-line">🛠 Sub: ${subs}</div>` : ''}
       </div>
     `;
   }).join('');
-}
-
-function delGiornata(data){
-  if(!confirm('Eliminare tutta la giornata? Tutti i contributi degli operai di quel giorno saranno rimossi.')) return;
-  const daEliminare = getRapporti()
-    .filter(r => r.cantiereId === currentCant.id && r.data === data)
-    .map(marcaEliminato);
-  salvaRecord(RPT_KEY, daEliminare);
-  renderDiario();
-  toast('Giornata eliminata','inf');
-}
-
-function delContributo(id){
-  if(!confirm('Eliminare solo questo contributo?')) return;
-  const r = getRapporti().find(x => x.id === id);
-  if(!r){ toast('Contributo non trovato','err'); return; }
-  salvaRecord(RPT_KEY, [marcaEliminato(r)]);
-  renderDiario();
-  toast('Contributo eliminato','inf');
 }
 
 function chiudiCantiere(){
