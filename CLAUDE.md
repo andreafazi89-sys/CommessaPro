@@ -24,10 +24,12 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
     scelti dalla rubrica, indirizzo cantiere compilato dalla sede del cliente,
     lavorazioni richieste, note, foto. Il campo `cliente` resta la stringa
     "CLIENTE - Referente" usata da report, cantiere e archivio.
-    Due PDF (dal 21/10/2026): "Report" completo e "Solo note" (lavorazioni,
-    note, foto, indirizzo a scelta; niente cliente, referente, tel, email,
-    commessa, firme). Creati con jsPDF (CDN, caricato al clic), non con la
-    stampa del browser: nel PDF non compare l'URL della pagina.
+    Un solo "Report PDF" (dal 21/10/2026) con una spunta per sezione:
+    Cliente, Cantiere (indirizzo, piano, mq, accesso, misure per ambiente),
+    Lavorazioni richieste, Note aggiuntive, Foto. Senza Cliente spariscono
+    anche le firme e la commessa dal nome del file. Creato con jsPDF (CDN,
+    caricato al clic), non con la stampa del browser: nel PDF non compare
+    l'URL della pagina.
   - Fase 2, `sviluppo.html` (scheda di sviluppo, SOLO admin): piano, accessi,
     opere provvisionali, lavorazioni con misure, rifiuti, squadra, forniture.
     Salvata nel campo `sviluppo` del record; produce il testo per la bozza

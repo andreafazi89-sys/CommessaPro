@@ -72,7 +72,7 @@ input[type="file"]{display:none;}
 .rep-btn.close{background:rgba(255,255,255,.1);color:#fff;}
 .rep-btn.print{background:var(--brick);color:#fff;}
 .report-frame{flex:1;border:none;width:100%;}
-.rep-opzioni{display:none;gap:18px;padding:8px 16px;background:#2A241E;color:#fff;font-size:13px;flex-shrink:0;}
+.rep-opzioni{display:flex;flex-wrap:wrap;gap:0 18px;padding:8px 16px;background:#2A241E;color:#fff;font-size:13px;flex-shrink:0;}
 .rep-opzioni label{display:flex;align-items:center;gap:8px;min-height:40px;cursor:pointer;font-size:13px;text-transform:none;letter-spacing:0;color:#fff;margin:0;}
 .rep-opzioni input{width:20px;height:20px;accent-color:var(--brick);}
 .rep-btn:disabled{opacity:.6;}
@@ -228,8 +228,7 @@ input[type="file"]{display:none;}
   <div class="bottom-bar">
     <div class="btn-row">
       <button class="btn-sec" onclick="avvisaSegretariaSopralluogo()">📱 Apri commessa</button>
-      <button class="btn-sec" onclick="generaReport('completo')">📄 Report</button>
-      <button class="btn-sec" onclick="generaReport('note')">📝 Solo note</button>
+      <button class="btn-sec" onclick="generaReport()" style="flex:2">📄 Report PDF</button>
     </div>
     <button class="btn-main" id="btn-sviluppa" onclick="sviluppaSopralluogo()" style="display:none">📐 Sviluppa sopralluogo (fase 2)</button>
     <button class="btn-main green" id="btn-avvia" onclick="avviaCantiere()">🏗️ Avvia Cantiere</button>
@@ -238,14 +237,17 @@ input[type="file"]{display:none;}
 
 <div class="report-overlay" id="report-overlay">
   <div class="report-topbar">
-    <div class="rep-title" id="rep-title">📄 Report Sopralluogo</div>
+    <div class="rep-title">📄 Report Sopralluogo</div>
     <div class="rep-actions">
       <button class="rep-btn close" onclick="chiudiReport()">✕ Chiudi</button>
       <button class="rep-btn print" id="rep-pdf" onclick="esportaPdf()">⬇️ PDF</button>
     </div>
   </div>
   <div class="rep-opzioni" id="rep-opzioni">
-    <label><input type="checkbox" id="rep-ind" onchange="aggiornaAnteprima()"> Indirizzo cantiere</label>
+    <label><input type="checkbox" id="rep-cliente" checked onchange="aggiornaAnteprima()"> Cliente</label>
+    <label><input type="checkbox" id="rep-cantiere" checked onchange="aggiornaAnteprima()"> Cantiere</label>
+    <label><input type="checkbox" id="rep-lavori" checked onchange="aggiornaAnteprima()"> Lavorazioni richieste</label>
+    <label><input type="checkbox" id="rep-note" checked onchange="aggiornaAnteprima()"> Note aggiuntive</label>
     <label><input type="checkbox" id="rep-foto" checked onchange="aggiornaAnteprima()"> Foto</label>
   </div>
   <iframe id="report-frame" class="report-frame"></iframe>
@@ -1128,52 +1130,50 @@ function copiaTesto(){
 }
 
 // ── GENERA REPORT ──
-// Due versioni dallo stesso sopralluogo: 'completo' (con cliente e firme) e
-// 'note' (solo lavorazioni, note e foto, senza dati del cliente: da inviare
-// a fornitori e subappaltatori). Il PDF si crea nel browser con jsPDF, non con
-// la stampa: cosi' non compaiono l'indirizzo della pagina e la data del browser.
-let reportTipo = 'completo';
+// Un solo report: nell'anteprima una spunta per sezione (cliente, cantiere,
+// lavorazioni, note, foto). Senza "Cliente" spariscono anche le firme e la
+// commessa dal nome del file: il PDF si puo' girare a fornitori e subappaltatori.
+// Il PDF si crea nel browser con jsPDF, non con la stampa: cosi' non compaiono
+// l'indirizzo della pagina e la data del browser.
+const SEZIONI_REPORT = ['cliente','cantiere','lavori','note','foto'];
 
-function generaReport(tipo){
-  reportTipo = tipo==='note' ? 'note' : 'completo';
-  if(reportTipo==='completo' && (!gv('fc')||!gv('fi'))){toast('Inserisci nome cliente e indirizzo','err');return;}
-  if(reportTipo==='note' && !gv('fl') && !gv('fn')){toast('Scrivi lavorazioni o note prima del PDF','err');return;}
-  g('rep-title').textContent = reportTipo==='note' ? '📄 Note sopralluogo' : '📄 Report Sopralluogo';
-  g('rep-opzioni').style.display = reportTipo==='note' ? 'flex' : 'none';
+function generaReport(){
+  SEZIONI_REPORT.forEach(k=>{ g('rep-'+k).checked = true; });
   g('report-overlay').classList.add('show');
   aggiornaAnteprima();
 }
+function sezioneScelta(k){ return g('rep-'+k).checked; }
 
 // Contenuto del report, uguale per anteprima e PDF.
 function datiReport(){
-  const note = reportTipo==='note';
   const data = gv('f-data')?new Date(gv('f-data')).toLocaleDateString('it-IT'):new Date().toLocaleDateString('it-IT');
   const resp = gv('f-resp');
   const rec = recordCorrente();
+  const conCliente = sezioneScelta('cliente');
   const sezioni = [];
-  if(!note){
-    sezioni.push({titolo:'Cliente', righe:[['Cliente',gv('fc')],['Telefono',gv('ft')||'-'],['Email',gv('fe')||'-']]});
-    sezioni.push({titolo:'Cantiere', righe:[['Indirizzo',gv('fi')],['Piano',rec.piano],['Superficie',rec.mq?rec.mq+' mq':''],['Accesso',rec.accesso]].filter(r=>r[1])});
+  if(conCliente)
+    sezioni.push({titolo:'Cliente', righe:[['Cliente',gv('fc')||'-'],['Telefono',gv('ft')||'-'],['Email',gv('fe')||'-']]});
+  if(sezioneScelta('cantiere')){
+    sezioni.push({titolo:'Cantiere', righe:[['Indirizzo',gv('fi')||'-'],['Piano',rec.piano],['Superficie',rec.mq?rec.mq+' mq':''],['Accesso',rec.accesso]].filter(r=>r[1])});
     if((rec.ambienti||[]).length) sezioni.push({titolo:'Misure per ambiente', ambienti:rec.ambienti});
-  } else if(g('rep-ind').checked && gv('fi')){
-    sezioni.push({titolo:'Cantiere', righe:[['Indirizzo',gv('fi')]]});
   }
-  sezioni.push({titolo:'Lavorazioni richieste', testo:gv('fl')||'-'});
-  if(gv('fn')) sezioni.push({titolo:note?'Note':'Note aggiuntive', testo:gv('fn')});
-  if(!note && noteVocali.length) sezioni.push({titolo:`Note vocali (${noteVocali.length})`, audio:noteVocali, soloAnteprima:true});
-  const conFoto = !note || g('rep-foto').checked;
-  if(conFoto && foto.length) sezioni.push({titolo:`Foto (${foto.length})`, foto:foto.filter(f=>f.url)});
+  if(sezioneScelta('lavori')) sezioni.push({titolo:'Lavorazioni richieste', testo:gv('fl')||'-'});
+  if(sezioneScelta('note')){
+    sezioni.push({titolo:'Note aggiuntive', testo:gv('fn')||'-'});
+    if(noteVocali.length) sezioni.push({titolo:`Note vocali (${noteVocali.length})`, audio:noteVocali, soloAnteprima:true});
+  }
+  if(sezioneScelta('foto') && foto.length) sezioni.push({titolo:`Foto (${foto.length})`, foto:foto.filter(f=>f.url)});
   const dataFile = data.replace(/\//g,'-');
   return {
-    intestazione: note ? 'NOTE DI SOPRALLUOGO' : 'REPORT DI SOPRALLUOGO',
+    intestazione: 'REPORT DI SOPRALLUOGO',
     sottotitolo: gv('f-titolo'),
     info: `Data: ${data}`+(resp?` · Responsabile: ${resp}`:''),
     sezioni,
-    firme: note ? null : [[resp,'Responsabile sopralluogo'],[gv('fc'),'Cliente - presa visione']],
-    // Nel nome del file delle note niente commessa: spesso e' il nome del cliente.
-    nomeFile: note ? `Note_sopralluogo_${dataFile}.pdf`
-                   : `Sopralluogo_${(gv('f-commessa')||'senza_commessa').replace(/[^\w\-]+/g,'_')}_${dataFile}.pdf`,
-    titoloDoc: note ? 'Note di sopralluogo' : 'Report di sopralluogo'
+    firme: conCliente ? [[resp,'Responsabile sopralluogo'],[gv('fc'),'Cliente - presa visione']] : null,
+    // Senza cliente niente commessa nel nome del file: spesso e' il nome del cliente.
+    nomeFile: conCliente ? `Sopralluogo_${(gv('f-commessa')||'senza_commessa').replace(/[^\w\-]+/g,'_')}_${dataFile}.pdf`
+                         : `Sopralluogo_${dataFile}.pdf`,
+    titoloDoc: 'Report di sopralluogo'
   };
 }
 
@@ -1249,9 +1249,9 @@ async function fotoPerPdf(url){
 // I font standard del PDF non hanno emoji e alcuni simboli: li sostituisco.
 function testoPdf(t){
   return String(t??'')
-    .replace(/[‘’‛]/g,"'").replace(/[“”]/g,'"')
-    .replace(/[–—]/g,'-').replace(/…/g,'...').replace(/ /g,' ')
-    .replace(/[^\n\x20-\x7E¡-ÿ€]/g,'');
+    .replace(/[\u2018\u2019\u201B]/g,"'").replace(/[\u201C\u201D]/g,'"')
+    .replace(/[\u2013\u2014]/g,'-').replace(/\u2026/g,'...').replace(/\u00A0/g,' ')
+    .replace(/[^\n\x20-\x7E\u00A1-\u00FF\u20AC]/g,'');
 }
 
 async function esportaPdf(){
@@ -1259,8 +1259,9 @@ async function esportaPdf(){
   if(btn.disabled) return;
   btn.disabled = true; const etichetta = btn.textContent; btn.textContent = '⏳ Creo PDF...';
   try{
-    await caricaJsPDF();
     const d = datiReport();
+    if(!d.sezioni.some(x=>!x.soloAnteprima)){ toast('Scegli almeno una sezione da esportare','err'); return; }
+    await caricaJsPDF();
     const pdf = new window.jspdf.jsPDF({unit:'mm', format:'a4'});
     pdf.setProperties({title:d.titoloDoc, creator:'CommessaPro'});
     const M = 12, W = 210-2*M, H = 297, FONDO = H-M-6;
