@@ -34,8 +34,12 @@ html,body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--whi
 .form-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--sand);margin-bottom:12px;}
 .fg{margin-bottom:10px;}
 label{display:block;font-size:11px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-bottom:4px;}
-input{width:100%;padding:12px 14px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r-sm);color:var(--white);font-family:'Epilogue',sans-serif;font-size:16px;outline:none;-webkit-appearance:none;}
-input:focus{border-color:var(--brick);}
+input,select{width:100%;padding:12px 14px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r-sm);color:var(--white);font-family:'Epilogue',sans-serif;font-size:16px;outline:none;-webkit-appearance:none;}
+input:focus,select:focus{border-color:var(--brick);}
+.fg-row{display:flex;gap:8px;}.fg-row .fg{flex:1;min-width:0;}
+.sede-ente{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin:-2px 0 10px;}
+.sede-ente span{flex:1;min-width:0;}
+.btn-link{background:none;border:none;color:var(--sand);font-family:'Epilogue',sans-serif;font-size:13px;text-decoration:underline;cursor:pointer;padding:10px 0;flex-shrink:0;}
 input::placeholder{color:var(--muted);}
 .btn-row{display:flex;gap:8px;margin-top:12px;}
 .btn-cancel{flex:1;padding:13px;background:var(--surface2);color:var(--muted);border:1px solid var(--border);border-radius:var(--r-sm);font-family:'Syne',sans-serif;font-size:14px;font-weight:700;cursor:pointer;}
@@ -65,13 +69,18 @@ input::placeholder{color:var(--muted);}
 <button class="btn-add-fab" onclick="apriForm(null)">+</button>
 
 <div class="form-panel" id="form-panel">
-  <div class="form-title" id="form-panel-title">Nuovo cliente</div>
+  <div class="form-title" id="form-panel-title">Nuovo referente</div>
   <input type="hidden" id="edit-id">
-  <div class="fg"><label>Cliente / Ente *</label><input type="text" id="cli-nome" placeholder="Es. WFP, IFAD, FAO" list="elenco-clienti"><datalist id="elenco-clienti"></datalist></div>
-  <div class="fg"><label>Referente</label><input type="text" id="cli-ref" placeholder="Es. Alessandro Casciotti"></div>
+  <div class="fg"><label>Ente *</label><select id="cli-ente" onchange="cambiaEnte()"></select></div>
+  <div class="fg" id="fg-nuovo-ente" style="display:none"><label>Nome nuovo ente *</label><input type="text" id="cli-nome" placeholder="Es. WFP, IFAD, FAO"></div>
+  <div class="sede-ente" id="sede-ente" style="display:none"><span id="sede-txt"></span><button type="button" class="btn-link" onclick="modificaSede()">Modifica sede</button></div>
+  <div class="fg" id="fg-sede" style="display:none"><label id="lbl-sede">Indirizzo sede (diventa l'indirizzo del cantiere)</label><input type="text" id="cli-sede" placeholder="Es. Via Cesare Giulio Viola 68, 00148 Roma"></div>
+  <div class="fg-row">
+    <div class="fg"><label>Nome</label><input type="text" id="cli-ref-nome" placeholder="Es. Alessandro"></div>
+    <div class="fg"><label>Cognome</label><input type="text" id="cli-ref-cognome" placeholder="Es. Casciotti"></div>
+  </div>
   <div class="fg"><label>Telefono</label><input type="tel" id="cli-tel" placeholder="333 000 0000"></div>
   <div class="fg"><label>Email</label><input type="email" id="cli-email" placeholder="email@..."></div>
-  <div class="fg"><label>Indirizzo sede (diventa l'indirizzo del cantiere)</label><input type="text" id="cli-sede" placeholder="Es. Via Cesare Giulio Viola 68, 00148 Roma"></div>
   <div class="fg"><label>Note</label><input type="text" id="cli-note" placeholder="Es. IFAD piano 3, citofono Rossi..."></div>
   <div class="btn-row">
     <button class="btn-cancel" onclick="chiudiForm()">Annulla</button>
@@ -200,42 +209,109 @@ function renderLista(){
 
 function chiamaCliente(tel){if(tel) window.location.href='tel:'+tel;}
 
+// ── ENTI ──
+// L'ente non ha una tabella sua: e' il campo "nome" dei referenti in rubrica_v1.
+// La sede dell'ente e' l'indirizzo dei suoi referenti, lo stesso che
+// sopralluogo.html usa per compilare l'indirizzo del cantiere.
+const ENTE_NUOVO='__nuovo';
+const normEnte=n=>(n||'').trim().toUpperCase();
+function esc(t){ return String(t??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// Enti senza doppioni, con la grafia del primo referente trovato
+function getEnti(){
+  const m=new Map();
+  getClienti().forEach(c=>{ const k=normEnte(c.nome); if(k&&!m.has(k)) m.set(k,(c.nome||'').trim()); });
+  return [...m.values()].sort((a,b)=>a.localeCompare(b,'it'));
+}
+function sedeEnte(ente){
+  const r=getClienti().find(c=>normEnte(c.nome)===normEnte(ente)&&(c.indirizzo||'').trim());
+  return r?r.indirizzo.trim():'';
+}
+function popolaEnti(scelto){
+  g('cli-ente').innerHTML=['<option value="">— scegli ente —</option>']
+    .concat(getEnti().map(e=>`<option value="${esc(e)}">${esc(e)}</option>`))
+    .concat([`<option value="${ENTE_NUOVO}">+ Nuovo ente...</option>`]).join('');
+  g('cli-ente').value=scelto||'';
+}
+// Ente esistente: sede in sola lettura con "Modifica sede". Nuovo ente: nome e sede a mano.
+function cambiaEnte(){
+  const v=g('cli-ente').value, nuovo=v===ENTE_NUOVO;
+  g('fg-nuovo-ente').style.display=nuovo?'':'none';
+  g('fg-sede').style.display=nuovo?'':'none';
+  g('lbl-sede').textContent='Indirizzo sede (diventa l\'indirizzo del cantiere)';
+  g('cli-nome').value='';
+  if(!v||nuovo){ g('sede-ente').style.display='none'; g('cli-sede').value=''; if(nuovo) setTimeout(()=>g('cli-nome').focus(),100); return; }
+  const sede=sedeEnte(v);
+  g('cli-sede').value=sede;
+  g('sede-txt').textContent=sede?'📍 '+sede:'📍 Sede non indicata';
+  g('sede-ente').style.display='';
+}
+function modificaSede(){
+  g('sede-ente').style.display='none';
+  g('lbl-sede').textContent='Sede di '+g('cli-ente').value+' (vale per tutti i suoi referenti)';
+  g('fg-sede').style.display='';
+  g('cli-sede').focus();
+}
+// Vecchi record con il solo campo "ref": primo nome come Nome, il resto come Cognome
+function dividiRef(c){
+  if(c.refNome!==undefined||c.refCognome!==undefined) return [c.refNome||'',c.refCognome||''];
+  const p=(c.ref||'').trim().split(/\s+/).filter(Boolean);
+  return [p.shift()||'',p.join(' ')];
+}
+
 function apriForm(id){
-  g('edit-id').value=id||'';;
+  g('edit-id').value=id||'';
   if(id){
     const c=getClienti().find(x=>x.id===id);if(!c)return;
-    g('form-panel-title').textContent='Modifica cliente';
-    g('cli-nome').value=c.nome||'';;
-    g('cli-ref').value=c.ref||'';;
-    g('cli-tel').value=c.tel||'';;
-    g('cli-email').value=c.email||'';;
-    g('cli-note').value=c.note||'';;
-    g('cli-sede').value=c.indirizzo||'';
+    g('form-panel-title').textContent='Modifica referente';
+    const [rn,rc]=dividiRef(c);
+    g('cli-ref-nome').value=rn;
+    g('cli-ref-cognome').value=rc;
+    g('cli-tel').value=c.tel||'';
+    g('cli-email').value=c.email||'';
+    g('cli-note').value=c.note||'';
+    popolaEnti(getEnti().find(e=>normEnte(e)===normEnte(c.nome))||'');
   }else{
-    g('form-panel-title').textContent='Nuovo cliente';
-    ['cli-nome','cli-ref','cli-tel','cli-email','cli-note','cli-sede'].forEach(id=>{g(id).value='';});
+    g('form-panel-title').textContent='Nuovo referente';
+    ['cli-ref-nome','cli-ref-cognome','cli-tel','cli-email','cli-note'].forEach(id=>{g(id).value='';});
+    popolaEnti('');
   }
-  g('elenco-clienti').innerHTML=[...new Set(getClienti().map(c=>(c.nome||'').trim()).filter(Boolean))].map(n=>`<option value="${n}">`).join('');
+  cambiaEnte();
   g('form-panel').classList.add('show');
-  setTimeout(()=>g('cli-nome').focus(),300);
+  setTimeout(()=>g(id?'cli-ref-nome':'cli-ente').focus(),300);
 }
 
 function chiudiForm(){g('form-panel').classList.remove('show');}
 
 function salvaCliente(){
-  const nome=gv('cli-nome');
-  if(!nome){toast('Inserisci il nome del cliente','err');return;}
+  const scelta=g('cli-ente').value, nuovo=scelta===ENTE_NUOVO;
+  if(!scelta){toast('Scegli l\'ente','err');return;}
+  let ente=nuovo?gv('cli-nome'):scelta;
+  if(!ente){toast('Inserisci il nome del nuovo ente','err');return;}
+  // Un "nuovo" ente che esiste gia' viene agganciato a quello esistente
+  const giaPresente=getEnti().find(e=>normEnte(e)===normEnte(ente));
+  if(giaPresente) ente=giaPresente;
+  // Ente gia' esistente con la sua sede: si tiene quella, non la si sovrascrive
+  const sede=(nuovo&&giaPresente&&sedeEnte(ente))?sedeEnte(ente):gv('cli-sede');
+  if(nuovo&&!giaPresente&&!sede){toast('Inserisci l\'indirizzo della sede','err');return;}
+  const refNome=gv('cli-ref-nome'), refCognome=gv('cli-ref-cognome');
+  if(!refNome&&!refCognome){toast('Inserisci nome e cognome del referente','err');return;}
   const editId=gv('edit-id');
+  const ts=new Date().toISOString();
   // Parte dal record esistente per non perdere campi aggiunti da altre pagine
   const esistente=editId?(getClienti().find(x=>x.id===editId)||{}):{};
-  const dati={...esistente,id:editId||'cli_'+Date.now(),nome,ref:gv('cli-ref'),tel:gv('cli-tel'),email:gv('cli-email'),note:gv('cli-note'),indirizzo:gv('cli-sede'),timestamp:new Date().toISOString()};
+  const dati={...esistente,id:editId||'cli_'+Date.now(),nome:ente,ref:(refNome+' '+refCognome).trim(),refNome,refCognome,
+    tel:gv('cli-tel'),email:gv('cli-email'),note:gv('cli-note'),indirizzo:sede||sedeEnte(ente),timestamp:ts};
+  // Sede cambiata: si aggiorna su tutti i referenti dello stesso ente
+  const altri=sede&&sede!==sedeEnte(ente)
+    ? getClienti().filter(c=>c.id!==dati.id&&normEnte(c.nome)===normEnte(ente)).map(c=>({...c,indirizzo:sede,timestamp:ts}))
+    : [];
   chiudiForm();
-  salvaRecord(CLI_KEY,[dati]).then(ok=>{ renderLista(); if(ok) toast(editId?'✓ Cliente aggiornato':'✓ Cliente aggiunto'); });
+  salvaRecord(CLI_KEY,[dati,...altri]).then(ok=>{ renderLista(); if(ok) toast(editId?'✓ Referente aggiornato':'✓ Referente aggiunto'); });
   renderLista();
 }
 
 function eliminaCliente(id){
-  if(!confirm('Eliminare questo cliente?'))return;
+  if(!confirm('Eliminare questo referente?'))return;
   const c=getClienti().find(x=>x.id===id); if(!c) return;
   salvaRecord(CLI_KEY,[{...c,eliminato:true,timestamp:new Date().toISOString()}]).then(()=>renderLista());
   renderLista();toast('Eliminato','ok');

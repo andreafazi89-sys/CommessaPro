@@ -35,6 +35,11 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
   sopralluogo collegato. Si creano solo a mano sul DB, non c'e' pulsante.
 - `rubrica_v1`: ogni record e' un referente. `nome` = cliente (WFP, IFAD...),
   `ref` = persona, `indirizzo` = sede del cliente.
+  Non c'e' una tabella enti: in Rubrica l'ente si sceglie da un menu fatto
+  dai `nome` esistenti (+ Nuovo ente) e porta con se' la sede. "Modifica sede"
+  aggiorna l'indirizzo su tutti i referenti di quell'ente. Nome e cognome
+  stanno in `refNome`/`refCognome`, `ref` resta la stringa unita letta da
+  Sopralluogo e report.
 - Dati locali: localStorage con chiavi `sopralluoghi_v3`, `cantieri_v1`, `note_v1`, `rubrica_v1`, `cp_user`, `cp_settings`.
 - Nessun build step, nessun framework, nessun npm. Librerie solo via CDN (gia presente supabase-js).
 
