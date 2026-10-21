@@ -319,6 +319,7 @@ function migraVecchieGiornate(){
 function showView(n){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));g('view-'+n).classList.add('active');window.scrollTo(0,0);}
 
 function eliminaCantiere(id){
+  if(!isAdmin()){toast('Operazione riservata','err');return;}
   if(!confirm('Eliminare questo cantiere?')) return;
   // Rimuovi il cantiereId dal sopralluogo collegato
   const cant = getCantieri().find(c=>c.id===id);
@@ -348,7 +349,7 @@ function renderLista(){
     <div class="cant-card" onclick="apriCantiere('${c.id}')">
       <div class="cant-icon">🏗️</div>
       <div class="cant-info"><div class="cant-nome">${c.commessa?c.commessa+' · ':''}${c.titolo||c.cliente||'—'}</div><div class="cant-meta">${c.cliente||'—'} · ${c.stato||'In corso'} · Dal ${dataIt(c.dataInizio)||'—'}</div></div>
-      <button style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:4px;" onclick="event.stopPropagation();eliminaCantiere('${c.id}')">🗑</button>
+      ${isAdmin()?`<button style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:4px;" onclick="event.stopPropagation();eliminaCantiere('${c.id}')">🗑</button>`:''}
     </div>`).join('');
 }
 
