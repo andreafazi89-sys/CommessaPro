@@ -67,6 +67,11 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
   Griglia operai x giorni, sola lettura: ore proprie, citato come collega,
   giorni lavorativi vuoti. Nessun avviso agli operai: le discordanze si
   sistemano a fine mese.
+- Dove hanno lavorato (in `rapporto.html`, scheda accanto al Riepilogo mese):
+  stessi permessi (admin e ufficio). Giorni x operai con il codice commessa
+  (primo pezzo di `commessa`, il titolo per le attivita' fisse), elenco
+  commesse in fondo. Entrambe le schede hanno "Esporta PDF" (stampa del
+  browser: presenze A4 orizzontale, commesse A4 verticale).
 
 ## Regole NON negoziabili
 1. La sezione Contabilita e i dati economici (margini, preventivi, tariffe, costi)
