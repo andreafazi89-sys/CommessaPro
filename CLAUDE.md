@@ -40,6 +40,7 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
 
 ## Ruoli (dal 19/10/2026; il ruolo `segretaria` non esiste piu)
 - admin (solo Andrea): vede e puo' tutto. Solo lui: Archivio e Archivia,
+  eliminazione di un cantiere,
   Manutenzione in Home, Esporta dati, scheda di sviluppo (fase 2), gestione
   utenti, eliminazione foto SAL, Contabilita e Note (spente in Home).
 - direzione (Fabio, Rino): Sopralluogo, Rapportini in consultazione, Cantiere
@@ -50,6 +51,10 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
   la pagina rimanda alla Home.
   In Cantiere l'operaio non vede Fine Cantiere, Riapri cantiere e Archivia.
 - I rapportini li compilano solo gli operai (l'admin puo' ancora inserirli).
+- Tab Cantiere: scheda in sola lettura (dati, diario lavori dai rapportini,
+  PDF del singolo rapportino, scorciatoie a Sopralluogo e SAL). Niente
+  Registra giornata e niente cestini nel diario: le correzioni si fanno
+  dai Rapportini. Le vecchie `giornate[]` restano solo per la migrazione.
   Direzione e ufficio vedono "Rapportini": tutti i rapporti, scarico PDF,
   niente Nuova giornata.
 - Manutenzione resta raggiungibile da link per tutti: serve a recuperare i
