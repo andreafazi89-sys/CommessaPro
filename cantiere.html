@@ -270,8 +270,8 @@ function migraVecchieGiornate(){
   const backupKey = 'cantieri_v1_backup_premig_' + new Date().toISOString().replace(/[:.]/g,'-');
   try{ localStorage.setItem(backupKey, JSON.stringify(cantieri)); }catch(e){ console.warn('Backup migrazione fallito:',e); }
 
-  const rapporti = getRapporti();
-  const esistenti = new Set(rapporti.map(r => r.id));
+  const esistenti = new Set(getRapporti().map(r => r.id));
+  const rapporti = []; // solo i record nuovi: salvaRecord li aggiunge a quelli del server
   const cpUser = (()=>{try{return JSON.parse(localStorage.getItem('cp_user')||'{}');}catch{return{};}})();
   const autoreMig = '[MIGRATO]' + (cpUser.email ? ' ' + cpUser.email : '');
   let contatore = 0;
@@ -325,7 +325,7 @@ function eliminaCantiere(id){
   if(cant&&cant.sopralluogoId){
     const sops = JSON.parse(localStorage.getItem('sopralluoghi_v3')||'[]');
     const sopIdx = sops.findIndex(s=>s.id===cant.sopralluogoId);
-    if(sopIdx>=0){ sops[sopIdx].cantiereId=null; localStorage.setItem('sopralluoghi_v3',JSON.stringify(sops)); dbSalva('sopralluoghi_v3',sops); }
+    if(sopIdx>=0) salvaRecord('sopralluoghi_v3',[{...sops[sopIdx], cantiereId:null, timestamp:new Date().toISOString()}]);
   }
   if(cant) salvaRecord(CANT_KEY,[marcaEliminato(cant)]);
   renderLista(); toast('Eliminato','inf');
@@ -514,16 +514,16 @@ function mostraOnboarding(){
 initDB();
 // Migrazione: popola titolo dai sopralluoghi collegati
 (function migraTitoli(){
-  const cantieri = getCantieri();
+  // Salva solo i cantieri a cui ha aggiunto il titolo, mai l'elenco intero
   const sops = JSON.parse(localStorage.getItem('sopralluoghi_v3')||'[]');
-  let changed = false;
-  cantieri.forEach(cant=>{
+  const toccati = [];
+  getCantieri().forEach(cant=>{
     if(!cant.titolo && cant.sopralluogoId){
       const sop = sops.find(s=>s.id===cant.sopralluogoId);
-      if(sop&&sop.titolo){ cant.titolo=sop.titolo; changed=true; }
+      if(sop&&sop.titolo) toccati.push({...cant, titolo:sop.titolo, timestamp:new Date().toISOString()});
     }
   });
-  if(changed){ localStorage.setItem('cantieri_v1',JSON.stringify(cantieri)); dbSalva('cantieri_v1',cantieri); }
+  if(toccati.length) salvaRecord(CANT_KEY, toccati);
 })();
 
 // Migrazione Step 2: vecchie giornate[] → record rapporti_v1 (solo prima volta)
