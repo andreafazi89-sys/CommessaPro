@@ -54,6 +54,10 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
   PDF del singolo rapportino, scorciatoie a Sopralluogo e SAL). Niente
   Registra giornata e niente cestini nel diario: le correzioni si fanno
   dai Rapportini. Le vecchie `giornate[]` restano solo per la migrazione.
+  Riquadro "Ore lavorate" (dal 21/10/2026): totale ore, giornate e operai,
+  ore per operaio e per mese, ricalcolati dai rapportini contando anche i
+  colleghi citati (ore intere). Il diario e' raggruppato per mese e per
+  giornata, tutto chiuso: si apre toccando.
   Direzione e ufficio vedono "Rapportini": tutti i rapporti, scarico PDF,
   niente Nuova giornata.
 - Manutenzione resta raggiungibile da link per tutti: serve a recuperare i
