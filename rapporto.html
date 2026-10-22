@@ -98,6 +98,10 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
 .op-chip.on{background:var(--brick-dim);border-color:var(--brick);color:var(--brick);}
 .op-empty-hint{font-size:12px;color:var(--muted);font-style:italic;padding:4px 0;}
 .rpt-colleghi{font-size:13px;color:var(--sand);margin-top:6px;}
+/* Subappaltatori per riga: chip dai nomi gia' usati + aggiunta manuale */
+.sub-add{display:flex;gap:8px;margin-top:8px;}
+.sub-add input{flex:1;min-width:0;}
+.sub-add button{min-height:44px;padding:0 16px;background:transparent;color:var(--brick);border:1.5px solid var(--brick);border-radius:var(--r-sm);font-family:Epilogue,sans-serif;font-size:14px;font-weight:600;cursor:pointer;}
 /* Badge totale ore nel form */
 .tot-bar{background:var(--brick-dim);border:1px solid var(--brick);border-radius:var(--r-sm);padding:10px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:600;color:var(--brick);}
 .tot-bar .tot-val{font-family:'Syne',sans-serif;font-size:16px;}
@@ -251,6 +255,8 @@ const SUPA_URL = 'https://iradzlocobsipjazracw.supabase.co';
 const SUPA_KEY = 'sb_publishable_zFgRrNrmYSORug8N06heow_6vjl0fhH';
 const RPT_KEY = 'rapporti_v1';
 const CANT_KEY = 'cantieri_v1';
+// Elenco ufficiale dei subappaltatori, gestito dall'admin in subappaltatori.html
+const SUB_KEY = 'subappaltatori_v1';
 let db = null;
 let currentEditId = null;  // null = nuovo, altrimenti id del record in modifica
 let rigaCounter = 0;       // contatore incrementale per le righe del form
@@ -258,6 +264,11 @@ let rigaCounter = 0;       // contatore incrementale per le righe del form
 const OPERAI = ['Adrian Lup','Fabio Cardini','Daniele Schedel','Mihai Poveste','Vasile Banta'];
 // Mappa rigaN -> array di nomi colleghi selezionati per quella riga
 let colleghiPerRiga = {};
+// Mappa rigaN -> array di subappaltatori selezionati per quella riga
+let subPerRiga = {};
+// Subappaltatori scritti a mano in questo form (compaiono subito in tutte le righe;
+// per gli altri operai diventano pulsanti solo dopo la conferma dell'admin)
+let subNuovi = [];
 
 function initDB(){ if(window.supabase) db = window.supabase.createClient(SUPA_URL, SUPA_KEY); }
 
@@ -321,6 +332,7 @@ async function forcSync(){
   }
   await allinea(RPT_KEY);
   await allinea(CANT_KEY);
+  await allinea(SUB_KEY);
   renderLista();
   toast('✓ Sincronizzato','ok');
 }
@@ -725,7 +737,7 @@ function renderLista(){
               <div class="rpt-ore">${r.ore}h</div>
             </div>
             ${r.descrizione ? `<div class="rpt-desc">${r.descrizione}</div>` : ''}
-            ${r.subappaltatori ? `<div class="rpt-sub">Sub: ${r.subappaltatori}</div>` : ''}
+            ${r.subappaltatori ? `<div class="rpt-sub">Sub: ${esc(subDaMostrare(r.subappaltatori).join(', '))}</div>` : ''}
             ${(Array.isArray(r.colleghi) && r.colleghi.length) ? `<div class="rpt-colleghi">👥 Con: ${r.colleghi.map(c => c.split(' ')[0]).join(', ')}</div>` : ''}
             ${inAttesa.has(r.id) ? '<div class="pill-attesa">Solo sul telefono, non ancora sul server</div>' : ''}
             <div class="rpt-actions">
@@ -976,6 +988,8 @@ function nuovoRapporto(){
   g('righe-container').innerHTML = '';
   rigaCounter = 0;
   colleghiPerRiga = {};
+  subPerRiga = {};
+  subNuovi = [];
   aggiungiRiga();
   showView('form');
 }
@@ -992,6 +1006,8 @@ function modificaRapporto(id){
   g('righe-container').innerHTML = '';
   rigaCounter = 0;
   colleghiPerRiga = {};
+  subPerRiga = {};
+  subNuovi = [];
   aggiungiRiga({cantiereId:r.cantiereId, ore:r.ore, descrizione:r.descrizione, subappaltatori:r.subappaltatori, colleghi:r.colleghi || []});
   showView('form');
 }
@@ -1037,7 +1053,12 @@ function aggiungiRiga(preset){
     </div>
     <div class="fg">
       <label>Subappaltatori (opzionale)</label>
-      <input type="text" id="rc-sub-${n}" placeholder="Es. Ditta Rossi">
+      <div class="op-grid" id="rc-sub-${n}"></div>
+      <div class="sub-add">
+        <input type="text" id="rc-subnew-${n}" placeholder="Nuovo, es. Ditta Rossi" onkeydown="if(event.key==='Enter'){event.preventDefault();aggiungiSub(${n});}">
+        <button type="button" onclick="aggiungiSub(${n})">+ Aggiungi</button>
+      </div>
+      <div class="op-locked-hint">Se non c'è nell'elenco scrivilo e premi Aggiungi: diventa un pulsante per tutti dopo la verifica.</div>
     </div>
     <div class="fg">
       <label>Colleghi presenti (opzionale)</label>
@@ -1049,12 +1070,13 @@ function aggiungiRiga(preset){
   // Inizializza stato colleghi della riga (eventuale preset in modifica)
   colleghiPerRiga[n] = (preset && Array.isArray(preset.colleghi)) ? preset.colleghi.map(nomeOperaio) : [];
   renderColleghiChips(n);
+  subPerRiga[n] = preset ? subDaMostrare(preset.subappaltatori) : [];
+  renderSubChips(n);
 
   if(preset){
     g('rc-cant-'+n).value = preset.cantiereId || '';
     g('rc-ore-'+n).value = preset.ore || '';
     g('rc-desc-'+n).value = preset.descrizione || '';
-    g('rc-sub-'+n).value = preset.subappaltatori || '';
   }
   aggiornaPickCantiere(n);
   aggiornaTotale();
@@ -1068,6 +1090,7 @@ function rimuoviRiga(n){
   if(tot <= 1){ toast('Deve esserci almeno una riga','err'); return; }
   el.remove();
   delete colleghiPerRiga[n];
+  delete subPerRiga[n];
   aggiornaTotale();
 }
 
@@ -1106,6 +1129,83 @@ function renderColleghiTutteRighe(){
   });
 }
 
+// ── Subappaltatori per riga ──
+// Sul record restano una stringa separata da virgole (come i vecchi rapportini):
+// PDF e liste continuano a leggerla senza modifiche.
+function splitSub(t){
+  return String(t || '').split(',').map(s => s.trim()).filter(Boolean);
+}
+function getSubUfficiali(){
+  try{ return (JSON.parse(localStorage.getItem(SUB_KEY)) || []).filter(s => !s.eliminato && s.nome); }
+  catch{ return []; }
+}
+// Nome ufficiale per un nome scritto in un rapportino (anche in un altro modo, es. "rossi"
+// confermato dall'admin come "Ditta Rossi"). Se non e' in elenco resta com'e'.
+function nomeSub(nome){
+  const k = String(nome || '').trim().toLowerCase();
+  const u = getSubUfficiali().find(s => s.nome.toLowerCase() === k || (s.alias || []).some(a => a.toLowerCase() === k));
+  return u ? u.nome : String(nome || '').trim();
+}
+// Elenco per liste e PDF: nomi ufficiali, senza doppioni
+function subDaMostrare(t){
+  const visti = new Map();
+  splitSub(t).map(nomeSub).forEach(n => { const k = n.toLowerCase(); if(!visti.has(k)) visti.set(k, n); });
+  return [...visti.values()];
+}
+// Pulsanti: elenco ufficiale + nomi scritti a mano in questo form
+function subappaltatoriNoti(){
+  const visti = new Map();
+  const add = nome => { const k = nome.toLowerCase(); if(!visti.has(k)) visti.set(k, nome); };
+  getSubUfficiali().forEach(s => add(s.nome));
+  subNuovi.forEach(add);
+  Object.values(subPerRiga).forEach(arr => (arr || []).forEach(add));
+  return [...visti.values()].sort((a, b) => a.localeCompare(b, 'it'));
+}
+function renderSubChips(n){
+  const cont = g('rc-sub-'+n);
+  if(!cont) return;
+  const sel = subPerRiga[n] || [];
+  const noti = subappaltatoriNoti();
+  if(!noti.length){
+    cont.innerHTML = '<div class="op-empty-hint">Nessun subappaltatore in elenco: scrivilo qui sotto</div>';
+    return;
+  }
+  cont.innerHTML = noti.map(nome => {
+    const on = sel.some(s => s.toLowerCase() === nome.toLowerCase());
+    return `<div class="op-chip ${on?'on':''}" data-nome="${esc(nome)}" onclick="toggleSub(${n}, this)">${esc(nome)}</div>`;
+  }).join('');
+}
+function renderSubTutteRighe(){
+  document.querySelectorAll('.riga-cant').forEach(div => {
+    const n = parseInt(div.id.replace('riga-',''));
+    if(!isNaN(n)) renderSubChips(n);
+  });
+}
+function toggleSub(n, el){
+  const nome = el.dataset.nome;
+  if(!subPerRiga[n]) subPerRiga[n] = [];
+  const i = subPerRiga[n].findIndex(s => s.toLowerCase() === nome.toLowerCase());
+  if(i >= 0) subPerRiga[n].splice(i, 1);
+  else subPerRiga[n].push(nome);
+  el.classList.toggle('on');
+}
+// Aggiunge il nome scritto a mano: selezionato in questa riga e disponibile nelle altre
+function aggiungiSub(n){
+  const inp = g('rc-subnew-'+n);
+  if(!inp) return;
+  // La virgola separa i nomi sul record: dentro un nome diventa uno spazio
+  const nome = inp.value.replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
+  inp.value = '';
+  if(!nome) return;
+  const uff = nomeSub(nome);
+  const esistente = subappaltatoriNoti().find(s => s.toLowerCase() === uff.toLowerCase());
+  const finale = esistente || nome;
+  if(!esistente) subNuovi.push(finale);
+  if(!subPerRiga[n]) subPerRiga[n] = [];
+  if(!subPerRiga[n].some(s => s.toLowerCase() === finale.toLowerCase())) subPerRiga[n].push(finale);
+  renderSubTutteRighe();
+}
+
 function aggiornaTotale(){
   let tot = 0;
   document.querySelectorAll('[id^="rc-ore-"]').forEach(inp => {
@@ -1123,7 +1223,9 @@ function raccogliRighe(){
     const cant = g('rc-cant-'+n)?.value || '';
     const ore = parseFloat(g('rc-ore-'+n)?.value || 0);
     const desc = g('rc-desc-'+n)?.value?.trim() || '';
-    const sub = g('rc-sub-'+n)?.value?.trim() || '';
+    // Un nome scritto ma senza "+ Aggiungi" non va perso
+    if(g('rc-subnew-'+n)?.value?.trim()) aggiungiSub(n);
+    const sub = (subPerRiga[n] || []).join(', ');
     const colleghi = Array.isArray(colleghiPerRiga[n]) ? [...colleghiPerRiga[n]] : [];
     if(cant || ore > 0 || desc) out.push({cantiereId:cant, ore, descrizione:desc, subappaltatori:sub, colleghi});
   });
@@ -1235,7 +1337,7 @@ function renderPDFHtml({operai, subs, dataFmt, nomeCantiere, firma, totOre, comm
   for(let i = 0; i < 5; i++){
     const s = (subs && subs[i]) || '';
     subRows += `<tr>
-      <td class="cell cell-name">${s || '&nbsp;'}</td>
+      <td class="cell cell-name">${s ? esc(s) : '&nbsp;'}</td>
       <td class="cell cell-ore">&nbsp;</td>
       <td class="cell cell-desc">&nbsp;</td>
       <td class="cell cell-comm">&nbsp;</td>
@@ -1347,7 +1449,7 @@ function generaRapportoContributo(id){
     ? commessa + ' — ' + (cant.titolo || cant.cliente || '')
     : (cant.titolo || cant.cliente || '');
   const subs = record.subappaltatori
-    ? record.subappaltatori.split(',').map(s => s.trim()).filter(Boolean)
+    ? subDaMostrare(record.subappaltatori)
     : [];
 
   // Compilatore in cima, poi i colleghi sotto (stesse ore + commessa, desc condivisa solo sul compilatore)
@@ -1408,7 +1510,7 @@ function generaRapportoGiornaliero(operaio, data){
   const subsSet = new Set();
   tutti.forEach(r => {
     if(r.subappaltatori){
-      r.subappaltatori.split(',').map(s => s.trim()).filter(Boolean).forEach(s => subsSet.add(s));
+      subDaMostrare(r.subappaltatori).forEach(s => subsSet.add(s));
     }
   });
   const subs = [...subsSet];
