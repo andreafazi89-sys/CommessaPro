@@ -255,6 +255,8 @@ const SUPA_URL = 'https://iradzlocobsipjazracw.supabase.co';
 const SUPA_KEY = 'sb_publishable_zFgRrNrmYSORug8N06heow_6vjl0fhH';
 const RPT_KEY = 'rapporti_v1';
 const CANT_KEY = 'cantieri_v1';
+// Elenco ufficiale dei subappaltatori, gestito dall'admin in subappaltatori.html
+const SUB_KEY = 'subappaltatori_v1';
 let db = null;
 let currentEditId = null;  // null = nuovo, altrimenti id del record in modifica
 let rigaCounter = 0;       // contatore incrementale per le righe del form
@@ -264,7 +266,8 @@ const OPERAI = ['Adrian Lup','Fabio Cardini','Daniele Schedel','Mihai Poveste','
 let colleghiPerRiga = {};
 // Mappa rigaN -> array di subappaltatori selezionati per quella riga
 let subPerRiga = {};
-// Subappaltatori aggiunti a mano in questo form (compaiono subito in tutte le righe)
+// Subappaltatori scritti a mano in questo form (compaiono subito in tutte le righe;
+// per gli altri operai diventano pulsanti solo dopo la conferma dell'admin)
 let subNuovi = [];
 
 function initDB(){ if(window.supabase) db = window.supabase.createClient(SUPA_URL, SUPA_KEY); }
@@ -329,6 +332,7 @@ async function forcSync(){
   }
   await allinea(RPT_KEY);
   await allinea(CANT_KEY);
+  await allinea(SUB_KEY);
   renderLista();
   toast('✓ Sincronizzato','ok');
 }
@@ -733,7 +737,7 @@ function renderLista(){
               <div class="rpt-ore">${r.ore}h</div>
             </div>
             ${r.descrizione ? `<div class="rpt-desc">${r.descrizione}</div>` : ''}
-            ${r.subappaltatori ? `<div class="rpt-sub">Sub: ${r.subappaltatori}</div>` : ''}
+            ${r.subappaltatori ? `<div class="rpt-sub">Sub: ${esc(subDaMostrare(r.subappaltatori).join(', '))}</div>` : ''}
             ${(Array.isArray(r.colleghi) && r.colleghi.length) ? `<div class="rpt-colleghi">👥 Con: ${r.colleghi.map(c => c.split(' ')[0]).join(', ')}</div>` : ''}
             ${inAttesa.has(r.id) ? '<div class="pill-attesa">Solo sul telefono, non ancora sul server</div>' : ''}
             <div class="rpt-actions">
@@ -1054,6 +1058,7 @@ function aggiungiRiga(preset){
         <input type="text" id="rc-subnew-${n}" placeholder="Nuovo, es. Ditta Rossi" onkeydown="if(event.key==='Enter'){event.preventDefault();aggiungiSub(${n});}">
         <button type="button" onclick="aggiungiSub(${n})">+ Aggiungi</button>
       </div>
+      <div class="op-locked-hint">Se non c'è nell'elenco scrivilo e premi Aggiungi: diventa un pulsante per tutti dopo la verifica.</div>
     </div>
     <div class="fg">
       <label>Colleghi presenti (opzionale)</label>
@@ -1065,7 +1070,7 @@ function aggiungiRiga(preset){
   // Inizializza stato colleghi della riga (eventuale preset in modifica)
   colleghiPerRiga[n] = (preset && Array.isArray(preset.colleghi)) ? preset.colleghi.map(nomeOperaio) : [];
   renderColleghiChips(n);
-  subPerRiga[n] = preset ? splitSub(preset.subappaltatori) : [];
+  subPerRiga[n] = preset ? subDaMostrare(preset.subappaltatori) : [];
   renderSubChips(n);
 
   if(preset){
@@ -1130,11 +1135,28 @@ function renderColleghiTutteRighe(){
 function splitSub(t){
   return String(t || '').split(',').map(s => s.trim()).filter(Boolean);
 }
-// Nomi gia' usati in tutti i rapportini (anche di altri operai), senza doppioni
+function getSubUfficiali(){
+  try{ return (JSON.parse(localStorage.getItem(SUB_KEY)) || []).filter(s => !s.eliminato && s.nome); }
+  catch{ return []; }
+}
+// Nome ufficiale per un nome scritto in un rapportino (anche in un altro modo, es. "rossi"
+// confermato dall'admin come "Ditta Rossi"). Se non e' in elenco resta com'e'.
+function nomeSub(nome){
+  const k = String(nome || '').trim().toLowerCase();
+  const u = getSubUfficiali().find(s => s.nome.toLowerCase() === k || (s.alias || []).some(a => a.toLowerCase() === k));
+  return u ? u.nome : String(nome || '').trim();
+}
+// Elenco per liste e PDF: nomi ufficiali, senza doppioni
+function subDaMostrare(t){
+  const visti = new Map();
+  splitSub(t).map(nomeSub).forEach(n => { const k = n.toLowerCase(); if(!visti.has(k)) visti.set(k, n); });
+  return [...visti.values()];
+}
+// Pulsanti: elenco ufficiale + nomi scritti a mano in questo form
 function subappaltatoriNoti(){
   const visti = new Map();
   const add = nome => { const k = nome.toLowerCase(); if(!visti.has(k)) visti.set(k, nome); };
-  getRapporti().forEach(r => splitSub(r.subappaltatori).forEach(add));
+  getSubUfficiali().forEach(s => add(s.nome));
   subNuovi.forEach(add);
   Object.values(subPerRiga).forEach(arr => (arr || []).forEach(add));
   return [...visti.values()].sort((a, b) => a.localeCompare(b, 'it'));
@@ -1145,7 +1167,7 @@ function renderSubChips(n){
   const sel = subPerRiga[n] || [];
   const noti = subappaltatoriNoti();
   if(!noti.length){
-    cont.innerHTML = '<div class="op-empty-hint">Nessun subappaltatore salvato: aggiungilo qui sotto</div>';
+    cont.innerHTML = '<div class="op-empty-hint">Nessun subappaltatore in elenco: scrivilo qui sotto</div>';
     return;
   }
   cont.innerHTML = noti.map(nome => {
@@ -1175,7 +1197,8 @@ function aggiungiSub(n){
   const nome = inp.value.replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
   inp.value = '';
   if(!nome) return;
-  const esistente = subappaltatoriNoti().find(s => s.toLowerCase() === nome.toLowerCase());
+  const uff = nomeSub(nome);
+  const esistente = subappaltatoriNoti().find(s => s.toLowerCase() === uff.toLowerCase());
   const finale = esistente || nome;
   if(!esistente) subNuovi.push(finale);
   if(!subPerRiga[n]) subPerRiga[n] = [];
@@ -1314,7 +1337,7 @@ function renderPDFHtml({operai, subs, dataFmt, nomeCantiere, firma, totOre, comm
   for(let i = 0; i < 5; i++){
     const s = (subs && subs[i]) || '';
     subRows += `<tr>
-      <td class="cell cell-name">${s || '&nbsp;'}</td>
+      <td class="cell cell-name">${s ? esc(s) : '&nbsp;'}</td>
       <td class="cell cell-ore">&nbsp;</td>
       <td class="cell cell-desc">&nbsp;</td>
       <td class="cell cell-comm">&nbsp;</td>
@@ -1426,7 +1449,7 @@ function generaRapportoContributo(id){
     ? commessa + ' — ' + (cant.titolo || cant.cliente || '')
     : (cant.titolo || cant.cliente || '');
   const subs = record.subappaltatori
-    ? record.subappaltatori.split(',').map(s => s.trim()).filter(Boolean)
+    ? subDaMostrare(record.subappaltatori)
     : [];
 
   // Compilatore in cima, poi i colleghi sotto (stesse ore + commessa, desc condivisa solo sul compilatore)
@@ -1487,7 +1510,7 @@ function generaRapportoGiornaliero(operaio, data){
   const subsSet = new Set();
   tutti.forEach(r => {
     if(r.subappaltatori){
-      r.subappaltatori.split(',').map(s => s.trim()).filter(Boolean).forEach(s => subsSet.add(s));
+      subDaMostrare(r.subappaltatori).forEach(s => subsSet.add(s));
     }
   });
   const subs = [...subsSet];

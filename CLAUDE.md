@@ -49,7 +49,15 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
   aggiorna l'indirizzo su tutti i referenti di quell'ente. Nome e cognome
   stanno in `refNome`/`refCognome`, `ref` resta la stringa unita letta da
   Sopralluogo e report.
-- Dati locali: localStorage con chiavi `sopralluoghi_v3`, `cantieri_v1`, `note_v1`, `rubrica_v1`, `cp_user`, `cp_settings`.
+- Subappaltatori (dal 22/10/2026): chiave `subappaltatori_v1` in `dati`, record
+  {id, nome, alias[], eliminato, timestamp}. E' l'elenco ufficiale, gestito solo
+  dall'admin in `subappaltatori.html` (voce in Gestione + avviso in Home con i nomi
+  da verificare). Nel rapportino gli operai vedono come pulsanti solo i nomi
+  ufficiali e possono scriverne uno nuovo: resta sul loro rapportino e finisce
+  "da verificare". L'admin lo conferma o lo corregge: il nome scritto diventa un
+  `alias` e liste e PDF mostrano il nome ufficiale, senza riscrivere i rapportini.
+  Su `rapporti_v1.subappaltatori` resta la stringa separata da virgole.
+- Dati locali: localStorage con chiavi `sopralluoghi_v3`, `cantieri_v1`, `subappaltatori_v1`, `note_v1`, `rubrica_v1`, `cp_user`, `cp_settings`.
 - Nessun build step, nessun framework, nessun npm. Librerie solo via CDN (gia presente supabase-js).
 
 ## Ruoli (dal 19/10/2026; il ruolo `segretaria` non esiste piu)
