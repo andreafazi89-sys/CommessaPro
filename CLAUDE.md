@@ -15,6 +15,10 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
   - Tabella `dati`: chiave/valore JSON (legacy, in dismissione graduale).
   - Tabella `utenti`: id, nome, email, ruolo, attivo, permessi (JSON).
   - `rapporti_v1`: fonte di verita per le ore lavorate.
+  - Tabella `assenze` (dal 23/10/2026): persona, dal, al, tipo MALATTIA|FERIE|PERMESSO,
+    ore (solo permesso a ore, vuoto = giornata intera), note, autore, eliminato.
+    Fuori da `dati` perche' la malattia e' un dato sanitario: RLS lettura e
+    scrittura solo admin e ufficio, nessun delete (si marca `eliminato`).
   - Storage bucket `Foto`, pattern: `sopralluoghi/sop_<id>/<timestamp>.jpg`
 - `archivio.html`: crea il pacchetto ZIP della commessa (scheda, foto scaricate,
   giornate in CSV, dati.json) e poi marca `archiviato:true` su sopralluogo e
@@ -101,6 +105,12 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
   Griglia operai x giorni, sola lettura: ore proprie, citato come collega,
   giorni lavorativi vuoti. Nessun avviso agli operai: le discordanze si
   sistemano a fine mese.
+  Sotto gli operai gli amministrativi (elenco fisso `AMMINISTRATIVI` in
+  `rapporto.html`, non serve account): niente rapportini, 8 ore fisse nei giorni
+  lavorativi fino a oggi. Admin e ufficio segnano le assenze (Malattia, Ferie,
+  Permesso anche a ore) toccando una cella o con "Segna assenza", per operai e
+  amministrativi; colonna Assenze con il totale del mese. Le assenze stanno
+  nella tabella `assenze`, non in `dati`.
 - Dove hanno lavorato (in `rapporto.html`, scheda accanto al Riepilogo mese):
   stessi permessi (admin e ufficio). Giorni x operai con il codice commessa
   (primo pezzo di `commessa`, il titolo per le attivita' fisse), elenco
