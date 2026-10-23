@@ -127,6 +127,22 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
 .mese-tab .mt-manca{background:rgba(212,81,30,0.35);}
 .mese-tab .mt-off{background:var(--surface2);color:var(--muted);}
 .mese-tab .mt-tot{font-weight:700;}
+.mese-tab .mt-fisso{color:var(--white);}
+.mese-tab .mt-ass{background:var(--amber-dim);color:var(--amber);font-weight:700;}
+.mese-tab .mt-sig{font-size:10px;color:var(--amber);font-weight:700;margin-left:1px;}
+.mese-tab .mt-tap{cursor:pointer;}
+.mese-tab tr.mt-sep td{text-align:left;padding:6px 8px;background:var(--surface2);color:var(--sand);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;}
+.mese-tab tr.mt-sep span{position:sticky;left:8px;}
+.mese-azioni{display:flex;gap:8px;margin:0 0 10px;}
+.mese-azioni .mese-pdf{flex:1;margin:0;}
+.mese-ass{flex:1;min-height:44px;background:var(--amber-dim);color:var(--amber);border:1px solid var(--amber);border-radius:var(--r-sm);font-family:Epilogue,sans-serif;font-size:14px;font-weight:700;cursor:pointer;}
+.ass-form{padding:12px 6px 4px;}
+.ass-form .field{margin-bottom:12px;}
+.ass-tipi{display:flex;gap:8px;flex-wrap:wrap;}
+.ass-riga{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;margin:6px 0;background:var(--amber-dim);border:1px solid var(--amber);border-radius:var(--r-sm);font-size:13px;}
+.ass-riga button{min-height:40px;padding:0 12px;background:var(--red-dim);color:var(--red);border:none;border-radius:8px;font-family:Epilogue,sans-serif;font-size:13px;font-weight:600;cursor:pointer;}
+.ass-date{display:flex;gap:8px;}
+.ass-date > div{flex:1;}
 .mese-leg{display:flex;flex-wrap:wrap;gap:10px;margin:10px 4px;font-size:11px;color:var(--muted);}
 .mese-leg span{display:inline-flex;align-items:center;gap:4px;}
 .mese-leg i{display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid var(--border);}
@@ -227,6 +243,13 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
   <div class="cant-sheet-box" role="dialog" aria-label="Scegli il cantiere">
     <div class="cant-sheet-head"><span>Scegli il cantiere</span><button type="button" onclick="chiudiSceltaCantiere()" aria-label="Chiudi">✕</button></div>
     <div class="cant-sheet-list" id="cant-sheet-list"></div>
+  </div>
+</div>
+
+<div class="cant-sheet" id="ass-sheet" onclick="if(event.target===this)chiudiAssenza()">
+  <div class="cant-sheet-box" role="dialog" aria-label="Assenza">
+    <div class="cant-sheet-head"><span>Assenza</span><button type="button" onclick="chiudiAssenza()" aria-label="Chiudi">✕</button></div>
+    <div class="cant-sheet-list" id="ass-body"></div>
   </div>
 </div>
 
@@ -756,7 +779,13 @@ function renderLista(){
 // Sola lettura: non salva nulla e non mostra avvisi agli operai.
 // Verde = ore del rapportino proprio, nocciola = citato come collega (ore di chi l'ha citato),
 // rosso = giorno lavorativo passato senza nulla, grigio = sabato, domenica, festivi.
+// Sotto gli operai gli amministrativi: niente rapportini, 8 ore fisse nei giorni lavorativi.
+// Ambra = assenza (malattia, ferie, permesso), segnata da admin e ufficio toccando la cella.
 let meseRiepilogo = null; // 'AAAA-MM'
+// Dipendenti d'ufficio: compaiono solo nel Riepilogo mese, non servono account
+const AMMINISTRATIVI = ['Andrea Fazi','Rino Lenti','Antonella Ventrella','Pamela Pierantoni','Fabio Pierantoni','Catia'];
+const ORE_GIORNO = 8;
+const TIPI_ASSENZA = {MALATTIA:{sigla:'M', nome:'Malattia'}, FERIE:{sigla:'F', nome:'Ferie'}, PERMESSO:{sigla:'P', nome:'Permesso'}};
 // Vecchio nome di Mihai Poveste, ancora presente nei rapportini salvati prima della correzione
 const ALIAS_OPERAI = {'Michele Poveste':'Mihai Poveste'};
 function nomeOperaio(n){ const t = (n || '').trim(); return ALIAS_OPERAI[t] || t; }
@@ -810,7 +839,7 @@ function calcolaMese(){
   });
   const fineMese = meseRiepilogo + '-' + String(nGiorni).padStart(2, '0');
   const persone = [...new Set([...OPERAI.map(nomeOperaio), ...Object.keys(celle)])]
-    .filter(n => primaVolta[n] && primaVolta[n] <= fineMese)
+    .filter(n => !AMMINISTRATIVI.includes(n) && primaVolta[n] && primaVolta[n] <= fineMese)
     .sort((a, b) => a.localeCompare(b, 'it'));
   const giorni = [];
   for(let d = 1; d <= nGiorni; d++){
@@ -820,28 +849,61 @@ function calcolaMese(){
   }
   const titolo = new Date(y, m - 1, 1).toLocaleDateString('it-IT', {month:'long', year:'numeric'});
   const ultimo = tutti.map(r => r.data || '').filter(d => d.slice(0, 7) === meseRiepilogo).sort().pop() || '';
-  return {celle, persone, giorni, primaVolta, oggi, titolo, ultimo};
+  // Amministrativi sempre in Riepilogo; in "Dove hanno lavorato" solo se hanno un rapportino nel mese
+  const amm = AMMINISTRATIVI;
+  const dove = [...persone, ...amm.filter(n => celle[n])];
+  return {celle, persone, amm, dove, giorni, primaVolta, oggi, titolo, ultimo};
 }
 const fmtOre = n => String(Math.round(n * 10) / 10).replace('.', ',');
 const dataItIso = iso => iso.split('-').reverse().join('/');
 
-// Tabella operai x giorni con le ore (usata a schermo e nel PDF)
-function tabellaOre(M){
-  const righe = M.persone.map(p => {
+// Tabella persone x giorni con le ore (usata a schermo e nel PDF).
+// A schermo (tap=true) chi gestisce le assenze tocca i giorni lavorativi per segnarne una.
+// Chi non le gestisce vede l'assenza come giorno rosso, senza il motivo.
+let personeGriglia = [];
+function tabellaOre(M, tap){
+  personeGriglia = [...M.persone, ...M.amm];
+  const chiaro = assenzeMese.gestore;
+  const nCol = M.giorni.length + (chiaro ? 4 : 3);
+  const riga = (p, amm) => {
     let totOre = 0, mancanti = 0;
+    const cont = {F:0, M:0, P:0};
+    const idx = personeGriglia.indexOf(p);
     const tds = M.giorni.map(gi => {
       const c = (M.celle[p] || {})[gi.iso];
       const dataIt = dataItIso(gi.iso);
-      if(c && c.proprio){ totOre += c.ore; return `<td class="mt-ok" title="${esc(p)} - ${dataIt}: ${fmtOre(c.ore)} ore">${fmtOre(c.ore)}</td>`; }
-      if(c && c.citatoDa.size){ totOre += c.oreCol; return `<td class="mt-col" title="${esc(p)} - ${dataIt}: citato come collega da ${esc([...c.citatoDa].join(', '))}, ${fmtOre(c.oreCol)} ore del suo rapportino">${fmtOre(c.oreCol)}</td>`; }
+      const a = gi.lav ? assenzaDi(p, gi.iso) : null;
+      // Tipo vuoto = il server non lo manda a chi non gestisce le assenze
+      const t = a && a.tipo ? TIPI_ASSENZA[a.tipo] : null;
+      // Ore di permesso: quelle indicate, o la giornata intera
+      const oreAss = a ? (a.ore ? Number(a.ore) : ORE_GIORNO) : 0;
+      if(t){ if(a.tipo === 'PERMESSO') cont.P += oreAss; else cont[t.sigla]++; }
+      const click = (tap && gi.lav && chiaro) ? ` mt-tap" onclick="apriAssenza(${idx},'${gi.iso}')` : '';
+      const tAss = !a ? '' : t ? `, ${t.nome}${a.ore ? ' ' + fmtOre(oreAss) + ' ore' : ''}${a.note ? ' (' + esc(a.note) + ')' : ''}` : ', assente';
+      const sig = t ? `<span class="mt-sig">${t.sigla}</span>` : '';
+      const clAss = t ? 'mt-ass' : 'mt-manca';
+      if(c && c.proprio){ totOre += c.ore; return `<td class="mt-ok${click}" title="${esc(p)} - ${dataIt}: ${fmtOre(c.ore)} ore${tAss}">${fmtOre(c.ore)}${sig}</td>`; }
+      if(c && c.citatoDa.size){ totOre += c.oreCol; return `<td class="mt-col${click}" title="${esc(p)} - ${dataIt}: citato come collega da ${esc([...c.citatoDa].join(', '))}, ${fmtOre(c.oreCol)} ore del suo rapportino${tAss}">${fmtOre(c.oreCol)}${sig}</td>`; }
       if(!gi.lav) return '<td class="mt-off"></td>';
-      if(gi.iso < M.oggi && gi.iso >= M.primaVolta[p]){ mancanti++; return `<td class="mt-manca" title="${esc(p)} - ${dataIt}: nessun rapportino"></td>`; }
-      return '<td></td>';
+      // Amministrativi: 8 ore fino a oggi, meno le ore di permesso
+      if(amm && a && a.ore){ const o = ORE_GIORNO - oreAss; totOre += o; return `<td class="${clAss}${click}" title="${esc(p)} - ${dataIt}: ${fmtOre(o)} ore${tAss}">${fmtOre(o)}${sig}</td>`; }
+      if(a) return `<td class="${clAss}${click}" title="${esc(p)} - ${dataIt}${tAss}">${t ? t.sigla : ''}</td>`;
+      if(amm){
+        if(gi.iso > M.oggi) return `<td class="${click.slice(1)}"></td>`;
+        totOre += ORE_GIORNO;
+        return `<td class="mt-fisso${click}" title="${esc(p)} - ${dataIt}: ${ORE_GIORNO} ore">${ORE_GIORNO}</td>`;
+      }
+      if(gi.iso < M.oggi && gi.iso >= M.primaVolta[p]){ mancanti++; return `<td class="mt-manca${click}" title="${esc(p)} - ${dataIt}: nessun rapportino"></td>`; }
+      return `<td class="${click.slice(1)}"></td>`;
     }).join('');
-    return `<tr><td class="mt-nome">${esc(p)}</td>${tds}<td class="mt-tot">${fmtOre(totOre)}</td><td class="mt-tot">${mancanti || ''}</td></tr>`;
-  }).join('');
+    const ass = [cont.F ? 'F ' + cont.F : '', cont.M ? 'M ' + cont.M : '', cont.P ? 'P ' + fmtOre(cont.P) + 'h' : ''].filter(Boolean).join(' ');
+    return `<tr><td class="mt-nome">${esc(p)}</td>${tds}<td class="mt-tot">${fmtOre(totOre)}</td><td class="mt-tot">${mancanti || ''}</td>${chiaro ? `<td class="mt-tot">${ass}</td>` : ''}</tr>`;
+  };
+  const sep = txt => `<tr class="mt-sep"><td colspan="${nCol}"><span>${txt}</span></td></tr>`;
+  const righe = (M.persone.length ? sep('Operai') + M.persone.map(p => riga(p, false)).join('') : '')
+    + (M.amm.length ? sep('Amministrativi') + M.amm.map(p => riga(p, true)).join('') : '');
   return `<table class="mese-tab">
-      <thead><tr><th class="mt-nome">Operaio</th>${M.giorni.map(gi => `<th class="${gi.lav ? '' : 'mt-off'}">${gi.sett}<br>${gi.d}</th>`).join('')}<th>Ore</th><th>Mancanti</th></tr></thead>
+      <thead><tr><th class="mt-nome">Persona</th>${M.giorni.map(gi => `<th class="${gi.lav ? '' : 'mt-off'}">${gi.sett}<br>${gi.d}</th>`).join('')}<th>Ore</th><th>Mancanti</th>${chiaro ? '<th>Assenze</th>' : ''}</tr></thead>
       <tbody>${righe}</tbody>
     </table>`;
 }
@@ -850,8 +912,104 @@ function legendaOre(){
       <span><i style="background:var(--green-dim)"></i>Ore dal suo rapportino</span>
       <span><i style="background:var(--sand-dim)"></i>Citato come collega (ore di chi l'ha citato)</span>
       <span><i style="background:rgba(212,81,30,0.35)"></i>Giorno lavorativo senza nulla</span>
+      ${assenzeMese.gestore ? '<span><i style="background:var(--amber-dim)"></i>Assenza: F ferie, M malattia, P permesso</span>' : '<span>Le assenze compaiono come giorno rosso</span>'}
       <span><i style="background:var(--surface2)"></i>Sabato, domenica, festivi</span>
+      <span>Amministrativi: ${ORE_GIORNO} ore fisse nei giorni lavorativi</span>
     </div>`;
+}
+
+// ── ASSENZE (tabella assenze) ──
+// Caricate per il mese mostrato con la funzione assenze_mese del DB.
+// Le inseriscono e le vedono in chiaro solo l'admin e chi ha utenti.gestisce_assenze
+// (Pamela); agli altri di admin e ufficio il server manda le assenze senza tipo e note,
+// e in griglia diventano giorni rossi. Agli operai non arriva nulla.
+// La tabella non e' in dati: la malattia e' un dato sanitario.
+let assenzeMese = {mese:null, righe:[], errore:'', gestore:false};
+async function caricaAssenze(){
+  const mese = meseRiepilogo;
+  assenzeMese = {mese, righe:[], errore:'', gestore:false};
+  if(!db || !(await verificaSessione())){ assenzeMese.errore = 'Assenze non caricate: non sei collegato al server'; return; }
+  const [y, m] = mese.split('-').map(Number);
+  const fine = mese + '-' + String(new Date(y, m, 0).getDate()).padStart(2, '0');
+  const [ris, ges] = await Promise.all([
+    db.rpc('assenze_mese', {p_dal: mese + '-01', p_al: fine}),
+    db.rpc('gestisce_assenze')
+  ]);
+  if(assenzeMese.mese !== mese) return; // nel frattempo e' cambiato mese
+  const error = ris.error || ges.error;
+  if(error){ console.error('caricaAssenze', error); assenzeMese.errore = 'Assenze non caricate: ' + error.message; return; }
+  assenzeMese.righe = ris.data || [];
+  assenzeMese.gestore = ges.data === true;
+}
+// Assenza di una persona in un giorno (la piu' recente se ce ne sono due)
+function assenzaDi(persona, iso){
+  if(assenzeMese.mese !== meseRiepilogo) return null;
+  return assenzeMese.righe.find(a => a.persona === persona && a.dal <= iso && a.al >= iso) || null;
+}
+// Ricarica le assenze se il mese e' cambiato, poi ridisegna la scheda aperta
+function assicuraAssenze(){
+  if(assenzeMese.mese === meseRiepilogo) return;
+  caricaAssenze().then(() => { if(modVista === 'mese' || modVista === 'dove') renderLista(); });
+}
+let assTipo = '';
+function apriAssenza(idx, iso){
+  if(!assenzeMese.gestore) return;
+  const persona = idx >= 0 ? personeGriglia[idx] : '';
+  const giorno = iso || isoData(new Date());
+  assTipo = '';
+  const esistenti = persona ? assenzeMese.righe.filter(a => a.persona === persona && a.dal <= giorno && a.al >= giorno) : [];
+  const opzioni = (lista, gruppo) => `<optgroup label="${gruppo}">${lista.map(n => `<option value="${esc(n)}"${n === persona ? ' selected' : ''}>${esc(n)}</option>`).join('')}</optgroup>`;
+  const operai = personeGriglia.filter(n => !AMMINISTRATIVI.includes(n));
+  g('ass-body').innerHTML = `
+    ${esistenti.map(a => `<div class="ass-riga"><div><b>${TIPI_ASSENZA[a.tipo].nome}${a.ore ? ' ' + fmtOre(Number(a.ore)) + ' ore' : ''}</b><br>${dataItIso(a.dal)}${a.al !== a.dal ? ' - ' + dataItIso(a.al) : ''}${a.note ? '<br>' + esc(a.note) : ''}</div><button type="button" onclick="eliminaAssenza('${a.id}')">Elimina</button></div>`).join('')}
+    <div class="ass-form">
+      <div class="field"><label for="ass-persona">Persona</label>
+        <select id="ass-persona"><option value="">Scegli...</option>${operai.length ? opzioni(operai, 'Operai') : ''}${opzioni(AMMINISTRATIVI, 'Amministrativi')}</select></div>
+      <div class="field"><label>Tipo</label>
+        <div class="ass-tipi">${Object.entries(TIPI_ASSENZA).map(([k, t]) => `<div class="op-chip" data-tipo="${k}" onclick="sceltaTipoAssenza('${k}')">${t.nome}</div>`).join('')}</div></div>
+      <div class="field ass-date">
+        <div><label for="ass-dal">Dal</label><input type="date" id="ass-dal" value="${giorno}"></div>
+        <div><label for="ass-al">Al</label><input type="date" id="ass-al" value="${giorno}"></div>
+      </div>
+      <div class="field" id="ass-ore-box" style="display:none"><label for="ass-ore">Ore di permesso (vuoto = giornata intera)</label>
+        <input type="number" id="ass-ore" min="0.5" max="7.5" step="0.5" inputmode="decimal"></div>
+      <div class="field"><label for="ass-note">Note</label><input type="text" id="ass-note" placeholder="Facoltative"></div>
+      <button type="button" class="btn-main" onclick="salvaAssenza()">Salva assenza</button>
+    </div>`;
+  g('ass-sheet').classList.add('show');
+}
+function chiudiAssenza(){ g('ass-sheet').classList.remove('show'); }
+function sceltaTipoAssenza(k){
+  assTipo = k;
+  document.querySelectorAll('#ass-body .ass-tipi .op-chip').forEach(el => el.classList.toggle('on', el.dataset.tipo === k));
+  g('ass-ore-box').style.display = k === 'PERMESSO' ? '' : 'none';
+}
+async function salvaAssenza(){
+  const persona = gv('ass-persona'), dal = gv('ass-dal'), al = gv('ass-al') || dal;
+  const oreTxt = assTipo === 'PERMESSO' ? gv('ass-ore').replace(',', '.') : '';
+  const ore = oreTxt ? parseFloat(oreTxt) : null;
+  if(!persona){ toast('Scegli la persona','err'); return; }
+  if(!assTipo){ toast('Scegli Malattia, Ferie o Permesso','err'); return; }
+  if(!dal || al < dal){ toast('Controlla le date: "Al" non puo\' essere prima di "Dal"','err'); return; }
+  if(ore !== null && !(ore > 0 && ore < ORE_GIORNO)){ toast('Ore di permesso tra 0,5 e 7,5 (vuoto = giornata intera)','err'); return; }
+  if(!db || !(await verificaSessione())){ toast('⚠ Non collegato al server: assenza non salvata','err'); return; }
+  const u = getCpUser();
+  const { error } = await db.from('assenze').insert({persona, dal, al, tipo:assTipo, ore, note:gv('ass-note') || null, autore:u.nome || u.email || ''});
+  if(error){ console.error('salvaAssenza', error); toast('⚠ Assenza non salvata: ' + error.message,'err'); return; }
+  toast('✓ Assenza salvata','ok');
+  chiudiAssenza();
+  await caricaAssenze();
+  renderLista();
+}
+async function eliminaAssenza(id){
+  if(!confirm('Eliminare questa assenza?')) return;
+  if(!db || !(await verificaSessione())){ toast('⚠ Non collegato al server','err'); return; }
+  const { error } = await db.from('assenze').update({eliminato:true, timestamp:new Date().toISOString()}).eq('id', id);
+  if(error){ console.error('eliminaAssenza', error); toast('⚠ Non eliminata: ' + error.message,'err'); return; }
+  toast('✓ Assenza eliminata','ok');
+  chiudiAssenza();
+  await caricaAssenze();
+  renderLista();
 }
 
 // Codice breve della commessa: solo il primo pezzo ("P0080/26 SCUOLA GERMANICA" -> "P0080/26").
@@ -867,12 +1025,14 @@ function tabellaDove(M){
   const usati = new Map();
   const righe = M.giorni.map(gi => {
     const etich = `${gi.gs} ${dataItIso(gi.iso).slice(0, 5)}`;
-    const qualcosa = M.persone.some(p => (M.celle[p] || {})[gi.iso]);
-    if(!gi.lav && !qualcosa) return `<tr class="dv-off"><td class="dv-gg">${etich}</td>${M.persone.map(() => '<td></td>').join('')}</tr>`;
-    const tds = M.persone.map(p => {
+    const qualcosa = M.dove.some(p => (M.celle[p] || {})[gi.iso]);
+    if(!gi.lav && !qualcosa) return `<tr class="dv-off"><td class="dv-gg">${etich}</td>${M.dove.map(() => '<td></td>').join('')}</tr>`;
+    const tds = M.dove.map(p => {
       const c = (M.celle[p] || {})[gi.iso];
       if(!c || !c.voci.length){
-        return (gi.lav && gi.iso < M.oggi && gi.iso >= (M.primaVolta[p] || '9')) ? '<td class="mt-manca"></td>' : '<td></td>';
+        const a = gi.lav ? assenzaDi(p, gi.iso) : null;
+        if(a) return a.tipo ? `<td class="mt-ass">${TIPI_ASSENZA[a.tipo].nome}</td>` : '<td class="mt-manca"></td>';
+        return (gi.lav && gi.iso < M.oggi && !AMMINISTRATIVI.includes(p) && gi.iso >= (M.primaVolta[p] || '9')) ? '<td class="mt-manca"></td>' : '<td></td>';
       }
       // Stessa commessa citata piu' volte nel giorno: una voce sola con le ore sommate
       const perCant = new Map();
@@ -895,7 +1055,7 @@ function tabellaDove(M){
     .map(([cod, c]) => `<div><b>${esc(cod)}</b> ${esc(c.fisso ? 'Attività fissa' : (c.titolo || ''))} <span>${esc((c.cliente || '').split(' - ')[0])}</span></div>`).join('');
   return {
     tab: `<table class="mese-tab dv-tab">
-      <thead><tr><th class="dv-gg">Giorno</th>${M.persone.map(p => `<th>${esc(p)}</th>`).join('')}</tr></thead>
+      <thead><tr><th class="dv-gg">Giorno</th>${M.dove.map(p => `<th>${esc(p)}</th>`).join('')}</tr></thead>
       <tbody>${righe}</tbody>
     </table>`,
     elenco: elenco ? `<div class="dv-tit">Commesse del mese</div><div class="dv-elenco">${elenco}</div>` : ''
@@ -906,27 +1066,33 @@ function legendaDove(){
       <span><i style="background:var(--green-dim)"></i>Dal suo rapportino</span>
       <span><i style="background:var(--sand-dim)"></i>Citato come collega</span>
       <span><i style="background:rgba(212,81,30,0.35)"></i>Giorno lavorativo senza nulla</span>
+      ${assenzeMese.gestore ? '<span><i style="background:var(--amber-dim)"></i>Assenza</span>' : ''}
       <span>Ore indicate solo se nel giorno ci sono piu commesse</span>
     </div>`;
 }
 
 function navMese(M, tipo){
+  const ore = tipo === 'ore';
+  const pdf = (ore || M.dove.length) ? `<button type="button" class="mese-pdf" onclick="esportaMesePDF('${tipo}')">📄 Esporta PDF</button>` : '';
   return `<div class="mese-nav">
       <button type="button" onclick="cambiaMese(-1)" aria-label="Mese precedente">‹</button>
       <div class="mese-nav-txt">${M.titolo}</div>
       <button type="button" onclick="cambiaMese(1)" aria-label="Mese successivo">›</button>
     </div>
-    ${M.persone.length ? `<button type="button" class="mese-pdf" onclick="esportaMesePDF('${tipo}')">📄 Esporta PDF</button>` : ''}`;
+    <div class="mese-azioni">${pdf}${ore && assenzeMese.gestore ? '<button type="button" class="mese-ass" onclick="apriAssenza(-1)">➕ Segna assenza</button>' : ''}</div>
+    ${assenzeMese.errore ? `<div class="mese-leg" style="color:var(--red)">${esc(assenzeMese.errore)}</div>` : ''}`;
 }
 const VUOTO_MESE = '<div class="empty-state"><div class="empty-sub">Nessun rapportino in questo mese</div></div>';
 
 function renderRiepilogoMese(el){
   const M = calcolaMese();
-  el.innerHTML = navMese(M, 'ore') + (M.persone.length ? `<div class="mese-wrap">${tabellaOre(M)}</div>${legendaOre()}` : VUOTO_MESE);
+  assicuraAssenze();
+  el.innerHTML = navMese(M, 'ore') + `<div class="mese-wrap">${tabellaOre(M, true)}</div>${legendaOre()}`;
 }
 function renderDoveMese(el){
   const M = calcolaMese();
-  if(!M.persone.length){ el.innerHTML = navMese(M, 'dove') + VUOTO_MESE; return; }
+  assicuraAssenze();
+  if(!M.dove.length){ el.innerHTML = navMese(M, 'dove') + VUOTO_MESE; return; }
   const D = tabellaDove(M);
   el.innerHTML = navMese(M, 'dove') + `<div class="mese-wrap">${D.tab}</div>${legendaDove()}${D.elenco}`;
 }
@@ -937,14 +1103,14 @@ function esportaMesePDF(tipo){
   if(!vediRiepilogo()) return;
   const M = calcolaMese();
   const ore = tipo === 'ore';
-  const titolo = (ore ? 'Presenze operai' : 'Dove hanno lavorato gli operai') + ' - ' + M.titolo;
+  const titolo = (ore ? 'Presenze' : 'Dove hanno lavorato gli operai') + ' - ' + M.titolo;
   const D = ore ? null : tabellaDove(M);
   const corpo = ore ? tabellaOre(M) + legendaOre() : D.tab + legendaDove() + D.elenco;
   const oggiIt = new Date().toLocaleDateString('it-IT');
   const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><title>${esc(titolo)}</title>
 <style>
   @page { size: A4 ${ore ? 'landscape' : 'portrait'}; margin: 1cm; }
-  :root { --green-dim:#dcefe1; --sand-dim:#efe5da; --surface2:#e6e6e6; }
+  :root { --green-dim:#dcefe1; --sand-dim:#efe5da; --surface2:#e6e6e6; --amber-dim:#fbe7c2; }
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { font-family: Arial, sans-serif; color: #000; background: #fff; margin: 0; padding: 10px; }
   .fh { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 10px; }
@@ -956,6 +1122,8 @@ function esportaMesePDF(tipo){
   .mt-ok { background: #dcefe1; font-weight: bold; } .mt-col { background: #efe5da; font-weight: bold; }
   .mt-manca { background: #f6c9b6; } .mt-off, .dv-off td { background: #e6e6e6; color: #555; }
   .mt-tot { font-weight: bold; }
+  .mt-ass { background: #fbe7c2; font-weight: bold; } .mt-sig { font-size: 7pt; margin-left: 1px; }
+  .mt-sep td { text-align: left; background: #ddd; font-weight: bold; }
   .dv-voce small { font-weight: normal; margin-left: 4px; }
   .mese-leg { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; font-size: 8pt; color: #333; }
   .mese-leg i { display: inline-block; width: 10px; height: 10px; border: 1px solid #999; margin-right: 4px; vertical-align: -1px; }
@@ -969,7 +1137,7 @@ ${corpo}
 <div class="pie">Generato da CommessaPro il ${oggiIt}</div>
 </body></html>`;
   const clean = s => (s || '').replace(/[^a-zA-Z0-9_-]/g, '_');
-  mostraPDFOverlay(html, (ore ? 'Presenze_' : 'Commesse_operai_') + clean(meseRiepilogo), ore ? 'Presenze operai' : 'Dove hanno lavorato');
+  mostraPDFOverlay(html, (ore ? 'Presenze_' : 'Commesse_operai_') + clean(meseRiepilogo), ore ? 'Presenze' : 'Dove hanno lavorato');
 }
 function tornaLista(){
   renderToggle();
