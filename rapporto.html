@@ -858,11 +858,13 @@ const fmtOre = n => String(Math.round(n * 10) / 10).replace('.', ',');
 const dataItIso = iso => iso.split('-').reverse().join('/');
 
 // Tabella persone x giorni con le ore (usata a schermo e nel PDF).
-// A schermo (tap=true) i giorni lavorativi si toccano per segnare un'assenza.
+// A schermo (tap=true) chi gestisce le assenze tocca i giorni lavorativi per segnarne una.
+// Chi non le gestisce vede l'assenza come giorno rosso, senza il motivo.
 let personeGriglia = [];
 function tabellaOre(M, tap){
   personeGriglia = [...M.persone, ...M.amm];
-  const nCol = M.giorni.length + 4;
+  const chiaro = assenzeMese.gestore;
+  const nCol = M.giorni.length + (chiaro ? 4 : 3);
   const riga = (p, amm) => {
     let totOre = 0, mancanti = 0;
     const cont = {F:0, M:0, P:0};
@@ -871,19 +873,21 @@ function tabellaOre(M, tap){
       const c = (M.celle[p] || {})[gi.iso];
       const dataIt = dataItIso(gi.iso);
       const a = gi.lav ? assenzaDi(p, gi.iso) : null;
-      const t = a ? TIPI_ASSENZA[a.tipo] : null;
+      // Tipo vuoto = il server non lo manda a chi non gestisce le assenze
+      const t = a && a.tipo ? TIPI_ASSENZA[a.tipo] : null;
       // Ore di permesso: quelle indicate, o la giornata intera
       const oreAss = a ? (a.ore ? Number(a.ore) : ORE_GIORNO) : 0;
-      if(a){ if(a.tipo === 'PERMESSO') cont.P += oreAss; else cont[t.sigla]++; }
-      const click = (tap && gi.lav) ? ` mt-tap" onclick="apriAssenza(${idx},'${gi.iso}')` : '';
-      const tAss = a ? `, ${t.nome}${a.ore ? ' ' + fmtOre(oreAss) + ' ore' : ''}${a.note ? ' (' + esc(a.note) + ')' : ''}` : '';
-      const sig = a ? `<span class="mt-sig">${t.sigla}</span>` : '';
+      if(t){ if(a.tipo === 'PERMESSO') cont.P += oreAss; else cont[t.sigla]++; }
+      const click = (tap && gi.lav && chiaro) ? ` mt-tap" onclick="apriAssenza(${idx},'${gi.iso}')` : '';
+      const tAss = !a ? '' : t ? `, ${t.nome}${a.ore ? ' ' + fmtOre(oreAss) + ' ore' : ''}${a.note ? ' (' + esc(a.note) + ')' : ''}` : ', assente';
+      const sig = t ? `<span class="mt-sig">${t.sigla}</span>` : '';
+      const clAss = t ? 'mt-ass' : 'mt-manca';
       if(c && c.proprio){ totOre += c.ore; return `<td class="mt-ok${click}" title="${esc(p)} - ${dataIt}: ${fmtOre(c.ore)} ore${tAss}">${fmtOre(c.ore)}${sig}</td>`; }
       if(c && c.citatoDa.size){ totOre += c.oreCol; return `<td class="mt-col${click}" title="${esc(p)} - ${dataIt}: citato come collega da ${esc([...c.citatoDa].join(', '))}, ${fmtOre(c.oreCol)} ore del suo rapportino${tAss}">${fmtOre(c.oreCol)}${sig}</td>`; }
       if(!gi.lav) return '<td class="mt-off"></td>';
       // Amministrativi: 8 ore fino a oggi, meno le ore di permesso
-      if(amm && a && a.ore){ const o = ORE_GIORNO - oreAss; totOre += o; return `<td class="mt-ass${click}" title="${esc(p)} - ${dataIt}: ${fmtOre(o)} ore${tAss}">${fmtOre(o)}${sig}</td>`; }
-      if(a) return `<td class="mt-ass${click}" title="${esc(p)} - ${dataIt}${tAss}">${t.sigla}</td>`;
+      if(amm && a && a.ore){ const o = ORE_GIORNO - oreAss; totOre += o; return `<td class="${clAss}${click}" title="${esc(p)} - ${dataIt}: ${fmtOre(o)} ore${tAss}">${fmtOre(o)}${sig}</td>`; }
+      if(a) return `<td class="${clAss}${click}" title="${esc(p)} - ${dataIt}${tAss}">${t ? t.sigla : ''}</td>`;
       if(amm){
         if(gi.iso > M.oggi) return `<td class="${click.slice(1)}"></td>`;
         totOre += ORE_GIORNO;
@@ -893,13 +897,13 @@ function tabellaOre(M, tap){
       return `<td class="${click.slice(1)}"></td>`;
     }).join('');
     const ass = [cont.F ? 'F ' + cont.F : '', cont.M ? 'M ' + cont.M : '', cont.P ? 'P ' + fmtOre(cont.P) + 'h' : ''].filter(Boolean).join(' ');
-    return `<tr><td class="mt-nome">${esc(p)}</td>${tds}<td class="mt-tot">${fmtOre(totOre)}</td><td class="mt-tot">${mancanti || ''}</td><td class="mt-tot">${ass}</td></tr>`;
+    return `<tr><td class="mt-nome">${esc(p)}</td>${tds}<td class="mt-tot">${fmtOre(totOre)}</td><td class="mt-tot">${mancanti || ''}</td>${chiaro ? `<td class="mt-tot">${ass}</td>` : ''}</tr>`;
   };
   const sep = txt => `<tr class="mt-sep"><td colspan="${nCol}"><span>${txt}</span></td></tr>`;
   const righe = (M.persone.length ? sep('Operai') + M.persone.map(p => riga(p, false)).join('') : '')
     + (M.amm.length ? sep('Amministrativi') + M.amm.map(p => riga(p, true)).join('') : '');
   return `<table class="mese-tab">
-      <thead><tr><th class="mt-nome">Persona</th>${M.giorni.map(gi => `<th class="${gi.lav ? '' : 'mt-off'}">${gi.sett}<br>${gi.d}</th>`).join('')}<th>Ore</th><th>Mancanti</th><th>Assenze</th></tr></thead>
+      <thead><tr><th class="mt-nome">Persona</th>${M.giorni.map(gi => `<th class="${gi.lav ? '' : 'mt-off'}">${gi.sett}<br>${gi.d}</th>`).join('')}<th>Ore</th><th>Mancanti</th>${chiaro ? '<th>Assenze</th>' : ''}</tr></thead>
       <tbody>${righe}</tbody>
     </table>`;
 }
@@ -908,28 +912,34 @@ function legendaOre(){
       <span><i style="background:var(--green-dim)"></i>Ore dal suo rapportino</span>
       <span><i style="background:var(--sand-dim)"></i>Citato come collega (ore di chi l'ha citato)</span>
       <span><i style="background:rgba(212,81,30,0.35)"></i>Giorno lavorativo senza nulla</span>
-      <span><i style="background:var(--amber-dim)"></i>Assenza: F ferie, M malattia, P permesso</span>
+      ${assenzeMese.gestore ? '<span><i style="background:var(--amber-dim)"></i>Assenza: F ferie, M malattia, P permesso</span>' : '<span>Le assenze compaiono come giorno rosso</span>'}
       <span><i style="background:var(--surface2)"></i>Sabato, domenica, festivi</span>
       <span>Amministrativi: ${ORE_GIORNO} ore fisse nei giorni lavorativi</span>
     </div>`;
 }
 
-// ── ASSENZE (tabella assenze, solo admin e ufficio) ──
-// Caricate per il mese mostrato. La tabella non e' in dati: la malattia e' un dato
-// sanitario e non deve essere leggibile dagli operai.
-let assenzeMese = {mese:null, righe:[], errore:''};
+// ── ASSENZE (tabella assenze) ──
+// Caricate per il mese mostrato con la funzione assenze_mese del DB.
+// Le inseriscono e le vedono in chiaro solo l'admin e chi ha utenti.gestisce_assenze
+// (Pamela); agli altri di admin e ufficio il server manda le assenze senza tipo e note,
+// e in griglia diventano giorni rossi. Agli operai non arriva nulla.
+// La tabella non e' in dati: la malattia e' un dato sanitario.
+let assenzeMese = {mese:null, righe:[], errore:'', gestore:false};
 async function caricaAssenze(){
   const mese = meseRiepilogo;
-  assenzeMese = {mese, righe:[], errore:''};
+  assenzeMese = {mese, righe:[], errore:'', gestore:false};
   if(!db || !(await verificaSessione())){ assenzeMese.errore = 'Assenze non caricate: non sei collegato al server'; return; }
   const [y, m] = mese.split('-').map(Number);
   const fine = mese + '-' + String(new Date(y, m, 0).getDate()).padStart(2, '0');
-  const { data, error } = await db.from('assenze').select('*')
-    .eq('eliminato', false).lte('dal', fine).gte('al', mese + '-01')
-    .order('creato_il', {ascending:false});
+  const [ris, ges] = await Promise.all([
+    db.rpc('assenze_mese', {p_dal: mese + '-01', p_al: fine}),
+    db.rpc('gestisce_assenze')
+  ]);
   if(assenzeMese.mese !== mese) return; // nel frattempo e' cambiato mese
+  const error = ris.error || ges.error;
   if(error){ console.error('caricaAssenze', error); assenzeMese.errore = 'Assenze non caricate: ' + error.message; return; }
-  assenzeMese.righe = data || [];
+  assenzeMese.righe = ris.data || [];
+  assenzeMese.gestore = ges.data === true;
 }
 // Assenza di una persona in un giorno (la piu' recente se ce ne sono due)
 function assenzaDi(persona, iso){
@@ -943,7 +953,7 @@ function assicuraAssenze(){
 }
 let assTipo = '';
 function apriAssenza(idx, iso){
-  if(!vediRiepilogo()) return;
+  if(!assenzeMese.gestore) return;
   const persona = idx >= 0 ? personeGriglia[idx] : '';
   const giorno = iso || isoData(new Date());
   assTipo = '';
@@ -1021,7 +1031,7 @@ function tabellaDove(M){
       const c = (M.celle[p] || {})[gi.iso];
       if(!c || !c.voci.length){
         const a = gi.lav ? assenzaDi(p, gi.iso) : null;
-        if(a) return `<td class="mt-ass">${TIPI_ASSENZA[a.tipo].nome}</td>`;
+        if(a) return a.tipo ? `<td class="mt-ass">${TIPI_ASSENZA[a.tipo].nome}</td>` : '<td class="mt-manca"></td>';
         return (gi.lav && gi.iso < M.oggi && !AMMINISTRATIVI.includes(p) && gi.iso >= (M.primaVolta[p] || '9')) ? '<td class="mt-manca"></td>' : '<td></td>';
       }
       // Stessa commessa citata piu' volte nel giorno: una voce sola con le ore sommate
@@ -1056,7 +1066,7 @@ function legendaDove(){
       <span><i style="background:var(--green-dim)"></i>Dal suo rapportino</span>
       <span><i style="background:var(--sand-dim)"></i>Citato come collega</span>
       <span><i style="background:rgba(212,81,30,0.35)"></i>Giorno lavorativo senza nulla</span>
-      <span><i style="background:var(--amber-dim)"></i>Assenza</span>
+      ${assenzeMese.gestore ? '<span><i style="background:var(--amber-dim)"></i>Assenza</span>' : ''}
       <span>Ore indicate solo se nel giorno ci sono piu commesse</span>
     </div>`;
 }
@@ -1069,7 +1079,7 @@ function navMese(M, tipo){
       <div class="mese-nav-txt">${M.titolo}</div>
       <button type="button" onclick="cambiaMese(1)" aria-label="Mese successivo">›</button>
     </div>
-    <div class="mese-azioni">${pdf}${ore ? '<button type="button" class="mese-ass" onclick="apriAssenza(-1)">➕ Segna assenza</button>' : ''}</div>
+    <div class="mese-azioni">${pdf}${ore && assenzeMese.gestore ? '<button type="button" class="mese-ass" onclick="apriAssenza(-1)">➕ Segna assenza</button>' : ''}</div>
     ${assenzeMese.errore ? `<div class="mese-leg" style="color:var(--red)">${esc(assenzeMese.errore)}</div>` : ''}`;
 }
 const VUOTO_MESE = '<div class="empty-state"><div class="empty-sub">Nessun rapportino in questo mese</div></div>';
