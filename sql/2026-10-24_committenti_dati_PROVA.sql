@@ -7,10 +7,6 @@ begin
 
 create table public.committenti_dati (
   chiave text primary key,                -- nome del committente come nell'app, maiuscolo (es. 'SQUARE SPV')
-  ragione_sociale text,                   -- nome completo per il foglio (es. 'Square SPV s.r.l.')
-  cf text,
-  piva text,
-  sede text,                              -- indirizzo del committente
   importo text,                           -- testo libero: '€ 11.993,10', 'A consuntivo (c.a. € 10.000,00)'
   fine_prevista date,
   note text,
