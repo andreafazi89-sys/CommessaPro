@@ -164,6 +164,7 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
 .cm-ann{border:1px solid var(--border);border-radius:var(--r-sm);padding:8px 10px;font-size:13px;line-height:1.5;background:var(--surface);}
 .cm-ann .cm-cant{margin-top:4px;}
 .cm-ann .cm-cant span{color:var(--muted);}
+.cm-mod{margin-top:8px;min-height:40px;width:100%;background:transparent;color:var(--brick);border:1.5px solid var(--brick);border-radius:var(--r-sm);font-family:Epilogue,sans-serif;font-size:13px;font-weight:600;cursor:pointer;}
 /* Card aggregata (vista Tutti) */
 .agg-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;}
 .agg-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px;}
@@ -256,6 +257,13 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
   <div class="cant-sheet-box" role="dialog" aria-label="Assenza">
     <div class="cant-sheet-head"><span>Assenza</span><button type="button" onclick="chiudiAssenza()" aria-label="Chiudi">✕</button></div>
     <div class="cant-sheet-list" id="ass-body"></div>
+  </div>
+</div>
+
+<div class="cant-sheet" id="cm-sheet" onclick="if(event.target===this)chiudiCommittente()">
+  <div class="cant-sheet-box" role="dialog" aria-label="Dati del committente">
+    <div class="cant-sheet-head"><span id="cm-sheet-tit">Committente</span><button type="button" onclick="chiudiCommittente()" aria-label="Chiudi">✕</button></div>
+    <div class="cant-sheet-list" id="cm-body"></div>
   </div>
 </div>
 
@@ -954,6 +962,7 @@ async function caricaAssenze(){
   if(error){ console.error('caricaAssenze', error); assenzeMese.errore = 'Assenze non caricate: ' + error.message; return; }
   assenzeMese.righe = ris.data || [];
   assenzeMese.gestore = ges.data === true;
+  await caricaCommittentiDati();
 }
 // Assenza di una persona in un giorno (la piu' recente se ce ne sono due)
 function assenzaDi(persona, iso){
@@ -1062,7 +1071,7 @@ function calcolaCommittenti(M){
         if(!c.proprio) r.col[gi.iso] = true;
         if(!delGiorno[gi.iso] || (r.o[gi.iso] || 0) + (r.fe[gi.iso] || 0) > (delGiorno[gi.iso].o[gi.iso] || 0) + (delGiorno[gi.iso].fe[gi.iso] || 0)) delGiorno[gi.iso] = r;
         if(cant && !cant.fisso){
-          const k = committenti.get(chiave) || {nome, cantieri:new Map()};
+          const k = committenti.get(chiave) || {chiave, nome, cantieri:new Map()};
           k.cantieri.set(cant.id, cant);
           committenti.set(chiave, k);
         }
@@ -1114,14 +1123,74 @@ function tabellaCommittenti(M, C){
       <tbody>${righe}</tbody>
     </table>`;
 }
-// Annotazioni per committente: cantieri del mese con indirizzo, inizio e fine lavori
-function annotazioniCommittenti(C){
+// Annotazioni per committente: cantieri del mese con indirizzo, inizio e fine lavori.
+// Ragione sociale, CF, P.IVA, sede, importo e fine prevista stanno nella tabella
+// committenti_dati: li legge e li scrive solo chi gestisce le assenze (admin e Pamela).
+// A schermo (tap=true) chi li gestisce ha "Modifica dati".
+function annotazioniCommittenti(C, tap){
   const lista = [...C.committenti.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
   if(!lista.length) return '';
-  const box = k => `<div class="cm-ann"><b>Committente: ${esc(k.nome)}</b>${[...k.cantieri.values()]
-    .sort((a, b) => (a.dataInizio || '').localeCompare(b.dataInizio || ''))
-    .map(c => `<div class="cm-cant">Cantiere: ${esc(c.indirizzo || 'indirizzo non indicato')}<br><span>${esc(((c.commessa || '').trim().split(/\s+/)[0] + ' ' + (c.titolo || '')).trim())}</span><br>Inizio lavori ${c.dataInizio ? 'il ' + dataItIso(c.dataInizio) : 'non indicato'}<br>${c.dataFine ? 'Fine lavori il ' + dataItIso(c.dataFine) : 'Lavori in corso'}</div>`).join('')}</div>`;
+  if(tap) chiaviCommittenti = lista.map(k => k.chiave);
+  const chiaro = assenzeMese.gestore;
+  const riga = (et, v) => v ? `<div>${et}: ${esc(v)}</div>` : '';
+  const box = k => {
+    const d = (chiaro && committentiDati[k.chiave]) || {};
+    const cantieri = [...k.cantieri.values()].sort((a, b) => (a.dataInizio || '').localeCompare(b.dataInizio || ''))
+      .map(c => `<div class="cm-cant">Cantiere: ${esc(c.indirizzo || 'indirizzo non indicato')}<br><span>${esc(((c.commessa || '').trim().split(/\s+/)[0] + ' ' + (c.titolo || '')).trim())}</span><br>Inizio lavori ${c.dataInizio ? 'il ' + dataItIso(c.dataInizio) : 'non indicato'}<br>${c.dataFine ? 'Fine lavori il ' + dataItIso(c.dataFine) : 'Lavori in corso'}</div>`).join('');
+    const tutti = [...k.cantieri.values()].every(c => c.dataFine);
+    return `<div class="cm-ann"><b>Committente: ${esc(d.ragione_sociale || k.nome)}</b>
+      ${riga('P.IVA', d.piva)}${riga('C.F.', d.cf)}${riga('Indirizzo', d.sede)}${cantieri}
+      ${d.importo ? `<div class="cm-cant">Importo lavori ${esc(d.importo)}</div>` : ''}
+      ${d.fine_prevista && !tutti ? `<div>Fine lavori previsto il ${dataItIso(d.fine_prevista)}</div>` : ''}
+      ${d.note ? `<div>${esc(d.note)}</div>` : ''}
+      ${tap && chiaro ? `<button type="button" class="cm-mod" onclick="apriCommittente(${chiaviCommittenti.indexOf(k.chiave)})">Modifica dati</button>` : ''}</div>`;
+  };
   return `<div class="cm-tit">Annotazioni</div><div class="cm-anns">${lista.map(box).join('')}</div>`;
+}
+// ── DATI COMMITTENTI (tabella committenti_dati) ──
+let committentiDati = {};
+let committenteAperto = '';
+let chiaviCommittenti = []; // committenti della scheda a schermo, per indice
+
+async function caricaCommittentiDati(){
+  committentiDati = {};
+  if(!assenzeMese.gestore) return;
+  const { data, error } = await db.from('committenti_dati').select('*');
+  if(error){ console.error('caricaCommittentiDati', error); toast('⚠ Dati committenti non caricati: ' + error.message,'err'); return; }
+  (data || []).forEach(d => { committentiDati[d.chiave] = d; });
+}
+function apriCommittente(idx){
+  const chiave = chiaviCommittenti[idx];
+  if(!assenzeMese.gestore || !chiave) return;
+  committenteAperto = chiave;
+  const d = committentiDati[chiave] || {};
+  const campo = (id, et, v, extra) => `<div class="field"><label for="${id}">${et}</label><input type="text" id="${id}" value="${esc(v || '')}" ${extra || ''}></div>`;
+  g('cm-sheet-tit').textContent = chiave;
+  g('cm-body').innerHTML = `<div class="ass-form">
+      ${campo('cm-rs', 'Committente (nome completo)', d.ragione_sociale, 'placeholder="Es. Square SPV s.r.l."')}
+      ${campo('cm-piva', 'P.IVA', d.piva)}
+      ${campo('cm-cf', 'Codice fiscale', d.cf)}
+      ${campo('cm-sede', 'Indirizzo del committente', d.sede)}
+      ${campo('cm-importo', 'Importo lavori', d.importo, 'placeholder="Es. € 11.993,10 oppure A consuntivo (c.a. € 10.000,00)"')}
+      <div class="field"><label for="cm-fine">Fine lavori prevista</label><input type="date" id="cm-fine" value="${d.fine_prevista || ''}"></div>
+      ${campo('cm-note', 'Note', d.note, 'placeholder="Facoltative, compaiono nel foglio"')}
+      <button type="button" class="btn-main" onclick="salvaCommittente()">Salva</button>
+    </div>`;
+  g('cm-sheet').classList.add('show');
+}
+function chiudiCommittente(){ g('cm-sheet').classList.remove('show'); }
+async function salvaCommittente(){
+  if(!db || !(await verificaSessione())){ toast('⚠ Non collegato al server: dati non salvati','err'); return; }
+  const u = getCpUser();
+  const rec = {chiave:committenteAperto, ragione_sociale:gv('cm-rs') || null, piva:gv('cm-piva') || null, cf:gv('cm-cf') || null,
+    sede:gv('cm-sede') || null, importo:gv('cm-importo') || null, fine_prevista:gv('cm-fine') || null, note:gv('cm-note') || null,
+    autore:u.nome || u.email || '', timestamp:new Date().toISOString()};
+  const { error } = await db.from('committenti_dati').upsert(rec, {onConflict:'chiave'});
+  if(error){ console.error('salvaCommittente', error); toast('⚠ Dati non salvati: ' + error.message,'err'); return; }
+  committentiDati[rec.chiave] = rec;
+  toast('✓ Dati del committente salvati','ok');
+  chiudiCommittente();
+  renderLista();
 }
 function legendaCommittenti(){
   return `<div class="mese-leg">
@@ -1156,7 +1225,7 @@ function renderDoveMese(el){
   assicuraAssenze();
   if(!M.dove.length){ el.innerHTML = navMese(M, 'dove') + VUOTO_MESE; return; }
   const C = calcolaCommittenti(M);
-  el.innerHTML = navMese(M, 'dove') + `<div class="mese-wrap">${tabellaCommittenti(M, C)}</div>${legendaCommittenti()}${annotazioniCommittenti(C)}`;
+  el.innerHTML = navMese(M, 'dove') + `<div class="mese-wrap">${tabellaCommittenti(M, C)}</div>${legendaCommittenti()}${annotazioniCommittenti(C, true)}`;
 }
 
 // PDF del mese: stesso contenuto della scheda, su foglio bianco, A4 orizzontale.

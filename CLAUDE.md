@@ -22,6 +22,12 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
     `utenti.gestisce_assenze = true` (oggi solo Pamela; la spunta la cambia solo
     l'admin). Gli altri di admin e ufficio le leggono dalla funzione
     `assenze_mese(p_dal, p_al)` senza tipo e note. Nessun delete (si marca `eliminato`).
+  - Tabella `committenti_dati` (dal 24/10/2026): chiave (nome del committente come
+    nell'app, maiuscolo), ragione_sociale, cf, piva, sede, importo (testo libero),
+    fine_prevista, note, autore. Dati per le annotazioni del foglio ore in
+    "Dove hanno lavorato". Fuori da `dati` perche' ha importi e codici fiscali:
+    la leggono e la scrivono solo l'admin e chi gestisce le assenze
+    (`gestisce_assenze()`, oggi Pamela). Nessun delete.
   - Storage bucket `Foto`, pattern: `sopralluoghi/sop_<id>/<timestamp>.jpg`
 - `archivio.html`: crea il pacchetto ZIP della commessa (scheda, foto scaricate,
   giornate in CSV, dati.json) e poi marca `archiviato:true` su sopralluogo e
@@ -123,7 +129,8 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
   "/" nei festivi e assenze sulla riga della commessa del periodo, totale ore del
   mese. Assenze in giallo con la sigla solo per chi le gestisce, rosse per gli altri.
   Sotto, annotazioni per committente dai dati del cantiere (indirizzo, inizio,
-  fine). Entrambe le schede hanno "Esporta PDF" (stampa del browser, A4 orizzontale).
+  fine); chi gestisce le assenze vede anche ragione sociale, CF, P.IVA, sede,
+  importo e fine prevista da `committenti_dati` e li cambia con "Modifica dati". Entrambe le schede hanno "Esporta PDF" (stampa del browser, A4 orizzontale).
 
 ## Regole NON negoziabili
 1. La sezione Contabilita e i dati economici (margini, preventivi, tariffe, costi)
