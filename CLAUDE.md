@@ -116,10 +116,14 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
   del mese. Gli altri (Antonella) vedono le assenze come giorno rosso, senza
   motivo. Le assenze stanno nella tabella `assenze`, non in `dati`.
 - Dove hanno lavorato (in `rapporto.html`, scheda accanto al Riepilogo mese):
-  stessi permessi (admin e ufficio). Giorni x operai con il codice commessa
-  (primo pezzo di `commessa`, il titolo per le attivita' fisse), elenco
-  commesse in fondo. Entrambe le schede hanno "Esporta PDF" (stampa del
-  browser: presenze A4 orizzontale, commesse A4 verticale).
+  stessi permessi (admin e ufficio). Dal 24/10/2026 e' il foglio ore che Pamela
+  compilava a mano: una coppia di righe per persona e committente (prima parte di
+  `cliente`, il titolo per le attivita' fisse), riga O = ore nei giorni lavorativi,
+  riga FE = ore di sabato, domenica e festivi, giorni 1-31 con i festivi in rosso,
+  "/" nei festivi e assenze sulla riga della commessa del periodo, totale ore del
+  mese. Assenze in giallo con la sigla solo per chi le gestisce, rosse per gli altri.
+  Sotto, annotazioni per committente dai dati del cantiere (indirizzo, inizio,
+  fine). Entrambe le schede hanno "Esporta PDF" (stampa del browser, A4 orizzontale).
 
 ## Regole NON negoziabili
 1. La sezione Contabilita e i dati economici (margini, preventivi, tariffe, costi)

@@ -147,17 +147,23 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
 .mese-leg span{display:inline-flex;align-items:center;gap:4px;}
 .mese-leg i{display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid var(--border);}
 .mese-pdf{display:block;width:100%;min-height:44px;margin:0 0 10px;background:var(--green-dim);color:var(--green);border:1px solid var(--green);border-radius:var(--r-sm);font-family:Epilogue,sans-serif;font-size:14px;font-weight:700;cursor:pointer;}
-/* Dove hanno lavorato: giorni in riga, operai in colonna */
-.dv-tab{font-size:12px;}
-.dv-tab th,.dv-tab td{padding:5px 8px;}
-.dv-tab .dv-gg{text-align:left;position:sticky;left:0;background:var(--surface);font-weight:600;color:var(--muted);z-index:1;}
-.dv-tab tr.dv-off td{background:var(--surface2);color:var(--muted);padding:2px 8px;}
-.dv-voce{line-height:1.5;}
-.dv-voce small{font-weight:400;margin-left:4px;opacity:.8;}
-.dv-tit{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin:14px 4px 6px;}
-.dv-elenco{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:4px 16px;margin:0 4px;font-size:13px;}
-.dv-elenco b{color:var(--brick);}
-.dv-elenco span{color:var(--muted);}
+/* Dove hanno lavorato: foglio ore per operaio e committente (righe O e FE) */
+.cm-tab td{min-width:22px;padding:3px 2px;}
+.cm-tab .cm-nome{text-align:center;padding:4px 8px;position:sticky;left:0;background:var(--surface);z-index:1;line-height:1.3;}
+.cm-tab .cm-nome b{display:block;font-size:11px;text-transform:uppercase;}
+.cm-tab .cm-nome span{font-size:11px;color:var(--muted);}
+.cm-tab .cm-t{font-weight:700;color:var(--muted);min-width:24px;}
+.cm-tab th.cm-rosso{color:var(--red);}
+.cm-tab .cm-mese{text-align:left;padding:4px 8px;position:sticky;left:0;z-index:2;}
+.cm-tab .cm-barra{color:var(--muted);}
+.cm-tab .cm-ass{background:#F2D13A;color:#000;font-weight:700;}
+.cm-tab .cm-tot{font-weight:700;font-size:12px;min-width:44px;}
+.cm-tab tr.cm-fe td{border-bottom:2px solid var(--border);}
+.cm-tit{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin:14px 4px 6px;}
+.cm-anns{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;margin:0 4px;}
+.cm-ann{border:1px solid var(--border);border-radius:var(--r-sm);padding:8px 10px;font-size:13px;line-height:1.5;background:var(--surface);}
+.cm-ann .cm-cant{margin-top:4px;}
+.cm-ann .cm-cant span{color:var(--muted);}
 /* Card aggregata (vista Tutti) */
 .agg-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;}
 .agg-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px;}
@@ -1012,62 +1018,110 @@ async function eliminaAssenza(id){
   renderLista();
 }
 
-// Codice breve della commessa: solo il primo pezzo ("P0080/26 SCUOLA GERMANICA" -> "P0080/26").
-// Attivita' fisse e cantieri senza commessa: il titolo.
-function codiceCommessa(c){
+// Committente di un cantiere: la prima parte di "CLIENTE - Referente".
+// Attivita' fisse: il titolo (Magazzino Giardinetti, Ricerca materiali).
+function committenteDi(c){
   if(!c) return '?';
-  const cod = (c.commessa || '').trim().split(/\s+/)[0];
-  return (c.fisso || !cod) ? (c.titolo || c.cliente || '?') : cod;
+  if(c.fisso) return c.titolo || '?';
+  return (c.cliente || '').split(' - ')[0].trim() || c.titolo || '?';
 }
-// Tabella giorni x operai con la commessa di ogni giornata (usata a schermo e nel PDF)
-function tabellaDove(M){
+const cognome = n => (n || '').trim().split(/\s+/).pop();
+// Ore del mese per persona e committente, come il foglio che l'ufficio compila a fine mese.
+// Riga O: ore nei giorni lavorativi. Riga FE: ore di sabato, domenica e festivi.
+// Le ore da collega valgono come nel Riepilogo mese (ore di chi l'ha citato).
+// Nei giorni senza ore (sabato, domenica, festivi, assenze) il segno va sulla riga
+// della commessa del periodo: quella del primo giorno lavorato dopo, altrimenti prima.
+function calcolaCommittenti(M){
   const cantieri = getCantieri();
-  const usati = new Map();
-  const righe = M.giorni.map(gi => {
-    const etich = `${gi.gs} ${dataItIso(gi.iso).slice(0, 5)}`;
-    const qualcosa = M.dove.some(p => (M.celle[p] || {})[gi.iso]);
-    if(!gi.lav && !qualcosa) return `<tr class="dv-off"><td class="dv-gg">${etich}</td>${M.dove.map(() => '<td></td>').join('')}</tr>`;
-    const tds = M.dove.map(p => {
+  const righe = [];
+  const committenti = new Map();
+  [...M.dove].sort((a, b) => cognome(a).localeCompare(cognome(b), 'it') || a.localeCompare(b, 'it')).forEach(p => {
+    const mie = new Map();
+    const delGiorno = {}; // iso -> riga con piu' ore quel giorno
+    M.giorni.forEach(gi => {
       const c = (M.celle[p] || {})[gi.iso];
-      if(!c || !c.voci.length){
-        const a = gi.lav ? assenzaDi(p, gi.iso) : null;
-        if(a) return a.tipo ? `<td class="mt-ass">${TIPI_ASSENZA[a.tipo].nome}</td>` : '<td class="mt-manca"></td>';
-        return (gi.lav && gi.iso < M.oggi && !AMMINISTRATIVI.includes(p) && gi.iso >= (M.primaVolta[p] || '9')) ? '<td class="mt-manca"></td>' : '<td></td>';
-      }
-      // Stessa commessa citata piu' volte nel giorno: una voce sola con le ore sommate
-      const perCant = new Map();
-      c.voci.forEach(v => {
-        const x = perCant.get(v.cantiereId) || {ore:0, col:true};
-        x.ore += v.ore; x.col = x.col && v.col;
-        perCant.set(v.cantiereId, x);
+      if(!c) return;
+      // Chi ha il suo rapportino conta quello; chi e' solo citato conta le citazioni
+      c.voci.filter(v => v.col !== c.proprio).forEach(v => {
+        const cant = cantieri.find(k => k.id === v.cantiereId);
+        const nome = committenteDi(cant);
+        const chiave = nome.toUpperCase();
+        let r = mie.get(chiave);
+        if(!r){ r = {p, nome, primo:gi.iso, o:{}, fe:{}, col:{}, segno:{}, tot:0}; mie.set(chiave, r); }
+        const dest = gi.lav ? r.o : r.fe;
+        dest[gi.iso] = (dest[gi.iso] || 0) + v.ore;
+        r.tot += v.ore;
+        if(!c.proprio) r.col[gi.iso] = true;
+        if(!delGiorno[gi.iso] || (r.o[gi.iso] || 0) + (r.fe[gi.iso] || 0) > (delGiorno[gi.iso].o[gi.iso] || 0) + (delGiorno[gi.iso].fe[gi.iso] || 0)) delGiorno[gi.iso] = r;
+        if(cant && !cant.fisso){
+          const k = committenti.get(chiave) || {nome, cantieri:new Map()};
+          k.cantieri.set(cant.id, cant);
+          committenti.set(chiave, k);
+        }
       });
-      const voci = [...perCant].map(([id, x]) => {
-        const cant = cantieri.find(k => k.id === id);
-        const cod = codiceCommessa(cant);
-        if(cant) usati.set(cod, cant);
-        return `<div class="dv-voce"><b>${esc(cod)}</b>${perCant.size > 1 ? `<small>${fmtOre(x.ore)} h</small>` : ''}</div>`;
-      }).join('');
-      return `<td class="${c.proprio ? 'mt-ok' : 'mt-col'}">${voci}</td>`;
-    }).join('');
-    return `<tr><td class="dv-gg">${etich}</td>${tds}</tr>`;
-  }).join('');
-  const elenco = [...usati].sort((a, b) => a[0].localeCompare(b[0], 'it', {numeric:true}))
-    .map(([cod, c]) => `<div><b>${esc(cod)}</b> ${esc(c.fisso ? 'Attività fissa' : (c.titolo || ''))} <span>${esc((c.cliente || '').split(' - ')[0])}</span></div>`).join('');
-  return {
-    tab: `<table class="mese-tab dv-tab">
-      <thead><tr><th class="dv-gg">Giorno</th>${M.dove.map(p => `<th>${esc(p)}</th>`).join('')}</tr></thead>
-      <tbody>${righe}</tbody>
-    </table>`,
-    elenco: elenco ? `<div class="dv-tit">Commesse del mese</div><div class="dv-elenco">${elenco}</div>` : ''
-  };
+    });
+    if(!mie.size) return;
+    M.giorni.forEach((gi, i) => {
+      let r = delGiorno[gi.iso];
+      const a = gi.lav ? assenzaDi(p, gi.iso) : null;
+      if(!r){
+        if(gi.lav && !a) return;
+        const dopo = M.giorni.slice(i + 1).find(x => delGiorno[x.iso]);
+        const prima = M.giorni.slice(0, i).reverse().find(x => delGiorno[x.iso]);
+        r = delGiorno[(dopo || prima).iso];
+      }
+      r.segno[gi.iso] = a ? {a} : (gi.lav ? null : {barra:true});
+    });
+    righe.push(...[...mie.values()].sort((a, b) => a.primo.localeCompare(b.primo)));
+  });
+  return {righe, committenti};
 }
-function legendaDove(){
+// Tabella persone e committenti x giorni (usata a schermo e nel PDF).
+// Chi gestisce le assenze vede la sigla in giallo (F, M, P); gli altri un giorno rosso.
+function tabellaCommittenti(M, C){
+  const chiaro = assenzeMese.gestore;
+  const meseTxt = M.titolo.charAt(0).toUpperCase() + M.titolo.slice(1);
+  const cellaO = (r, gi) => {
+    const ore = r.o[gi.iso];
+    const s = r.segno[gi.iso];
+    const dataIt = dataItIso(gi.iso);
+    if(s && s.a){
+      const t = s.a.tipo ? TIPI_ASSENZA[s.a.tipo] : null;
+      const testo = (ore ? fmtOre(ore) + ' ' : '') + (t && chiaro ? t.sigla : '');
+      const tit = t && chiaro ? `${t.nome}${s.a.ore ? ' ' + fmtOre(Number(s.a.ore)) + ' ore' : ''}${s.a.note ? ' (' + esc(s.a.note) + ')' : ''}` : 'assente';
+      return `<td class="${t && chiaro ? 'cm-ass' : 'mt-manca'}" title="${esc(r.p)} - ${dataIt}: ${tit}">${testo}</td>`;
+    }
+    if(ore) return `<td class="${r.col[gi.iso] ? 'mt-col' : ''}" title="${esc(r.p)} - ${dataIt}: ${fmtOre(ore)} ore${r.col[gi.iso] ? ' (citato come collega)' : ''}">${fmtOre(ore)}</td>`;
+    if(s && s.barra) return '<td class="cm-barra">/</td>';
+    return '<td></td>';
+  };
+  const cellaFE = (r, gi) => {
+    const ore = r.fe[gi.iso];
+    return ore ? `<td class="${r.col[gi.iso] ? 'mt-col' : ''}" title="${esc(r.p)} - ${dataItIso(gi.iso)}: ${fmtOre(ore)} ore">${fmtOre(ore)}</td>` : '<td></td>';
+  };
+  const righe = C.righe.map(r => `<tr class="cm-o"><td class="cm-nome" rowspan="2"><b>${esc(r.p)}</b><span>${esc(r.nome)}</span></td><td class="cm-t">O</td>${M.giorni.map(gi => cellaO(r, gi)).join('')}<td class="cm-tot" rowspan="2">${fmtOre(r.tot)}</td></tr>
+      <tr class="cm-fe"><td class="cm-t">FE</td>${M.giorni.map(gi => cellaFE(r, gi)).join('')}</tr>`).join('');
+  return `<table class="mese-tab cm-tab">
+      <thead><tr><th class="cm-mese" colspan="2">MESE: ${esc(meseTxt)}</th>${M.giorni.map(gi => `<th class="${gi.lav ? '' : 'cm-rosso'}">${gi.d}</th>`).join('')}<th class="cm-tot">Totali h. mese</th></tr></thead>
+      <tbody>${righe}</tbody>
+    </table>`;
+}
+// Annotazioni per committente: cantieri del mese con indirizzo, inizio e fine lavori
+function annotazioniCommittenti(C){
+  const lista = [...C.committenti.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+  if(!lista.length) return '';
+  const box = k => `<div class="cm-ann"><b>Committente: ${esc(k.nome)}</b>${[...k.cantieri.values()]
+    .sort((a, b) => (a.dataInizio || '').localeCompare(b.dataInizio || ''))
+    .map(c => `<div class="cm-cant">Cantiere: ${esc(c.indirizzo || 'indirizzo non indicato')}<br><span>${esc(((c.commessa || '').trim().split(/\s+/)[0] + ' ' + (c.titolo || '')).trim())}</span><br>Inizio lavori ${c.dataInizio ? 'il ' + dataItIso(c.dataInizio) : 'non indicato'}<br>${c.dataFine ? 'Fine lavori il ' + dataItIso(c.dataFine) : 'Lavori in corso'}</div>`).join('')}</div>`;
+  return `<div class="cm-tit">Annotazioni</div><div class="cm-anns">${lista.map(box).join('')}</div>`;
+}
+function legendaCommittenti(){
   return `<div class="mese-leg">
-      <span><i style="background:var(--green-dim)"></i>Dal suo rapportino</span>
+      <span>O: ore nei giorni lavorativi</span>
+      <span>FE: ore di sabato, domenica e festivi</span>
+      <span>/ sabato, domenica, festivi</span>
       <span><i style="background:var(--sand-dim)"></i>Citato come collega</span>
-      <span><i style="background:rgba(212,81,30,0.35)"></i>Giorno lavorativo senza nulla</span>
-      ${assenzeMese.gestore ? '<span><i style="background:var(--amber-dim)"></i>Assenza</span>' : ''}
-      <span>Ore indicate solo se nel giorno ci sono piu commesse</span>
+      ${assenzeMese.gestore ? '<span><i style="background:#F2D13A"></i>Assenza: F ferie, M malattia, P permesso</span>' : '<span><i style="background:rgba(212,81,30,0.35)"></i>Assenza</span>'}
     </div>`;
 }
 
@@ -1093,43 +1147,47 @@ function renderDoveMese(el){
   const M = calcolaMese();
   assicuraAssenze();
   if(!M.dove.length){ el.innerHTML = navMese(M, 'dove') + VUOTO_MESE; return; }
-  const D = tabellaDove(M);
-  el.innerHTML = navMese(M, 'dove') + `<div class="mese-wrap">${D.tab}</div>${legendaDove()}${D.elenco}`;
+  const C = calcolaCommittenti(M);
+  el.innerHTML = navMese(M, 'dove') + `<div class="mese-wrap">${tabellaCommittenti(M, C)}</div>${legendaCommittenti()}${annotazioniCommittenti(C)}`;
 }
 
-// PDF del mese: stesso contenuto della scheda, su foglio bianco.
-// Presenze in A4 orizzontale, commesse in A4 verticale.
+// PDF del mese: stesso contenuto della scheda, su foglio bianco, A4 orizzontale.
 function esportaMesePDF(tipo){
   if(!vediRiepilogo()) return;
   const M = calcolaMese();
   const ore = tipo === 'ore';
-  const titolo = (ore ? 'Presenze' : 'Dove hanno lavorato gli operai') + ' - ' + M.titolo;
-  const D = ore ? null : tabellaDove(M);
-  const corpo = ore ? tabellaOre(M) + legendaOre() : D.tab + legendaDove() + D.elenco;
+  const titolo = (ore ? 'Presenze' : 'Ore per committente') + ' - ' + M.titolo;
+  const C = ore ? null : calcolaCommittenti(M);
+  const corpo = ore ? tabellaOre(M) + legendaOre() : tabellaCommittenti(M, C) + legendaCommittenti() + annotazioniCommittenti(C);
   const oggiIt = new Date().toLocaleDateString('it-IT');
   const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><title>${esc(titolo)}</title>
 <style>
-  @page { size: A4 ${ore ? 'landscape' : 'portrait'}; margin: 1cm; }
+  @page { size: A4 landscape; margin: 1cm; }
   :root { --green-dim:#dcefe1; --sand-dim:#efe5da; --surface2:#e6e6e6; --amber-dim:#fbe7c2; }
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { font-family: Arial, sans-serif; color: #000; background: #fff; margin: 0; padding: 10px; }
   .fh { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 10px; }
   .fh b { font-size: 15pt; } .fh span { font-size: 9pt; color: #444; }
-  table { width: 100%; border-collapse: collapse; font-size: ${ore ? '8pt' : '9pt'}; }
-  th, td { border: 1px solid #777; padding: ${ore ? '2px 1px' : '2px 4px'}; text-align: center; white-space: nowrap; }
+  table { width: 100%; border-collapse: collapse; font-size: 8pt; }
+  th, td { border: 1px solid #777; padding: 2px 1px; text-align: center; white-space: nowrap; }
   th { background: #eee; font-weight: bold; }
-  .mt-nome, .dv-gg { text-align: left; font-weight: bold; }
+  .mt-nome { text-align: left; font-weight: bold; }
   .mt-ok { background: #dcefe1; font-weight: bold; } .mt-col { background: #efe5da; font-weight: bold; }
-  .mt-manca { background: #f6c9b6; } .mt-off, .dv-off td { background: #e6e6e6; color: #555; }
+  .mt-manca { background: #f6c9b6; } .mt-off { background: #e6e6e6; color: #555; }
   .mt-tot { font-weight: bold; }
   .mt-ass { background: #fbe7c2; font-weight: bold; } .mt-sig { font-size: 7pt; margin-left: 1px; }
   .mt-sep td { text-align: left; background: #ddd; font-weight: bold; }
-  .dv-voce small { font-weight: normal; margin-left: 4px; }
+  .cm-tab .mt-col { background: #fff; font-weight: normal; }
+  .cm-nome { padding: 2px 6px; line-height: 1.25; } .cm-nome b { display: block; text-transform: uppercase; }
+  .cm-mese { text-align: left; padding: 2px 6px; } .cm-rosso { color: #c00; }
+  .cm-ass { background: #F2D13A; font-weight: bold; } .cm-tot { font-weight: bold; }
+  tr.cm-fe td { border-bottom: 1.5px solid #000; }
   .mese-leg { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; font-size: 8pt; color: #333; }
   .mese-leg i { display: inline-block; width: 10px; height: 10px; border: 1px solid #999; margin-right: 4px; vertical-align: -1px; }
-  .dv-tit { font-weight: bold; font-size: 10pt; margin-top: 12px; }
-  .dv-elenco { columns: 2; font-size: 8pt; margin-top: 4px; } .dv-elenco div { break-inside: avoid; margin-bottom: 2px; }
-  .dv-elenco span { color: #555; }
+  .cm-tit { font-weight: bold; font-size: 9pt; margin-top: 12px; }
+  .cm-anns { columns: 3; font-size: 8pt; margin-top: 4px; }
+  .cm-ann { break-inside: avoid; border: 1px solid #000; padding: 4px 6px; margin-bottom: 6px; line-height: 1.35; }
+  .cm-cant span { color: #444; }
   .pie { margin-top: 10px; font-size: 7pt; color: #666; text-align: right; }
 </style></head><body>
 <div class="fh"><b>${esc(titolo)}</b><span>${M.ultimo ? 'Rapportini fino al ' + dataItIso(M.ultimo) : ''}</span></div>
@@ -1137,7 +1195,7 @@ ${corpo}
 <div class="pie">Generato da CommessaPro il ${oggiIt}</div>
 </body></html>`;
   const clean = s => (s || '').replace(/[^a-zA-Z0-9_-]/g, '_');
-  mostraPDFOverlay(html, (ore ? 'Presenze_' : 'Commesse_operai_') + clean(meseRiepilogo), ore ? 'Presenze' : 'Dove hanno lavorato');
+  mostraPDFOverlay(html, (ore ? 'Presenze_' : 'Ore_committenti_') + clean(meseRiepilogo), ore ? 'Presenze' : 'Dove hanno lavorato');
 }
 function tornaLista(){
   renderToggle();
