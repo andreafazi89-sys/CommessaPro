@@ -75,6 +75,13 @@ input::placeholder{color:var(--muted);}
   <div class="fg" id="fg-nuovo-ente" style="display:none"><label>Nome nuovo ente *</label><input type="text" id="cli-nome" placeholder="Es. WFP, IFAD, FAO"></div>
   <div class="sede-ente" id="sede-ente" style="display:none"><span id="sede-txt"></span><button type="button" class="btn-link" onclick="modificaSede()">Modifica sede</button></div>
   <div class="fg" id="fg-sede" style="display:none"><label id="lbl-sede">Indirizzo sede (diventa l'indirizzo del cantiere)</label><input type="text" id="cli-sede" placeholder="Es. Via Cesare Giulio Viola 68, 00148 Roma"></div>
+  <div id="fiscali-ente" style="display:none">
+    <div class="fg"><label>Ragione sociale completa (per il foglio ore)</label><input type="text" id="cli-rs" placeholder="Es. Square SPV s.r.l."></div>
+    <div class="fg-row">
+      <div class="fg"><label>P.IVA</label><input type="text" id="cli-piva" placeholder="Es. IT01234567890"></div>
+      <div class="fg"><label>Codice fiscale</label><input type="text" id="cli-cf"></div>
+    </div>
+  </div>
   <div class="fg-row">
     <div class="fg"><label>Nome</label><input type="text" id="cli-ref-nome" placeholder="Es. Alessandro"></div>
     <div class="fg"><label>Cognome</label><input type="text" id="cli-ref-cognome" placeholder="Es. Casciotti"></div>
@@ -226,6 +233,13 @@ function sedeEnte(ente){
   const r=getClienti().find(c=>normEnte(c.nome)===normEnte(ente)&&(c.indirizzo||'').trim());
   return r?r.indirizzo.trim():'';
 }
+// Ragione sociale, P.IVA e CF sono dell'ente come la sede: stanno su tutti i suoi referenti.
+// Li legge il foglio ore dei Rapportini ("Dove hanno lavorato") per le annotazioni.
+const CAMPI_FISCALI=['ragioneSociale','piva','cf'];
+function fiscaliEnte(ente){
+  const r=getClienti().find(c=>normEnte(c.nome)===normEnte(ente)&&CAMPI_FISCALI.some(k=>(c[k]||'').trim()));
+  return Object.fromEntries(CAMPI_FISCALI.map(k=>[k,r?(r[k]||'').trim():'']));
+}
 function popolaEnti(scelto){
   g('cli-ente').innerHTML=['<option value="">— scegli ente —</option>']
     .concat(getEnti().map(e=>`<option value="${esc(e)}">${esc(e)}</option>`))
@@ -239,6 +253,9 @@ function cambiaEnte(){
   g('fg-sede').style.display=nuovo?'':'none';
   g('lbl-sede').textContent='Indirizzo sede (diventa l\'indirizzo del cantiere)';
   g('cli-nome').value='';
+  const f=(v&&!nuovo)?fiscaliEnte(v):{};
+  g('cli-rs').value=f.ragioneSociale||''; g('cli-piva').value=f.piva||''; g('cli-cf').value=f.cf||'';
+  g('fiscali-ente').style.display=v?'':'none';
   if(!v||nuovo){ g('sede-ente').style.display='none'; g('cli-sede').value=''; if(nuovo) setTimeout(()=>g('cli-nome').focus(),100); return; }
   const sede=sedeEnte(v);
   g('cli-sede').value=sede;
@@ -300,10 +317,17 @@ function salvaCliente(){
   // Parte dal record esistente per non perdere campi aggiunti da altre pagine
   const esistente=editId?(getClienti().find(x=>x.id===editId)||{}):{};
   const dati={...esistente,id:editId||'cli_'+Date.now(),nome:ente,ref:(refNome+' '+refCognome).trim(),refNome,refCognome,
-    tel:gv('cli-tel'),email:gv('cli-email'),note:gv('cli-note'),indirizzo:sede||sedeEnte(ente),timestamp:ts};
-  // Sede cambiata: si aggiorna su tutti i referenti dello stesso ente
-  const altri=sede&&sede!==sedeEnte(ente)
-    ? getClienti().filter(c=>c.id!==dati.id&&normEnte(c.nome)===normEnte(ente)).map(c=>({...c,indirizzo:sede,timestamp:ts}))
+    tel:gv('cli-tel'),email:gv('cli-email'),note:gv('cli-note'),indirizzo:sede||sedeEnte(ente),
+    ragioneSociale:gv('cli-rs'),piva:gv('cli-piva'),cf:gv('cli-cf'),timestamp:ts};
+  // Sede o dati fiscali cambiati: si aggiornano su tutti i referenti dello stesso ente
+  const sedeNuova=sede&&sede!==sedeEnte(ente);
+  const fPrima=fiscaliEnte(ente);
+  // "Nuovo ente" che esiste gia': i campi lasciati vuoti tengono i dati dell'ente
+  if(nuovo&&giaPresente) CAMPI_FISCALI.forEach(k=>{ if(!dati[k]) dati[k]=fPrima[k]; });
+  const fiscaliNuovi=CAMPI_FISCALI.some(k=>dati[k]!==fPrima[k]);
+  const altri=(sedeNuova||fiscaliNuovi)
+    ? getClienti().filter(c=>c.id!==dati.id&&normEnte(c.nome)===normEnte(ente))
+        .map(c=>({...c,...(sedeNuova?{indirizzo:sede}:{}),...(fiscaliNuovi?{ragioneSociale:dati.ragioneSociale,piva:dati.piva,cf:dati.cf}:{}),timestamp:ts}))
     : [];
   chiudiForm();
   salvaRecord(CLI_KEY,[dati,...altri]).then(ok=>{ renderLista(); if(ok) toast(editId?'✓ Referente aggiornato':'✓ Referente aggiunto'); });
