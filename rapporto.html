@@ -840,7 +840,15 @@ function calcolaMese(){
     if(op){ const c = cella(op, r.data); c.proprio = true; c.ore += ore; c.voci.push({cantiereId:r.cantiereId, ore, col:false}); }
     (Array.isArray(r.colleghi) ? r.colleghi : []).forEach(n => {
       const nome = nomeOperaio(n);
-      if(nome && nome !== op){ const c = cella(nome, r.data); c.citatoDa.add(op || '?'); c.oreCol += ore; c.voci.push({cantiereId:r.cantiereId, ore, col:true}); }
+      if(!nome || nome === op) return;
+      const c = cella(nome, r.data);
+      c.citatoDa.add(op || '?');
+      // Citato da due rapportini sullo stesso cantiere e giorno: e' lo stesso lavoro,
+      // contano le ore del rapportino piu' lungo, non la somma
+      const v = c.voci.find(x => x.col && x.cantiereId === r.cantiereId);
+      if(v){ if(ore > v.ore){ c.oreCol += ore - v.ore; v.ore = ore; } return; }
+      c.oreCol += ore;
+      c.voci.push({cantiereId:r.cantiereId, ore, col:true});
     });
   });
   const fineMese = meseRiepilogo + '-' + String(nGiorni).padStart(2, '0');
