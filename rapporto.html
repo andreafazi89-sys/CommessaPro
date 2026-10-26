@@ -298,7 +298,7 @@ let db = null;
 let currentEditId = null;  // null = nuovo, altrimenti id del record in modifica
 let rigaCounter = 0;       // contatore incrementale per le righe del form
 // Elenco operai disponibili come "colleghi" (allineato con la select #f-operaio)
-const OPERAI = ['Adrian Lup','Fabio Cardini','Daniele Schedel','Mihai Poveste','Vasile Banta'];
+const OPERAI = ['Adrian Lup','Fabio Cardini','Daniele Schedel','Mihai Poveste','Vasile Boanta'];
 // Mappa rigaN -> array di nomi colleghi selezionati per quella riga
 let colleghiPerRiga = {};
 // Mappa rigaN -> array di subappaltatori selezionati per quella riga
@@ -586,7 +586,7 @@ function renderCampoOperaio(valoreCorrente){
         <option>Fabio Cardini</option>
         <option>Daniele Schedel</option>
         <option>Mihai Poveste</option>
-        <option>Vasile Banta</option>
+        <option>Vasile Boanta</option>
       </select>
       <div class="op-locked-hint">Puoi inserire anche per altri operai</div>
     `;
@@ -797,11 +797,11 @@ function renderLista(){
 // Ambra = assenza (malattia, ferie, permesso), segnata da admin e ufficio toccando la cella.
 let meseRiepilogo = null; // 'AAAA-MM'
 // Dipendenti d'ufficio: compaiono solo nel Riepilogo mese, non servono account
-const AMMINISTRATIVI = ['Andrea Fazi','Rino Lenti','Antonella Ventrella','Pamela Pierantoni','Fabio Pierantoni','Catia'];
+const AMMINISTRATIVI = ['Andrea Fazi','Rino Lenti','Antonella Ventrella','Pamela Pierantoni','Fabio Pierantoni','Catia Sassano'];
 const ORE_GIORNO = 8;
 const TIPI_ASSENZA = {MALATTIA:{sigla:'M', nome:'Malattia'}, FERIE:{sigla:'F', nome:'Ferie'}, PERMESSO:{sigla:'P', nome:'Permesso'}};
 // Vecchio nome di Mihai Poveste, ancora presente nei rapportini salvati prima della correzione
-const ALIAS_OPERAI = {'Michele Poveste':'Mihai Poveste'};
+const ALIAS_OPERAI = {'Michele Poveste':'Mihai Poveste','Vasile Banta':'Vasile Boanta'};
 function nomeOperaio(n){ const t = (n || '').trim(); return ALIAS_OPERAI[t] || t; }
 function isoData(d){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
 // Pasqua (algoritmo di Gauss/Meeus), serve per il Lunedi' dell'Angelo
@@ -1044,7 +1044,8 @@ function committenteDi(c){
 }
 const cognome = n => (n || '').trim().split(/\s+/).pop();
 // Ore del mese per persona e committente, come il foglio che l'ufficio compila a fine mese.
-// Riga O: ore nei giorni lavorativi. Riga FE: ore di sabato, domenica e festivi.
+// Riga O: ore ordinarie, fino a 8 al giorno nei giorni lavorativi.
+// Riga FE: straordinari, cioe' le ore oltre le 8 e tutte quelle di sabato, domenica e festivi.
 // Le ore da collega valgono come nel Riepilogo mese (ore di chi l'ha citato).
 // Nei giorni senza ore (sabato, domenica, festivi, assenze) il segno va sulla riga
 // della commessa del periodo: quella del primo giorno lavorato dopo, altrimenti prima.
@@ -1058,6 +1059,7 @@ function calcolaCommittenti(M){
     M.giorni.forEach(gi => {
       const c = (M.celle[p] || {})[gi.iso];
       if(!c) return;
+      let oreOrd = 0;
       // Chi ha il suo rapportino conta quello; chi e' solo citato conta le citazioni
       c.voci.filter(v => v.col !== c.proprio).forEach(v => {
         const cant = cantieri.find(k => k.id === v.cantiereId);
@@ -1065,8 +1067,11 @@ function calcolaCommittenti(M){
         const chiave = nome.toUpperCase();
         let r = mie.get(chiave);
         if(!r){ r = {p, nome, primo:gi.iso, o:{}, fe:{}, col:{}, segno:{}, tot:0}; mie.set(chiave, r); }
-        const dest = gi.lav ? r.o : r.fe;
-        dest[gi.iso] = (dest[gi.iso] || 0) + v.ore;
+        // Le prime 8 ore del giorno vanno in O (sulle righe nell'ordine dei rapportini), il resto in FE
+        const ord = gi.lav ? Math.max(0, Math.min(v.ore, ORE_GIORNO - oreOrd)) : 0;
+        oreOrd += ord;
+        if(ord) r.o[gi.iso] = (r.o[gi.iso] || 0) + ord;
+        if(v.ore > ord) r.fe[gi.iso] = (r.fe[gi.iso] || 0) + v.ore - ord;
         r.tot += v.ore;
         if(!c.proprio) r.col[gi.iso] = true;
         if(!delGiorno[gi.iso] || (r.o[gi.iso] || 0) + (r.fe[gi.iso] || 0) > (delGiorno[gi.iso].o[gi.iso] || 0) + (delGiorno[gi.iso].fe[gi.iso] || 0)) delGiorno[gi.iso] = r;
@@ -1109,7 +1114,7 @@ function tabellaCommittenti(M, C){
       return `<td class="${t && chiaro ? 'cm-ass' : 'mt-manca'}" title="${esc(r.p)} - ${dataIt}: ${tit}">${testo}</td>`;
     }
     if(ore) return `<td class="${r.col[gi.iso] ? 'mt-col' : ''}" title="${esc(r.p)} - ${dataIt}: ${fmtOre(ore)} ore${r.col[gi.iso] ? ' (citato come collega)' : ''}">${fmtOre(ore)}</td>`;
-    if(s && s.barra) return '<td class="cm-barra">/</td>';
+    if(s && s.barra && !r.fe[gi.iso]) return '<td class="cm-barra">/</td>';
     return '<td></td>';
   };
   const cellaFE = (r, gi) => {
@@ -1202,8 +1207,8 @@ async function salvaCommittente(){
 }
 function legendaCommittenti(){
   return `<div class="mese-leg">
-      <span>O: ore nei giorni lavorativi</span>
-      <span>FE: ore di sabato, domenica e festivi</span>
+      <span>O: ore ordinarie (fino a 8 nei giorni lavorativi)</span>
+      <span>FE: straordinari (oltre le 8, sabato, domenica e festivi)</span>
       <span>/ sabato, domenica, festivi</span>
       <span><i style="background:var(--sand-dim)"></i>Citato come collega</span>
       ${assenzeMese.gestore ? '<span><i style="background:#F2D13A"></i>Assenza: F ferie, M malattia, P permesso</span>' : '<span><i style="background:rgba(212,81,30,0.35)"></i>Assenza</span>'}
