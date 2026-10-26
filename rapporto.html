@@ -290,7 +290,7 @@ let db = null;
 let currentEditId = null;  // null = nuovo, altrimenti id del record in modifica
 let rigaCounter = 0;       // contatore incrementale per le righe del form
 // Elenco operai disponibili come "colleghi" (allineato con la select #f-operaio)
-const OPERAI = ['Adrian Lup','Fabio Cardini','Daniele Schedel','Mihai Poveste','Vasile Banta'];
+const OPERAI = ['Adrian Lup','Fabio Cardini','Daniele Schedel','Mihai Poveste','Vasile Boanta'];
 // Mappa rigaN -> array di nomi colleghi selezionati per quella riga
 let colleghiPerRiga = {};
 // Mappa rigaN -> array di subappaltatori selezionati per quella riga
@@ -578,7 +578,7 @@ function renderCampoOperaio(valoreCorrente){
         <option>Fabio Cardini</option>
         <option>Daniele Schedel</option>
         <option>Mihai Poveste</option>
-        <option>Vasile Banta</option>
+        <option>Vasile Boanta</option>
       </select>
       <div class="op-locked-hint">Puoi inserire anche per altri operai</div>
     `;
@@ -793,7 +793,7 @@ const AMMINISTRATIVI = ['Andrea Fazi','Rino Lenti','Antonella Ventrella','Pamela
 const ORE_GIORNO = 8;
 const TIPI_ASSENZA = {MALATTIA:{sigla:'M', nome:'Malattia'}, FERIE:{sigla:'F', nome:'Ferie'}, PERMESSO:{sigla:'P', nome:'Permesso'}};
 // Vecchio nome di Mihai Poveste, ancora presente nei rapportini salvati prima della correzione
-const ALIAS_OPERAI = {'Michele Poveste':'Mihai Poveste'};
+const ALIAS_OPERAI = {'Michele Poveste':'Mihai Poveste','Vasile Banta':'Vasile Boanta'};
 function nomeOperaio(n){ const t = (n || '').trim(); return ALIAS_OPERAI[t] || t; }
 function isoData(d){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
 // Pasqua (algoritmo di Gauss/Meeus), serve per il Lunedi' dell'Angelo
