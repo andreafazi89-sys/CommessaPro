@@ -164,6 +164,8 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
 .cm-ann{border:1px solid var(--border);border-radius:var(--r-sm);padding:8px 10px;font-size:13px;line-height:1.5;background:var(--surface);}
 .cm-ann .cm-cant{margin-top:4px;}
 .cm-ann .cm-cant span{color:var(--muted);}
+.cm-prev{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:2px 0 0;font-size:13px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--white);}
+.cm-prev input{min-height:40px;padding:4px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--white);font-size:13px;}
 /* Card aggregata (vista Tutti) */
 .agg-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;}
 .agg-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px;}
@@ -1120,13 +1122,27 @@ function tabellaCommittenti(M, C){
     </table>`;
 }
 // Annotazioni per committente: cantieri del mese con indirizzo, inizio e fine lavori
-function annotazioniCommittenti(C){
+// A schermo (tap=true) la fine prevista dei cantieri in corso si imposta dal riquadro;
+// nel PDF resta solo il testo. Sta in cantieri_v1.dataFinePrevista (non e' un dato economico).
+function annotazioniCommittenti(C, tap){
   const lista = [...C.committenti.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
   if(!lista.length) return '';
+  const fine = c => {
+    if(c.dataFine) return 'Fine lavori il ' + dataItIso(c.dataFine);
+    if(tap) return `<label class="cm-prev">Fine lavori previsto il <input type="date" value="${esc(c.dataFinePrevista || '')}" onchange="salvaFinePrevista('${esc(c.id)}', this.value)"></label>`;
+    return c.dataFinePrevista ? 'Fine lavori previsto il ' + dataItIso(c.dataFinePrevista) : 'Lavori in corso';
+  };
   const box = k => `<div class="cm-ann"><b>Committente: ${esc(k.nome)}</b>${[...k.cantieri.values()]
     .sort((a, b) => (a.dataInizio || '').localeCompare(b.dataInizio || ''))
-    .map(c => `<div class="cm-cant">Cantiere: ${esc(c.indirizzo || 'indirizzo non indicato')}<br><span>${esc(((c.commessa || '').trim().split(/\s+/)[0] + ' ' + (c.titolo || '')).trim())}</span><br>Inizio lavori ${c.dataInizio ? 'il ' + dataItIso(c.dataInizio) : 'non indicato'}<br>${c.dataFine ? 'Fine lavori il ' + dataItIso(c.dataFine) : 'Lavori in corso'}</div>`).join('')}</div>`;
+    .map(c => `<div class="cm-cant">Cantiere: ${esc(c.indirizzo || 'indirizzo non indicato')}<br><span>${esc(((c.commessa || '').trim().split(/\s+/)[0] + ' ' + (c.titolo || '')).trim())}</span><br>Inizio lavori ${c.dataInizio ? 'il ' + dataItIso(c.dataInizio) : 'non indicato'}<br>${fine(c)}</div>`).join('')}</div>`;
   return `<div class="cm-tit">Annotazioni</div><div class="cm-anns">${lista.map(box).join('')}</div>`;
+}
+async function salvaFinePrevista(id, data){
+  if(!vediRiepilogo()) return;
+  const c = getCantieri().find(k => k.id === id);
+  if(!c) return;
+  const ok = await salvaRecord(CANT_KEY, [{...c, dataFinePrevista:data || '', timestamp:new Date().toISOString()}]);
+  if(ok) toast(data ? '✓ Fine prevista: ' + dataItIso(data) : '✓ Fine prevista tolta','ok');
 }
 function legendaCommittenti(){
   return `<div class="mese-leg">
@@ -1161,7 +1177,7 @@ function renderDoveMese(el){
   assicuraAssenze();
   if(!M.dove.length){ el.innerHTML = navMese(M, 'dove') + VUOTO_MESE; return; }
   const C = calcolaCommittenti(M);
-  el.innerHTML = navMese(M, 'dove') + `<div class="mese-wrap">${tabellaCommittenti(M, C)}</div>${legendaCommittenti()}${annotazioniCommittenti(C)}`;
+  el.innerHTML = navMese(M, 'dove') + `<div class="mese-wrap">${tabellaCommittenti(M, C)}</div>${legendaCommittenti()}${annotazioniCommittenti(C, true)}`;
 }
 
 // PDF del mese: stesso contenuto della scheda, su foglio bianco, A4 orizzontale.
