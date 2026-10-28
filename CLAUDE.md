@@ -127,6 +127,9 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
   fine; per i cantieri in corso "Fine lavori previsto", che admin e ufficio
   impostano dal riquadro: `cantieri_v1.dataFinePrevista`, dal 28/10/2026, visibile
   anche nella scheda Cantiere). Entrambe le schede hanno "Esporta PDF" (stampa del browser, A4 orizzontale).
+  "Dove hanno lavorato" ha anche "Esporta Excel" (dal 28/10/2026): .xlsx modificabile creato
+  con ExcelJS (CDN, caricato al clic), ore come numeri, totale di ogni coppia O/FE come
+  formula SOMMA, assenze con la nota in cella solo per chi le gestisce.
 
 ## Regole NON negoziabili
 1. La sezione Contabilita e i dati economici (margini, preventivi, tariffe, costi)
