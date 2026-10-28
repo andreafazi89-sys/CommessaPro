@@ -1277,6 +1277,8 @@ async function esportaDoveExcel(){
   if(!M.dove.length) return;
   try{ await caricaExcelJS(); }
   catch(e){ toast('⚠ Excel non disponibile: controlla la connessione','err'); return; }
+  // Dati Rubrica dell'ente: se la scheda non li ha ancora caricati, li legge ora
+  if(rubricaEnti.stato !== 'ok') await caricaRubricaEnti();
   const C = calcolaCommittenti(M);
   const chiaro = assenzeMese.gestore;
   const meseTxt = M.titolo.charAt(0).toUpperCase() + M.titolo.slice(1);
@@ -1377,12 +1379,15 @@ async function esportaDoveExcel(){
     ws.getCell(riga, 1).value = 'Annotazioni';
     ws.getCell(riga, 1).font = {bold:true, size:11};
     riga++;
-    // Colonne delle annotazioni ricavate dalla larghezza della griglia
-    const cI = [3, 3 + Math.floor(nG * 0.45), 3 + Math.floor(nG * 0.7), 3 + Math.floor(nG * 0.85), colTot + 1];
-    const intest = ['Committente', 'Cantiere', 'Commessa', 'Inizio lavori', 'Fine lavori'];
+    // Colonne delle annotazioni ricavate dalla larghezza della griglia (quote dei giorni)
+    const quote = [0.1, 0.13, 0.19, 0.19, 0.16, 0.09];
+    const cI = [3];
+    quote.forEach(q => cI.push(cI[cI.length - 1] + Math.max(1, Math.round(nG * q))));
+    cI.push(colTot + 1);
+    const intest = ['Committente', 'P.IVA', 'C.F.', 'Sede', 'Cantiere', 'Commessa', 'Inizio lavori', 'Fine lavori'];
     const scrivi = (valori, stile) => {
       ws.getCell(riga, 1).value = valori[0];
-      for(let k = 1; k < 5; k++){
+      for(let k = 1; k < cI.length; k++){
         if(cI[k] - 1 > cI[k - 1]) ws.mergeCells(riga, cI[k - 1], riga, cI[k] - 1);
         ws.getCell(riga, cI[k - 1]).value = valori[k];
       }
@@ -1392,15 +1397,19 @@ async function esportaDoveExcel(){
         x.alignment = {vertical:'middle', wrapText:true};
         if(stile) Object.assign(x, stile);
       }
+      ws.getRow(riga).height = 28;
       riga++;
     };
     // La colonna B (O/FE) resta unita alla A nelle annotazioni
     const unisci = () => ws.mergeCells(riga, 1, riga, 2);
     unisci(); scrivi(intest, {fill:GRIGIO, font:{bold:true}});
     lista.forEach(k => {
+      // Dati dell'ente dalla Rubrica, come nel riquadro a schermo
+      const e = rubricaEnti.dati[k.chiave] || {};
       [...k.cantieri.values()].sort((a, b) => (a.dataInizio || '').localeCompare(b.dataInizio || '')).forEach(c => {
         unisci();
-        scrivi([k.nome, c.indirizzo || 'indirizzo non indicato', ((c.commessa || '').trim().split(/\s+/)[0] + ' ' + (c.titolo || '')).trim(),
+        scrivi([e.ragioneSociale || k.nome, e.piva || '', e.cf || '', e.indirizzo || '', c.indirizzo || 'indirizzo non indicato',
+          ((c.commessa || '').trim().split(/\s+/)[0] + ' ' + (c.titolo || '')).trim(),
           c.dataInizio ? dataItIso(c.dataInizio) : 'non indicato', c.dataFine ? dataItIso(c.dataFine) : c.dataFinePrevista ? 'previsto il ' + dataItIso(c.dataFinePrevista) : 'lavori in corso']);
       });
     });
