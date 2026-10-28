@@ -1136,6 +1136,10 @@ function copiaTesto(){
 // Il PDF si crea nel browser con jsPDF, non con la stampa: cosi' non compaiono
 // l'indirizzo della pagina e la data del browser.
 const SEZIONI_REPORT = ['cliente','cantiere','lavori','note','foto'];
+// Logo dell'azienda in alto a destra nel report. E' un file a parte nella root:
+// per un'altra azienda basta sostituirlo. Se manca, il report esce senza logo.
+const LOGO_REPORT = 'logo-report.png';
+const LOGO_MAX_W = 45, LOGO_MAX_H = 18; // mm
 
 function generaReport(){
   SEZIONI_REPORT.forEach(k=>{ g('rep-'+k).checked = true; });
@@ -1204,8 +1208,8 @@ function aggiornaAnteprima(){
     return '';
   };
   const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(d.titoloDoc)}</title>
-<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:#fff;color:#1A1612;padding:12px 16px;max-width:720px;margin:0 auto;font-size:13px;}.hdr{border-bottom:3px solid #D4511E;padding-bottom:10px;margin-bottom:14px;}.ttl{font-size:19px;font-weight:700;}.sub{font-size:12px;color:#9C9088;margin-top:2px;}.sec{margin-bottom:10px;}.stitle{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#D4511E;border-bottom:1px solid #E8E2D9;padding-bottom:3px;margin-bottom:6px;}table.info{width:100%;border-collapse:collapse;}table.info td{padding:6px 8px;border:1px solid #E8E2D9;font-size:12px;vertical-align:top;}table.info td:first-child{background:#F5F0E8;font-weight:600;color:#6B6258;width:28%;}.btext{font-size:12px;line-height:1.7;white-space:pre-wrap;}.firma-box{margin-top:8mm;padding-top:10px;border-top:1px solid #E8E2D9;display:grid;grid-template-columns:1fr 1fr;gap:16px;}.fl{font-size:12px;color:#9C9088;}.fl strong{display:block;font-size:12px;color:#1A1612;margin-bottom:12px;}.fline{border-bottom:1px solid #ccc;height:16px;margin-top:3px;}</style></head><body>
-<div class="hdr"><div class="ttl">${d.intestazione}</div>${d.sottotitolo?`<div class="sub">${esc(d.sottotitolo)}</div>`:''}<div class="sub">${esc(d.info)}</div></div>
+<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:#fff;color:#1A1612;padding:12px 16px;max-width:720px;margin:0 auto;font-size:13px;}.hdr{border-bottom:3px solid #D4511E;padding-bottom:10px;margin-bottom:14px;display:flex;align-items:flex-start;gap:12px;}.hdr-txt{flex:1;min-width:0;}.hdr-logo{max-width:${LOGO_MAX_W*3.78}px;max-height:${LOGO_MAX_H*3.78}px;object-fit:contain;}.ttl{font-size:16px;font-weight:700;}.sub{font-size:12px;color:#9C9088;margin-top:2px;}.sec{margin-bottom:10px;}.stitle{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#D4511E;border-bottom:1px solid #E8E2D9;padding-bottom:3px;margin-bottom:6px;}table.info{width:100%;border-collapse:collapse;}table.info td{padding:6px 8px;border:1px solid #E8E2D9;font-size:12px;vertical-align:top;}table.info td:first-child{background:#F5F0E8;font-weight:600;color:#6B6258;width:28%;}.btext{font-size:12px;line-height:1.7;white-space:pre-wrap;}.firma-box{margin-top:8mm;padding-top:10px;border-top:1px solid #E8E2D9;display:grid;grid-template-columns:1fr 1fr;gap:16px;}.fl{font-size:12px;color:#9C9088;}.fl strong{display:block;font-size:12px;color:#1A1612;margin-bottom:12px;}.fline{border-bottom:1px solid #ccc;height:16px;margin-top:3px;}</style></head><body>
+<div class="hdr"><div class="hdr-txt"><div class="ttl">${d.intestazione}</div>${d.sottotitolo?`<div class="sub">${esc(d.sottotitolo)}</div>`:''}<div class="sub">${esc(d.info)}</div></div><img class="hdr-logo" src="${esc(new URL(LOGO_REPORT, location.href).href)}" alt="" onerror="this.remove()"></div>
 ${d.sezioni.map(s=>`<div class="sec"><div class="stitle">${esc(s.titolo)}</div>${corpo(s)}</div>`).join('')}
 ${d.firme?`<div class="firma-box">${d.firme.map(f=>`<div class="fl"><strong>${esc(f[0])||'&nbsp;'}</strong><div>${esc(f[1])}</div><div class="fline"></div><div style="margin-top:3px">Firma</div></div>`).join('')}</div>`:''}
 </body></html>`;
@@ -1246,6 +1250,21 @@ async function fotoPerPdf(url){
   } finally { URL.revokeObjectURL(src); }
 }
 
+// Logo per il PDF in PNG (tiene la trasparenza). null se il file non c'e'.
+async function logoPerPdf(){
+  const r = await fetch(LOGO_REPORT, {cache:'no-cache'});
+  if(!r.ok) return null;
+  const src = URL.createObjectURL(await r.blob());
+  try{
+    const img = await new Promise((ok,ko)=>{ const i=new Image(); i.onload=()=>ok(i); i.onerror=ko; i.src=src; });
+    const k = Math.min(1, 800/Math.max(img.naturalWidth,img.naturalHeight));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.naturalWidth*k); c.height = Math.round(img.naturalHeight*k);
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    return {data:c.toDataURL('image/png'), w:c.width, h:c.height};
+  } finally { URL.revokeObjectURL(src); }
+}
+
 // I font standard del PDF non hanno emoji e alcuni simboli: li sostituisco.
 function testoPdf(t){
   return String(t??'')
@@ -1271,13 +1290,20 @@ async function esportaPdf(){
     const font = (stile,pt,col) => { pdf.setFont('helvetica',stile); pdf.setFontSize(pt); pdf.setTextColor(...col); };
     const LH = pt => pt*0.3528*1.45;
 
-    // Intestazione
-    font('bold',17,TESTO); pdf.text(d.intestazione, M, y+6); y += 9;
+    // Intestazione: titolo e dati a sinistra, logo a destra (il testo non ci passa sotto).
+    const logo = await logoPerPdf().catch(()=>null);
+    let wTesto = W, fineLogo = y;
+    if(logo){
+      const k = Math.min(LOGO_MAX_W/logo.w, LOGO_MAX_H/logo.h), lw = logo.w*k, lh = logo.h*k;
+      pdf.addImage(logo.data,'PNG',M+W-lw,y,lw,lh,undefined,'FAST');
+      wTesto = W-lw-6; fineLogo = y+lh;
+    }
+    font('bold',14,TESTO); pdf.text(d.intestazione, M, y+5); y += 7.5;
     font('normal',9.5,GRIGIO);
     [d.sottotitolo, d.info].filter(Boolean).forEach(r=>{
-      pdf.splitTextToSize(testoPdf(r), W).forEach(l=>{ pdf.text(l, M, y+3.5); y += LH(9.5); });
+      pdf.splitTextToSize(testoPdf(r), wTesto).forEach(l=>{ pdf.text(l, M, y+3.5); y += LH(9.5); });
     });
-    y += 2; pdf.setDrawColor(...BRICK); pdf.setLineWidth(0.8); pdf.line(M,y,M+W,y); y += 6;
+    y = Math.max(y, fineLogo) + 2; pdf.setDrawColor(...BRICK); pdf.setLineWidth(0.8); pdf.line(M,y,M+W,y); y += 6;
 
     // Il titolo non resta mai da solo in fondo alla pagina: serve spazio anche per il contenuto.
     const titoloSez = (t, spazio) => {
