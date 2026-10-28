@@ -100,6 +100,25 @@ textarea{resize:none;min-height:80px;line-height:1.6;}
 .empty-state{text-align:center;padding:48px 20px;color:var(--muted);}
 .empty-icon{font-size:48px;margin-bottom:12px;}
 .empty-txt{font-size:15px;font-weight:500;color:var(--sand);margin-bottom:6px;}
+/* Documenti del cantiere: DDT, bolle, fatture */
+.doc-az-top{display:flex;gap:8px;margin-bottom:12px;}
+.btn-doc{flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;gap:6px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r-sm);color:var(--white);font-family:'Epilogue',sans-serif;font-size:14px;font-weight:600;cursor:pointer;}
+.btn-doc.pri{background:var(--brick);border-color:var(--brick);color:#fff;}
+.btn-doc:disabled{opacity:.6;}
+.doc-filtri{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+.doc-filtri button{min-height:40px;padding:0 14px;background:var(--surface2);border:1.5px solid var(--border);border-radius:20px;color:var(--muted);font-family:'Epilogue',sans-serif;font-size:13px;cursor:pointer;}
+.doc-filtri button.on{border-color:var(--brick);color:var(--white);background:var(--brick-dim);}
+.doc-form{display:none;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:14px;margin-bottom:12px;}
+.doc-form.show{display:block;}
+.doc-prev{display:block;max-width:100%;max-height:220px;margin:0 auto 12px;border-radius:6px;}
+.doc-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
+.doc-row:last-child{border-bottom:none;}
+.doc-info{flex:1;min-width:0;}
+.doc-tit{font-size:14px;font-weight:600;}
+.doc-tipo{display:inline-block;font-size:12px;font-weight:700;padding:2px 8px;border-radius:12px;background:var(--brick-dim);color:var(--brick);margin-right:4px;}
+.doc-meta{font-size:12px;color:var(--muted);margin-top:3px;overflow-wrap:anywhere;}
+.doc-btns{display:flex;gap:4px;flex-shrink:0;}
+.doc-btns button{width:40px;height:40px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:16px;cursor:pointer;}
 </style>
 
 </head>
@@ -136,6 +155,35 @@ textarea{resize:none;min-height:80px;line-height:1.6;}
     <div class="section">
       <div class="sec-title"><div class="sec-icon">📍</div>Dati cantiere</div>
       <div id="det-info"></div>
+    </div>
+
+    <div class="section">
+      <div class="sec-title"><div class="sec-icon">🧾</div>Documenti
+        <span id="doc-tot" style="margin-left:auto;font-size:12px;color:var(--muted);font-family:Epilogue,sans-serif;text-transform:none;letter-spacing:0;font-weight:400">DDT, bolle, fatture</span>
+      </div>
+      <div class="doc-az-top">
+        <button class="btn-doc pri" id="doc-nuovo" onclick="g('doc-file').click()">📷 Fotografa documento</button>
+        <button class="btn-doc" id="doc-tutti" style="display:none" onclick="scaricaTuttiDoc()">📥 Scarica tutti</button>
+      </div>
+      <input type="file" id="doc-file" accept="image/*" style="display:none" onchange="scegliFotoDoc(this)">
+      <div class="doc-form" id="doc-form">
+        <img class="doc-prev" id="doc-prev" alt="">
+        <div class="row2">
+          <div class="fg"><label for="doc-tipo">Tipo</label>
+            <select id="doc-tipo"><option value="DDT">DDT</option><option value="BOLLA">Bolla</option><option value="FATTURA">Fattura</option></select>
+          </div>
+          <div class="fg"><label for="doc-data">Data documento</label><input type="date" id="doc-data"></div>
+        </div>
+        <div class="fg"><label for="doc-fornitore">Fornitore</label><input type="text" id="doc-fornitore" placeholder="Es. Edilizia Rossi"></div>
+        <div class="fg"><label for="doc-numero">Numero (facoltativo)</label><input type="text" id="doc-numero" placeholder="Es. 1234"></div>
+        <div class="fg"><label for="doc-note">Note (facoltativo)</label><input type="text" id="doc-note"></div>
+        <div class="doc-az-top" style="margin:12px 0 0">
+          <button class="btn-doc" onclick="chiudiFormDoc()">Annulla</button>
+          <button class="btn-doc pri" id="doc-salva" onclick="salvaDocumento()">Salva documento</button>
+        </div>
+      </div>
+      <div class="doc-filtri" id="doc-filtri"></div>
+      <div id="doc-list"></div>
     </div>
 
     <div class="section">
@@ -401,6 +449,7 @@ function apriCantiere(id){
   g('det-info').innerHTML=`${c.commessa?`<div class="info-row"><span class="info-lbl">Commessa</span><span class="info-val" style="color:var(--brick);font-weight:700">${c.commessa}</span></div>`:''} ${c.titolo?`<div class="info-row"><span class="info-lbl">Lavoro</span><span class="info-val" style="color:var(--sand);font-weight:600">${c.titolo}</span></div>`:''}<div class="info-row"><span class="info-lbl">Cliente</span><span class="info-val">${c.cliente||'—'}</span></div><div class="info-row"><span class="info-lbl">Indirizzo</span><span class="info-val">${c.indirizzo||'—'}</span></div><div class="info-row"><span class="info-lbl">Responsabile</span><span class="info-val">${c.resp||'—'}</span></div><div class="info-row"><span class="info-lbl">Data inizio</span><span class="info-val">${dataIt(c.dataInizio)||'—'}</span></div>${c.dataFinePrevista&&!c.dataFine?`<div class="info-row"><span class="info-lbl">Fine prevista</span><span class="info-val">${dataIt(c.dataFinePrevista)}</span></div>`:''}<div class="info-row"><span class="info-lbl">Superficie</span><span class="info-val">${c.mq?c.mq+' mq':'—'}</span></div>${linkScheda(c)}`;
   aggiornaBottoni();
   renderDiario();showView('dettaglio');
+  caricaDocumenti();
 }
 
 // Scorciatoie al sopralluogo d'origine e al SAL del cantiere, solo se l'utente puo' aprirli
@@ -604,6 +653,243 @@ function importaCantieri(input){
     }catch(e){toast('Errore: '+e.message,'err');}
   };
   reader.readAsText(file);input.value='';
+}
+
+// ── DOCUMENTI DEL CANTIERE (DDT, bolle, fatture) ──
+// Le fatture sono dati economici: tabella documenti_cantiere e bucket privato Documenti,
+// leggibili solo da admin, direzione e ufficio (RLS). Mai il bucket Foto, che e' pubblico.
+// Il PDF con l'intestazione del cantiere si crea al momento dello scarico: la foto resta originale.
+const DOC_BUCKET = 'Documenti';
+const TIPI_DOC = {DDT:'DDT', BOLLA:'Bolla', FATTURA:'Fattura'};
+let documenti = [], docFile = null, docFiltro = '';
+
+function utenteCp(){ try{ return JSON.parse(localStorage.getItem('cp_user')) || {}; }catch{ return {}; } }
+// Con il permesso Cantiere in sola lettura si vedono e si scaricano, ma non si caricano
+function puoCaricareDoc(){ return (utenteCp().permessi || {}).cantiere !== 'readonly'; }
+function oggiIso(){ const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
+
+async function caricaDocumenti(){
+  const el = g('doc-list'), id = currentCant.id;
+  g('doc-nuovo').style.display = puoCaricareDoc() ? '' : 'none';
+  documenti = []; docFiltro = ''; chiudiFormDoc(); renderDocumenti();
+  if(!db){ el.innerHTML = '<div class="vuoto">Server non raggiungibile: documenti non disponibili</div>'; return; }
+  el.innerHTML = '<div class="vuoto">Caricamento...</div>';
+  const {data, error} = await db.from('documenti_cantiere').select('*')
+    .eq('cantiere_id', id).eq('eliminato', false)
+    .order('data', {ascending:false, nullsFirst:false}).order('creato_il', {ascending:false});
+  if(!currentCant || currentCant.id !== id) return;
+  if(error){ console.error('documenti', error); el.innerHTML = `<div class="vuoto">Documenti non letti: ${esc(error.message)}</div>`; return; }
+  documenti = data || [];
+  renderDocumenti();
+}
+function documentiFiltrati(){ return docFiltro ? documenti.filter(d => d.tipo === docFiltro) : documenti; }
+function filtraDoc(t){ docFiltro = t; renderDocumenti(); }
+function renderDocumenti(){
+  const tot = documenti.length;
+  g('doc-tot').textContent = tot ? tot + (tot === 1 ? ' documento' : ' documenti') : 'DDT, bolle, fatture';
+  const presenti = Object.keys(TIPI_DOC).filter(t => documenti.some(d => d.tipo === t));
+  g('doc-filtri').innerHTML = presenti.length > 1
+    ? [['', 'Tutti'], ...presenti.map(t => [t, TIPI_DOC[t]])].map(([t, n]) =>
+        `<button class="${docFiltro === t ? 'on' : ''}" onclick="filtraDoc('${t}')">${n}</button>`).join('')
+    : '';
+  const lista = documentiFiltrati();
+  g('doc-tutti').style.display = lista.length ? '' : 'none';
+  g('doc-tutti').textContent = docFiltro ? '📥 Scarica ' + TIPI_DOC[docFiltro].toLowerCase() : '📥 Scarica tutti';
+  const io = utenteCp(), admin = isAdmin();
+  g('doc-list').innerHTML = lista.length ? lista.map(d => {
+    const i = documenti.indexOf(d);
+    const mio = admin || (io.nome && d.caricato_da_nome === io.nome);
+    return `
+    <div class="doc-row">
+      <div class="doc-info">
+        <div class="doc-tit"><span class="doc-tipo">${TIPI_DOC[d.tipo] || esc(d.tipo)}</span>${d.numero ? 'n. ' + esc(d.numero) + ' ' : ''}${d.data ? 'del ' + dataIt(d.data) : ''}</div>
+        <div class="doc-meta">${d.fornitore ? esc(d.fornitore) + ' · ' : ''}caricato da ${esc(d.caricato_da_nome || '—')} il ${dataIt((d.creato_il || '').slice(0, 10))}${d.note ? '<br>' + esc(d.note) : ''}</div>
+      </div>
+      <div class="doc-btns">
+        <button onclick="vediDoc(${i})" title="Vedi foto">👁</button>
+        <button onclick="scaricaDoc(${i}, this)" title="Scarica PDF con intestazione">📥</button>
+        ${mio ? `<button onclick="eliminaDoc(${i})" title="Elimina">🗑</button>` : ''}
+      </div>
+    </div>`;
+  }).join('') : '<div class="vuoto">Nessun documento caricato</div>';
+}
+
+function scegliFotoDoc(input){
+  const f = input.files[0]; input.value = '';
+  if(!f) return;
+  if(!/^image\//.test(f.type)){ toast('Serve una foto del documento','err'); return; }
+  docFile = f;
+  const prev = g('doc-prev');
+  if(prev.src) URL.revokeObjectURL(prev.src);
+  prev.src = URL.createObjectURL(f);
+  g('doc-tipo').value = 'DDT'; g('doc-data').value = oggiIso();
+  ['doc-fornitore', 'doc-numero', 'doc-note'].forEach(id => g(id).value = '');
+  g('doc-form').classList.add('show');
+}
+function chiudiFormDoc(){
+  docFile = null;
+  const prev = g('doc-prev');
+  if(prev.src){ URL.revokeObjectURL(prev.src); prev.removeAttribute('src'); }
+  g('doc-form').classList.remove('show');
+}
+
+// Riduce la foto (lato max 2400 px, JPEG): resta leggibile ma non pesa troppo
+function comprimiImmagine(file, maxSide = 2400, quality = 0.85){
+  return new Promise((resolve, reject) => {
+    const src = URL.createObjectURL(file);
+    const img = new Image();
+    img.onerror = () => { URL.revokeObjectURL(src); reject(new Error('Immagine non valida')); };
+    img.onload = () => {
+      const k = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+      const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(src);
+      c.toBlob(b => b ? resolve(b) : reject(new Error('Compressione fallita')), 'image/jpeg', quality);
+    };
+    img.src = src;
+  });
+}
+
+async function salvaDocumento(){
+  const btn = g('doc-salva');
+  if(btn.disabled) return;
+  if(!docFile){ toast('Scegli prima la foto','err'); return; }
+  if(!db){ toast('⚠️ Server non raggiungibile: documento non salvato','err'); return; }
+  btn.disabled = true; btn.textContent = '⏳ Carico...';
+  try{
+    const {data:s} = await db.auth.getSession();
+    if(!s || !s.session) throw new Error('sessione scaduta, esci e rientra');
+    const blob = await comprimiImmagine(docFile);
+    const cartella = String(currentCant.id).replace(/[^\w-]/g, '_');
+    const path = `cantieri/${cartella}/${Date.now()}.jpg`;
+    const up = await db.storage.from(DOC_BUCKET).upload(path, blob, {contentType:'image/jpeg', upsert:false});
+    if(up.error) throw new Error(up.error.message);
+    // Se l'inserimento fallisce il file resta nel bucket senza riga: nessuno lo vede, non fa danni
+    const {error} = await db.from('documenti_cantiere').insert({
+      cantiere_id: currentCant.id, tipo: g('doc-tipo').value, data: gv('doc-data') || null,
+      fornitore: gv('doc-fornitore') || null, numero: gv('doc-numero') || null, note: gv('doc-note') || null,
+      path, caricato_da: s.session.user.id, caricato_da_nome: utenteCp().nome || utenteCp().email || null
+    });
+    if(error) throw new Error(error.message);
+    toast('✓ Documento salvato','ok');
+    await caricaDocumenti();
+  }catch(e){
+    console.error('salvaDocumento', e);
+    toast('⚠️ Documento non salvato: ' + e.message,'err');
+  }finally{
+    btn.disabled = false; btn.textContent = 'Salva documento';
+  }
+}
+
+async function eliminaDoc(i){
+  const d = documenti[i]; if(!d) return;
+  if(!confirm(`Eliminare ${TIPI_DOC[d.tipo] || d.tipo}${d.numero ? ' n. ' + d.numero : ''}?`)) return;
+  const {error} = await db.from('documenti_cantiere').update({eliminato:true, timestamp:new Date().toISOString()}).eq('id', d.id);
+  if(error){ toast('⚠️ Non eliminato: ' + error.message,'err'); return; }
+  toast('Documento eliminato','inf');
+  caricaDocumenti();
+}
+
+// Il bucket e' privato: la foto si apre con un link firmato che scade dopo 10 minuti
+async function vediDoc(i){
+  const d = documenti[i]; if(!d) return;
+  const w = window.open('', '_blank');
+  const {data, error} = await db.storage.from(DOC_BUCKET).createSignedUrl(d.path, 600);
+  if(error || !data){ if(w) w.close(); toast('⚠️ Foto non disponibile: ' + (error ? error.message : ''),'err'); return; }
+  if(w) w.location.href = data.signedUrl; else window.location.href = data.signedUrl;
+}
+
+// jsPDF si carica solo quando serve (non pesa sull'apertura della pagina).
+let jspdfPromise = null;
+function caricaJsPDF(){
+  if(window.jspdf) return Promise.resolve();
+  if(!jspdfPromise) jspdfPromise = new Promise((ok,ko)=>{
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/jspdf@4.2.1/dist/jspdf.umd.min.js';
+    s.integrity = 'sha384-qovJwSBbRDPP5cEjCp8S0UP66wrvnjaa60XMOGzTNanrThcrGfXfnZkvgY8N1KT3';
+    s.crossOrigin = 'anonymous';
+    s.onload = ()=>ok();
+    s.onerror = ()=>{ jspdfPromise = null; ko(new Error('jsPDF non caricato')); };
+    document.head.appendChild(s);
+  });
+  return jspdfPromise;
+}
+// I font standard del PDF non hanno emoji e alcuni simboli: li sostituisco.
+function testoPdf(t){
+  return String(t??'')
+    .replace(/[‘’‛]/g,"'").replace(/[“”]/g,'"')
+    .replace(/[–—]/g,'-').replace(/…/g,'...').replace(/ /g,' ')
+    .replace(/[^\n\x20-\x7E¡-ÿ€]/g,'');
+}
+async function immagineDoc(path){
+  const {data, error} = await db.storage.from(DOC_BUCKET).download(path);
+  if(error || !data) throw new Error('foto non scaricata' + (error ? ': ' + error.message : ''));
+  const src = URL.createObjectURL(data);
+  try{
+    const img = await new Promise((ok,ko)=>{ const i=new Image(); i.onload=()=>ok(i); i.onerror=()=>ko(new Error('foto non valida')); i.src=src; });
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(img, 0, 0);
+    return {data:c.toDataURL('image/jpeg', 0.85), w:c.width, h:c.height};
+  } finally { URL.revokeObjectURL(src); }
+}
+// Una pagina A4: intestazione del cantiere e del documento in alto, sotto la foto
+function paginaDoc(pdf, d, img){
+  const W = 210, H = 297, M = 12, c = currentCant;
+  const testa = (t, size, stile, colore, y) => {
+    pdf.setFont('helvetica', stile); pdf.setFontSize(size); pdf.setTextColor(...colore);
+    const righe = pdf.splitTextToSize(testoPdf(t), W - 2 * M).slice(0, 2);
+    pdf.text(righe, M, y);
+    return y + righe.length * size * 0.42 + 1.5;
+  };
+  let y = M + 5;
+  y = testa(`${c.commessa ? 'Commessa ' + c.commessa + ' - ' : ''}${c.titolo || c.cliente || 'Cantiere'}`, 14, 'bold', [20, 20, 20], y);
+  if(c.cliente) y = testa('Cliente: ' + c.cliente, 10, 'normal', [60, 60, 60], y);
+  if(c.indirizzo) y = testa('Cantiere: ' + c.indirizzo, 10, 'normal', [60, 60, 60], y);
+  y += 1.5;
+  y = testa(`${TIPI_DOC[d.tipo] || d.tipo}${d.numero ? ' n. ' + d.numero : ''}${d.data ? ' del ' + dataIt(d.data) : ''}${d.fornitore ? ' - ' + d.fornitore : ''}`, 12, 'bold', [20, 20, 20], y);
+  y = testa(`Caricato da ${d.caricato_da_nome || '-'} il ${dataIt((d.creato_il || '').slice(0, 10))}${d.note ? ' - ' + d.note : ''}`, 9, 'normal', [110, 110, 110], y);
+  pdf.setDrawColor(180, 180, 180); pdf.setLineWidth(0.3); pdf.line(M, y, W - M, y);
+  const boxY = y + 4, boxW = W - 2 * M, boxH = H - M - boxY;
+  const k = Math.min(boxW / img.w, boxH / img.h);
+  const w = img.w * k, h = img.h * k;
+  pdf.addImage(img.data, 'JPEG', M + (boxW - w) / 2, boxY, w, h);
+}
+function nomeFile(parti){ return parti.filter(Boolean).join('_').replace(/[^A-Za-z0-9_-]+/g, '-').replace(/-+/g, '-').slice(0, 120) + '.pdf'; }
+function rifCantiere(){ return currentCant.commessa || currentCant.titolo || currentCant.cliente || 'cantiere'; }
+async function creaPdfDoc(lista, nome, btn){
+  if(btn && btn.disabled) return;
+  const etichetta = btn ? btn.textContent : '';
+  if(btn){ btn.disabled = true; btn.textContent = '⏳'; }
+  try{
+    await caricaJsPDF();
+    const pdf = new window.jspdf.jsPDF({unit:'mm', format:'a4', compress:true});
+    for(let n = 0; n < lista.length; n++){
+      if(n) pdf.addPage();
+      paginaDoc(pdf, lista[n], await immagineDoc(lista[n].path));
+    }
+    pdf.save(nome);
+  }catch(e){
+    console.error('pdf documenti', e);
+    toast('⚠️ PDF non creato: ' + e.message,'err');
+  }finally{
+    if(btn){ btn.disabled = false; btn.textContent = etichetta; }
+  }
+}
+// Nome file: commessa, tipo, numero, data e fornitore, cosi' nei Download non si mischia
+function scaricaDoc(i, btn){
+  const d = documenti[i]; if(!d) return;
+  const nome = nomeFile([rifCantiere(), TIPI_DOC[d.tipo] || d.tipo, d.numero ? 'n' + d.numero : '', d.data ? dataIt(d.data).replace(/\//g, '-') : '', d.fornitore]);
+  creaPdfDoc([d], nome, btn);
+}
+// Un solo PDF con una pagina per documento (quelli del filtro scelto)
+function scaricaTuttiDoc(){
+  const lista = documentiFiltrati(); if(!lista.length) return;
+  const nome = nomeFile([rifCantiere(), docFiltro ? TIPI_DOC[docFiltro] : 'Documenti', oggiIso().split('-').reverse().join('-')]);
+  creaPdfDoc(lista, nome, g('doc-tutti'));
 }
 
 
