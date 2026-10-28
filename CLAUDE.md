@@ -124,7 +124,9 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
   "/" nei festivi e assenze sulla riga della commessa del periodo, totale ore del
   mese. Assenze in giallo con la sigla solo per chi le gestisce, rosse per gli altri.
   Sotto, annotazioni per committente dai dati del cantiere (indirizzo, inizio,
-  fine). Entrambe le schede hanno "Esporta PDF" (stampa del browser, A4 orizzontale).
+  fine; per i cantieri in corso "Fine lavori previsto", che admin e ufficio
+  impostano dal riquadro: `cantieri_v1.dataFinePrevista`, dal 28/10/2026, visibile
+  anche nella scheda Cantiere). Entrambe le schede hanno "Esporta PDF" (stampa del browser, A4 orizzontale).
 
 ## Regole NON negoziabili
 1. La sezione Contabilita e i dati economici (margini, preventivi, tariffe, costi)
