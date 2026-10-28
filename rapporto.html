@@ -791,7 +791,9 @@ function renderLista(){
 // Ambra = assenza (malattia, ferie, permesso), segnata da admin e ufficio toccando la cella.
 let meseRiepilogo = null; // 'AAAA-MM'
 // Dipendenti d'ufficio: compaiono solo nel Riepilogo mese, non servono account
-const AMMINISTRATIVI = ['Andrea Fazi','Rino Lenti','Antonella Ventrella','Pamela Pierantoni','Fabio Pierantoni','Catia Sassano'];
+const AMMINISTRATIVI = ['Andrea Fazi','Rino Lenti','Antonella Ventrella','Pamela Pierantoni','Catia Sassano'];
+// Persone da non mostrare mai nel Riepilogo mese e in "Dove hanno lavorato" (Andrea, 28/10/2026)
+const ESCLUSI_RIEPILOGO = ['Fabio Pierantoni'];
 const ORE_GIORNO = 8;
 const TIPI_ASSENZA = {MALATTIA:{sigla:'M', nome:'Malattia'}, FERIE:{sigla:'F', nome:'Ferie'}, PERMESSO:{sigla:'P', nome:'Permesso'}};
 // Vecchio nome di Mihai Poveste, ancora presente nei rapportini salvati prima della correzione
@@ -855,7 +857,7 @@ function calcolaMese(){
   });
   const fineMese = meseRiepilogo + '-' + String(nGiorni).padStart(2, '0');
   const persone = [...new Set([...OPERAI.map(nomeOperaio), ...Object.keys(celle)])]
-    .filter(n => !AMMINISTRATIVI.includes(n) && primaVolta[n] && primaVolta[n] <= fineMese)
+    .filter(n => !AMMINISTRATIVI.includes(n) && !ESCLUSI_RIEPILOGO.includes(n) && primaVolta[n] && primaVolta[n] <= fineMese)
     .sort((a, b) => a.localeCompare(b, 'it'));
   const giorni = [];
   for(let d = 1; d <= nGiorni; d++){
