@@ -1071,7 +1071,7 @@ function calcolaCommittenti(M){
         if(!c.proprio) r.col[gi.iso] = true;
         if(!delGiorno[gi.iso] || (r.o[gi.iso] || 0) + (r.fe[gi.iso] || 0) > (delGiorno[gi.iso].o[gi.iso] || 0) + (delGiorno[gi.iso].fe[gi.iso] || 0)) delGiorno[gi.iso] = r;
         if(cant && !cant.fisso){
-          const k = committenti.get(chiave) || {nome, cantieri:new Map()};
+          const k = committenti.get(chiave) || {chiave, nome, cantieri:new Map()};
           k.cantieri.set(cant.id, cant);
           committenti.set(chiave, k);
         }
@@ -1134,10 +1134,33 @@ function annotazioniCommittenti(C, tap){
     if(tap) return `<label class="cm-prev">Fine lavori previsto il <input type="date" value="${esc(c.dataFinePrevista || '')}" onchange="salvaFinePrevista('${esc(c.id)}', this.value)"></label>`;
     return c.dataFinePrevista ? 'Fine lavori previsto il ' + dataItIso(c.dataFinePrevista) : 'Lavori in corso';
   };
-  const box = k => `<div class="cm-ann"><b>Committente: ${esc(k.nome)}</b>${[...k.cantieri.values()]
+  const riga = (et, v) => v ? `<div>${et}: ${esc(v)}</div>` : '';
+  const box = k => { const r = rubricaEnti.dati[k.chiave] || {};
+    return `<div class="cm-ann"><b>Committente: ${esc(r.ragioneSociale || k.nome)}</b>${riga('P.IVA', r.piva)}${riga('C.F.', r.cf)}${riga('Indirizzo', r.indirizzo)}${[...k.cantieri.values()]
     .sort((a, b) => (a.dataInizio || '').localeCompare(b.dataInizio || ''))
-    .map(c => `<div class="cm-cant">Cantiere: ${esc(c.indirizzo || 'indirizzo non indicato')}<br><span>${esc(((c.commessa || '').trim().split(/\s+/)[0] + ' ' + (c.titolo || '')).trim())}</span><br>Inizio lavori ${c.dataInizio ? 'il ' + dataItIso(c.dataInizio) : 'non indicato'}<br>${fine(c)}</div>`).join('')}</div>`;
+    .map(c => `<div class="cm-cant">Cantiere: ${esc(c.indirizzo || 'indirizzo non indicato')}<br><span>${esc(((c.commessa || '').trim().split(/\s+/)[0] + ' ' + (c.titolo || '')).trim())}</span><br>Inizio lavori ${c.dataInizio ? 'il ' + dataItIso(c.dataInizio) : 'non indicato'}<br>${fine(c)}</div>`).join('')}</div>`; };
   return `<div class="cm-tit">Annotazioni</div><div class="cm-anns">${lista.map(box).join('')}</div>`;
+}
+// Ragione sociale, P.IVA, CF e sede dell'ente dalla Rubrica (si inseriscono li', una volta).
+// Letta dal server solo per questa scheda (admin e ufficio), senza copiarla nel telefono.
+let rubricaEnti = {stato:'', dati:{}};
+async function caricaRubricaEnti(){
+  rubricaEnti.stato = 'carico';
+  if(!db || !(await verificaSessione())){ rubricaEnti.stato = ''; return; }
+  const { data, error } = await db.from('dati').select('valore').eq('chiave', 'rubrica_v1').maybeSingle();
+  if(error){ console.error('caricaRubricaEnti', error); rubricaEnti.stato = 'errore'; return; }
+  const dati = {};
+  ((data && data.valore) || []).filter(c => !c.eliminato).forEach(c => {
+    const k = (c.nome || '').trim().toUpperCase();
+    if(!k) return;
+    const x = dati[k] = dati[k] || {};
+    ['ragioneSociale', 'piva', 'cf', 'indirizzo'].forEach(f => { if(!x[f] && (c[f] || '').trim()) x[f] = c[f].trim(); });
+  });
+  rubricaEnti = {stato:'ok', dati};
+}
+function assicuraRubricaEnti(){
+  if(rubricaEnti.stato) return;
+  caricaRubricaEnti().then(() => { if(modVista === 'dove' && rubricaEnti.stato === 'ok') renderLista(); });
 }
 async function salvaFinePrevista(id, data){
   if(!vediRiepilogo()) return;
@@ -1179,6 +1202,7 @@ function renderDoveMese(el){
   const M = calcolaMese();
   assicuraAssenze();
   if(!M.dove.length){ el.innerHTML = navMese(M, 'dove') + VUOTO_MESE; return; }
+  assicuraRubricaEnti();
   const C = calcolaCommittenti(M);
   el.innerHTML = navMese(M, 'dove') + `<div class="mese-wrap">${tabellaCommittenti(M, C)}</div>${legendaCommittenti()}${annotazioniCommittenti(C, true)}`;
 }
