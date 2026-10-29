@@ -1141,7 +1141,7 @@ const SEZIONI_REPORT = ['cliente','cantiere','lavori','note','foto'];
 const LOGO_REPORT = 'logo-report.png';
 const LOGO_MAX_W = 70, LOGO_MAX_H = 18; // mm
 // Colori del report, scelti sul logo: stessi valori per anteprima e PDF.
-const COLORI_REPORT = {accento:'#372476', titoli:'#372476', riga:'#DDDDE6', fondino:'#F2F2F6', label:'#5A5A6E', grigio:'#8A8A99', testo:'#1A1612'};
+const COLORI_REPORT = {accento:'#1E87C1', titoli:'#372476', riga:'#DDDDE6', fondino:'#F2F2F6', label:'#5A5A6E', grigio:'#8A8A99', testo:'#1A1612'};
 const rgbReport = k => COLORI_REPORT[k].match(/\w\w/g).map(h=>parseInt(h,16));
 
 function generaReport(){
@@ -1211,7 +1211,7 @@ function aggiornaAnteprima(){
     return '';
   };
   const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(d.titoloDoc)}</title>
-<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:#fff;color:${COLORI_REPORT.testo};padding:12px 16px;max-width:720px;margin:0 auto;font-size:13px;}.hdr{border-bottom:3px solid ${COLORI_REPORT.accento};padding-bottom:10px;margin-bottom:14px;display:flex;align-items:flex-start;gap:12px;}.hdr-txt{flex:1;min-width:0;}.hdr-logo{max-width:${LOGO_MAX_W*3.78}px;max-height:${LOGO_MAX_H*3.78}px;object-fit:contain;}.ttl{font-size:16px;font-weight:700;}.sub{font-size:12px;color:${COLORI_REPORT.grigio};margin-top:2px;}.sec{margin-bottom:10px;}.stitle{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${COLORI_REPORT.titoli};border-bottom:1px solid ${COLORI_REPORT.riga};padding-bottom:3px;margin-bottom:6px;}table.info{width:100%;border-collapse:collapse;}table.info td{padding:6px 8px;border:1px solid ${COLORI_REPORT.riga};font-size:12px;vertical-align:top;}table.info td:first-child{background:${COLORI_REPORT.fondino};font-weight:600;color:${COLORI_REPORT.label};width:28%;}.btext{font-size:12px;line-height:1.7;white-space:pre-wrap;}.firma-box{margin-top:8mm;padding-top:10px;border-top:1px solid ${COLORI_REPORT.riga};display:grid;grid-template-columns:1fr 1fr;gap:16px;}.fl{font-size:12px;color:${COLORI_REPORT.grigio};}.fl strong{display:block;font-size:12px;color:${COLORI_REPORT.testo};margin-bottom:12px;}.fline{border-bottom:1px solid #ccc;height:16px;margin-top:3px;}</style></head><body>
+<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:#fff;color:${COLORI_REPORT.testo};padding:12px 16px;max-width:720px;margin:0 auto;font-size:13px;}.hdr{border-bottom:3px solid ${COLORI_REPORT.accento};padding-bottom:10px;margin-bottom:14px;display:flex;align-items:flex-start;gap:12px;}.hdr-txt{flex:1;min-width:0;}.hdr-logo{max-width:${LOGO_MAX_W*3.78}px;max-height:${LOGO_MAX_H*3.78}px;object-fit:contain;}.ttl{font-size:16px;font-weight:700;color:${COLORI_REPORT.titoli};}.sub{font-size:12px;color:${COLORI_REPORT.grigio};margin-top:2px;}.sec{margin-bottom:10px;}.stitle{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${COLORI_REPORT.titoli};border-bottom:1px solid ${COLORI_REPORT.riga};padding-bottom:3px;margin-bottom:6px;}table.info{width:100%;border-collapse:collapse;}table.info td{padding:6px 8px;border:1px solid ${COLORI_REPORT.riga};font-size:12px;vertical-align:top;}table.info td:first-child{background:${COLORI_REPORT.fondino};font-weight:600;color:${COLORI_REPORT.label};width:28%;}.btext{font-size:12px;line-height:1.7;white-space:pre-wrap;}.firma-box{margin-top:8mm;padding-top:10px;border-top:1px solid ${COLORI_REPORT.riga};display:grid;grid-template-columns:1fr 1fr;gap:16px;}.fl{font-size:12px;color:${COLORI_REPORT.grigio};}.fl strong{display:block;font-size:12px;color:${COLORI_REPORT.testo};margin-bottom:12px;}.fline{border-bottom:1px solid #ccc;height:16px;margin-top:3px;}</style></head><body>
 <div class="hdr"><div class="hdr-txt"><div class="ttl">${d.intestazione}</div>${d.sottotitolo?`<div class="sub">${esc(d.sottotitolo)}</div>`:''}<div class="sub">${esc(d.info)}</div></div><img class="hdr-logo" src="${esc(new URL(LOGO_REPORT, location.href).href)}" alt="" onerror="this.remove()"></div>
 ${d.sezioni.map(s=>`<div class="sec"><div class="stitle">${esc(s.titolo)}</div>${corpo(s)}</div>`).join('')}
 ${d.firme?`<div class="firma-box">${d.firme.map(f=>`<div class="fl"><strong>${esc(f[0])||'&nbsp;'}</strong><div>${esc(f[1])}</div><div class="fline"></div><div style="margin-top:3px">Firma</div></div>`).join('')}</div>`:''}
@@ -1301,7 +1301,7 @@ async function esportaPdf(){
       pdf.addImage(logo.data,'PNG',M+W-lw,y,lw,lh,undefined,'FAST');
       wTesto = W-lw-6; fineLogo = y+lh;
     }
-    font('bold',14,TESTO); pdf.text(d.intestazione, M, y+5); y += 7.5;
+    font('bold',14,TITOLI); pdf.text(d.intestazione, M, y+5); y += 7.5;
     font('normal',9.5,GRIGIO);
     [d.sottotitolo, d.info].filter(Boolean).forEach(r=>{
       pdf.splitTextToSize(testoPdf(r), wTesto).forEach(l=>{ pdf.text(l, M, y+3.5); y += LH(9.5); });
