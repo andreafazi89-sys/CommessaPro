@@ -34,6 +34,15 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
 - `archivio.html`: crea il pacchetto ZIP della commessa (scheda, foto scaricate,
   giornate in CSV, dati.json) e poi marca `archiviato:true` su sopralluogo e
   cantiere. Non cancella nulla dal bucket Foto.
+- Backup (dal 21/10/2026; Supabase e' sul piano Free, che non fa backup):
+  - Su Supabase: job pg_cron `backup-notturno` alle 02:00 UTC copia dati,
+    utenti, sal_foto ed elenco file del bucket Foto in `backup.istantanee`
+    (schema `backup`, non esposto alle API). Tiene 30 giorni.
+    SQL in `sql/2026-10-20_backup_notturno*.sql`.
+  - Fuori da Supabase: repo PRIVATO `andreafazi89-sys/CommessaPro-backup`,
+    GitHub Action notturna (02:30 UTC) con tabelle in JSON e foto nuove;
+    lo storico e' la cronologia dei commit. Chiave segreta nei Secrets di quel repo.
+  - Questo repo e' PUBBLICO: mai mettere qui dump, foto o dati veri.
 - Sopralluogo in due fasi sullo STESSO record di `sopralluoghi_v3`:
   - Fase 1, `sopralluogo.html` (sopralluogo rapido): cliente e referente
     scelti dalla rubrica, indirizzo cantiere compilato dalla sede del cliente,
