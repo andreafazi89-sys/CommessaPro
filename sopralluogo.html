@@ -1140,6 +1140,9 @@ const SEZIONI_REPORT = ['cliente','cantiere','lavori','note','foto'];
 // per un'altra azienda basta sostituirlo. Se manca, il report esce senza logo.
 const LOGO_REPORT = 'logo-report.png';
 const LOGO_MAX_W = 70, LOGO_MAX_H = 18; // mm
+// Colori del report, scelti sul logo: stessi valori per anteprima e PDF.
+const COLORI_REPORT = {accento:'#372476', titoli:'#372476', riga:'#DDDDE6', fondino:'#F2F2F6', label:'#5A5A6E', grigio:'#8A8A99', testo:'#1A1612'};
+const rgbReport = k => COLORI_REPORT[k].match(/\w\w/g).map(h=>parseInt(h,16));
 
 function generaReport(){
   SEZIONI_REPORT.forEach(k=>{ g('rep-'+k).checked = true; });
@@ -1190,7 +1193,7 @@ function aggiornaAnteprima(){
       h += '<tr>';
       for(let j=0;j<COLS;j++){
         const f = lista[i+j];
-        h += f?`<td style="vertical-align:top;padding:0;text-align:center;width:50%"><div style="font-size:7px;color:#9C9088;margin-bottom:2px;font-weight:700;letter-spacing:1px">FOTO ${i+j+1}</div><img src="${esc(f.url)}" style="width:100%;max-height:62mm;object-fit:contain;border-radius:4px;border:1px solid #E8E2D9;display:block"></td>`:'<td style="width:50%"></td>';
+        h += f?`<td style="vertical-align:top;padding:0;text-align:center;width:50%"><div style="font-size:7px;color:${COLORI_REPORT.grigio};margin-bottom:2px;font-weight:700;letter-spacing:1px">FOTO ${i+j+1}</div><img src="${esc(f.url)}" style="width:100%;max-height:62mm;object-fit:contain;border-radius:4px;border:1px solid ${COLORI_REPORT.riga};display:block"></td>`:'<td style="width:50%"></td>';
       }
       h += '</tr>';
     }
@@ -1198,17 +1201,17 @@ function aggiornaAnteprima(){
   };
   const corpo = s => {
     if(s.righe) return `<table class="info">${s.righe.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join('')}</table>`;
-    if(s.ambienti) return `<table class="info"><tr><td>Ambiente</td><td style="text-align:right;font-weight:600;background:#F5F0E8;color:#6B6258">mq</td></tr>${s.ambienti.map(a=>`<tr><td style="background:#fff;font-weight:400;color:#1A1612">${esc(a.nome||'-')}</td><td style="text-align:right;font-weight:600">${esc(a.mq||'-')}</td></tr>`).join('')}</table>`;
+    if(s.ambienti) return `<table class="info"><tr><td>Ambiente</td><td style="text-align:right;font-weight:600;background:${COLORI_REPORT.fondino};color:${COLORI_REPORT.label}">mq</td></tr>${s.ambienti.map(a=>`<tr><td style="background:#fff;font-weight:400;color:${COLORI_REPORT.testo}">${esc(a.nome||'-')}</td><td style="text-align:right;font-weight:600">${esc(a.mq||'-')}</td></tr>`).join('')}</table>`;
     if(s.testo!=null) return `<div class="btext">${esc(s.testo)}</div>`;
     if(s.audio) return s.audio.map((n,i)=>{
       const m=Math.floor(n.dur/60),sec=(n.dur%60).toString().padStart(2,'0');
-      return `<div style="display:flex;align-items:center;gap:10px;padding:8px;background:#F5F0E8;border-radius:6px;margin-bottom:6px"><span style="font-size:12px;font-weight:600;color:#6B6258;min-width:70px">Nota ${i+1} (${m}:${sec})</span><audio controls style="flex:1;height:32px" src="${n.b64}"></audio></div>`;
-    }).join('') + '<div style="font-size:10px;color:#9C9088">Le note vocali non vanno nel PDF.</div>';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px;background:${COLORI_REPORT.fondino};border-radius:6px;margin-bottom:6px"><span style="font-size:12px;font-weight:600;color:${COLORI_REPORT.label};min-width:70px">Nota ${i+1} (${m}:${sec})</span><audio controls style="flex:1;height:32px" src="${n.b64}"></audio></div>`;
+    }).join('') + `<div style="font-size:10px;color:${COLORI_REPORT.grigio}">Le note vocali non vanno nel PDF.</div>`;
     if(s.foto) return fotoHtml(s.foto);
     return '';
   };
   const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(d.titoloDoc)}</title>
-<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:#fff;color:#1A1612;padding:12px 16px;max-width:720px;margin:0 auto;font-size:13px;}.hdr{border-bottom:3px solid #D4511E;padding-bottom:10px;margin-bottom:14px;display:flex;align-items:flex-start;gap:12px;}.hdr-txt{flex:1;min-width:0;}.hdr-logo{max-width:${LOGO_MAX_W*3.78}px;max-height:${LOGO_MAX_H*3.78}px;object-fit:contain;}.ttl{font-size:16px;font-weight:700;}.sub{font-size:12px;color:#9C9088;margin-top:2px;}.sec{margin-bottom:10px;}.stitle{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#D4511E;border-bottom:1px solid #E8E2D9;padding-bottom:3px;margin-bottom:6px;}table.info{width:100%;border-collapse:collapse;}table.info td{padding:6px 8px;border:1px solid #E8E2D9;font-size:12px;vertical-align:top;}table.info td:first-child{background:#F5F0E8;font-weight:600;color:#6B6258;width:28%;}.btext{font-size:12px;line-height:1.7;white-space:pre-wrap;}.firma-box{margin-top:8mm;padding-top:10px;border-top:1px solid #E8E2D9;display:grid;grid-template-columns:1fr 1fr;gap:16px;}.fl{font-size:12px;color:#9C9088;}.fl strong{display:block;font-size:12px;color:#1A1612;margin-bottom:12px;}.fline{border-bottom:1px solid #ccc;height:16px;margin-top:3px;}</style></head><body>
+<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:#fff;color:${COLORI_REPORT.testo};padding:12px 16px;max-width:720px;margin:0 auto;font-size:13px;}.hdr{border-bottom:3px solid ${COLORI_REPORT.accento};padding-bottom:10px;margin-bottom:14px;display:flex;align-items:flex-start;gap:12px;}.hdr-txt{flex:1;min-width:0;}.hdr-logo{max-width:${LOGO_MAX_W*3.78}px;max-height:${LOGO_MAX_H*3.78}px;object-fit:contain;}.ttl{font-size:16px;font-weight:700;}.sub{font-size:12px;color:${COLORI_REPORT.grigio};margin-top:2px;}.sec{margin-bottom:10px;}.stitle{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${COLORI_REPORT.titoli};border-bottom:1px solid ${COLORI_REPORT.riga};padding-bottom:3px;margin-bottom:6px;}table.info{width:100%;border-collapse:collapse;}table.info td{padding:6px 8px;border:1px solid ${COLORI_REPORT.riga};font-size:12px;vertical-align:top;}table.info td:first-child{background:${COLORI_REPORT.fondino};font-weight:600;color:${COLORI_REPORT.label};width:28%;}.btext{font-size:12px;line-height:1.7;white-space:pre-wrap;}.firma-box{margin-top:8mm;padding-top:10px;border-top:1px solid ${COLORI_REPORT.riga};display:grid;grid-template-columns:1fr 1fr;gap:16px;}.fl{font-size:12px;color:${COLORI_REPORT.grigio};}.fl strong{display:block;font-size:12px;color:${COLORI_REPORT.testo};margin-bottom:12px;}.fline{border-bottom:1px solid #ccc;height:16px;margin-top:3px;}</style></head><body>
 <div class="hdr"><div class="hdr-txt"><div class="ttl">${d.intestazione}</div>${d.sottotitolo?`<div class="sub">${esc(d.sottotitolo)}</div>`:''}<div class="sub">${esc(d.info)}</div></div><img class="hdr-logo" src="${esc(new URL(LOGO_REPORT, location.href).href)}" alt="" onerror="this.remove()"></div>
 ${d.sezioni.map(s=>`<div class="sec"><div class="stitle">${esc(s.titolo)}</div>${corpo(s)}</div>`).join('')}
 ${d.firme?`<div class="firma-box">${d.firme.map(f=>`<div class="fl"><strong>${esc(f[0])||'&nbsp;'}</strong><div>${esc(f[1])}</div><div class="fline"></div><div style="margin-top:3px">Firma</div></div>`).join('')}</div>`:''}
@@ -1284,7 +1287,7 @@ async function esportaPdf(){
     const pdf = new window.jspdf.jsPDF({unit:'mm', format:'a4'});
     pdf.setProperties({title:d.titoloDoc, creator:'CommessaPro'});
     const M = 12, W = 210-2*M, H = 297, FONDO = H-M-6;
-    const BRICK=[212,81,30], GRIGIO=[156,144,136], RIGA=[232,226,217], FONDINO=[245,240,232], LABEL=[107,98,88], TESTO=[26,22,18];
+    const ACCENTO=rgbReport('accento'), TITOLI=rgbReport('titoli'), GRIGIO=rgbReport('grigio'), RIGA=rgbReport('riga'), FONDINO=rgbReport('fondino'), LABEL=rgbReport('label'), TESTO=rgbReport('testo');
     let y = M;
     const pagina = h => { if(y+h>FONDO){ pdf.addPage(); y=M; return true; } return false; };
     const font = (stile,pt,col) => { pdf.setFont('helvetica',stile); pdf.setFontSize(pt); pdf.setTextColor(...col); };
@@ -1303,12 +1306,12 @@ async function esportaPdf(){
     [d.sottotitolo, d.info].filter(Boolean).forEach(r=>{
       pdf.splitTextToSize(testoPdf(r), wTesto).forEach(l=>{ pdf.text(l, M, y+3.5); y += LH(9.5); });
     });
-    y = Math.max(y, fineLogo) + 2; pdf.setDrawColor(...BRICK); pdf.setLineWidth(0.8); pdf.line(M,y,M+W,y); y += 6;
+    y = Math.max(y, fineLogo) + 2; pdf.setDrawColor(...ACCENTO); pdf.setLineWidth(0.8); pdf.line(M,y,M+W,y); y += 6;
 
     // Il titolo non resta mai da solo in fondo alla pagina: serve spazio anche per il contenuto.
     const titoloSez = (t, spazio) => {
       pagina(10+spazio);
-      font('bold',7.5,BRICK); pdf.text(testoPdf(t).toUpperCase(), M, y+2.5, {charSpace:0.5});
+      font('bold',7.5,TITOLI); pdf.text(testoPdf(t).toUpperCase(), M, y+2.5, {charSpace:0.5});
       y += 4; pdf.setDrawColor(...RIGA); pdf.setLineWidth(0.25); pdf.line(M,y,M+W,y); y += 2.5;
     };
     const tabella = (righe, colL, intestata) => {
