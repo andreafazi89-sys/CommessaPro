@@ -23,6 +23,14 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
     l'admin). Gli altri di admin e ufficio le leggono dalla funzione
     `assenze_mese(p_dal, p_al)` senza tipo e note. Nessun delete (si marca `eliminato`).
   - Storage bucket `Foto`, pattern: `sopralluoghi/sop_<id>/<timestamp>.jpg`
+  - Documenti del cantiere (dal 28/10/2026): DDT, bolle, fatture fotografati dalla
+    scheda Cantiere. Tabella `documenti_cantiere` (cantiere_id, tipo DDT|BOLLA|FATTURA,
+    data, fornitore, numero, note, path, caricato_da, caricato_da_nome, eliminato) e
+    bucket PRIVATO `Documenti` (`cantieri/<id>/<timestamp>.jpg`, link firmati, mai
+    `getPublicUrl`). Le fatture sono dati economici: vedono e caricano solo admin,
+    direzione e ufficio (`vede_documenti()`), operai nulla. Nessun delete: si marca
+    `eliminato`. Allo scarico si crea un PDF (jsPDF) con l'intestazione del cantiere
+    sopra la foto; il nome file contiene commessa, tipo, numero, data e fornitore.
 - `archivio.html`: crea il pacchetto ZIP della commessa (scheda, foto scaricate,
   giornate in CSV, dati.json) e poi marca `archiviato:true` su sopralluogo e
   cantiere. Non cancella nulla dal bucket Foto.
@@ -81,7 +89,7 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
 - operaio: I miei rapporti e SAL. Niente Sopralluogo (non li fanno) e niente
   Cantiere (dal 21/10/2026, meno distrazioni): le due pagine rimandano alla Home.
 - I rapportini li compilano solo gli operai (l'admin puo' ancora inserirli).
-- Tab Cantiere: scheda in sola lettura (dati, diario lavori dai rapportini,
+- Tab Cantiere: scheda in sola lettura (dati, documenti, diario lavori dai rapportini,
   PDF del singolo rapportino, scorciatoie a Sopralluogo e SAL). Niente
   Registra giornata e niente cestini nel diario: le correzioni si fanno
   dai Rapportini. Le vecchie `giornate[]` restano solo per la migrazione.
