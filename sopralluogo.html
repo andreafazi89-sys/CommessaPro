@@ -1139,7 +1139,7 @@ const SEZIONI_REPORT = ['cliente','cantiere','lavori','note','foto'];
 // Logo dell'azienda in alto a destra nel report. E' un file a parte nella root:
 // per un'altra azienda basta sostituirlo. Se manca, il report esce senza logo.
 const LOGO_REPORT = 'logo-report.png';
-const LOGO_MAX_W = 45, LOGO_MAX_H = 18; // mm
+const LOGO_MAX_W = 70, LOGO_MAX_H = 18; // mm
 
 function generaReport(){
   SEZIONI_REPORT.forEach(k=>{ g('rep-'+k).checked = true; });
