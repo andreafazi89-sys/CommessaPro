@@ -45,6 +45,9 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
     anche le firme e la commessa dal nome del file. Creato con jsPDF (CDN,
     caricato al clic), non con la stampa del browser: nel PDF non compare
     l'URL della pagina.
+    In alto a destra il logo aziendale (dal 29/10/2026): file `logo-report.png`
+    nella root (costante `LOGO_REPORT`, max 70 x 18 mm). Per un'altra azienda
+    basta sostituire il file; se manca, il report esce senza logo.
   - Fase 2, `sviluppo.html` (scheda di sviluppo, SOLO admin): piano, accessi,
     opere provvisionali, lavorazioni con misure, rifiuti, squadra, forniture.
     Salvata nel campo `sviluppo` del record; produce il testo per la bozza
@@ -181,7 +184,8 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
   non ridefiniscono `:root`. `--white` e' il colore del testo (nome storico).
 - Colori di stato fissi e separati dal colore principale: verde salvato,
   ambra attenzione/offline (`--amber`), rosso errore (`--red`).
-- Il nome "Pierantoni" non compare da nessuna parte nell'app.
+- Il nome "Pierantoni" non compare da nessuna parte nell'app. Unica eccezione:
+  il logo `logo-report.png` nel Report PDF del sopralluogo, che va al cliente.
 - Telefono in cantiere: testi minimo 12 px (eccetto PDF), pulsanti alti
   almeno 40-44 px, zoom consentito (niente `user-scalable=no`), date gg/mm/aaaa.
 - Avvisi temporanei (`.toast`): barra in alto sopra la testata, non sopra le liste.
