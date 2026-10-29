@@ -48,6 +48,8 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
     In alto a destra il logo aziendale (dal 29/10/2026): file `logo-report.png`
     nella root (costante `LOGO_REPORT`, max 70 x 18 mm). Per un'altra azienda
     basta sostituire il file; se manca, il report esce senza logo.
+    Colori del report in `COLORI_REPORT` (striscia celeste del logo, titoli viola),
+    separati da quelli dell'app in `stile.css`.
   - Fase 2, `sviluppo.html` (scheda di sviluppo, SOLO admin): piano, accessi,
     opere provvisionali, lavorazioni con misure, rifiuti, squadra, forniture.
     Salvata nel campo `sviluppo` del record; produce il testo per la bozza
