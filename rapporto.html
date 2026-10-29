@@ -1182,12 +1182,13 @@ function legendaCommittenti(){
 function navMese(M, tipo){
   const ore = tipo === 'ore';
   const pdf = (ore || M.dove.length) ? `<button type="button" class="mese-pdf" onclick="esportaMesePDF('${tipo}')">📄 Esporta PDF</button>` : '';
+  const xls = !ore && M.dove.length ? '<button type="button" class="mese-pdf" onclick="esportaDoveExcel()">📊 Esporta Excel</button>' : '';
   return `<div class="mese-nav">
       <button type="button" onclick="cambiaMese(-1)" aria-label="Mese precedente">‹</button>
       <div class="mese-nav-txt">${M.titolo}</div>
       <button type="button" onclick="cambiaMese(1)" aria-label="Mese successivo">›</button>
     </div>
-    <div class="mese-azioni">${pdf}${ore && assenzeMese.gestore ? '<button type="button" class="mese-ass" onclick="apriAssenza(-1)">➕ Segna assenza</button>' : ''}</div>
+    <div class="mese-azioni">${pdf}${xls}${ore && assenzeMese.gestore ? '<button type="button" class="mese-ass" onclick="apriAssenza(-1)">➕ Segna assenza</button>' : ''}</div>
     ${assenzeMese.errore ? `<div class="mese-leg" style="color:var(--red)">${esc(assenzeMese.errore)}</div>` : ''}`;
 }
 const VUOTO_MESE = '<div class="empty-state"><div class="empty-sub">Nessun rapportino in questo mese</div></div>';
@@ -1251,6 +1252,191 @@ ${corpo}
 </body></html>`;
   const clean = s => (s || '').replace(/[^a-zA-Z0-9_-]/g, '_');
   mostraPDFOverlay(html, (ore ? 'Presenze_' : 'Ore_committenti_') + clean(meseRiepilogo), ore ? 'Presenze' : 'Dove hanno lavorato');
+}
+
+// ExcelJS si carica solo quando serve (circa 1 MB, non pesa sull'apertura della pagina).
+let exceljsPromise = null;
+function caricaExcelJS(){
+  if(window.ExcelJS) return Promise.resolve();
+  if(!exceljsPromise) exceljsPromise = new Promise((ok, ko) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+    s.integrity = 'sha384-Pqp51FUN2/qzfxZxBCtF0stpc9ONI6MYZpVqmo8m20SoaQCzf+arZvACkLkirlPz';
+    s.crossOrigin = 'anonymous';
+    s.onload = () => ok();
+    s.onerror = () => { exceljsPromise = null; ko(new Error('ExcelJS non caricato')); };
+    document.head.appendChild(s);
+  });
+  return exceljsPromise;
+}
+// "Dove hanno lavorato" in Excel modificabile: stessa griglia del PDF, ore come numeri,
+// totale per persona e committente come formula (si aggiorna se si corregge una cella).
+async function esportaDoveExcel(){
+  if(!vediRiepilogo()) return;
+  const M = calcolaMese();
+  if(!M.dove.length) return;
+  try{ await caricaExcelJS(); }
+  catch(e){ toast('⚠ Excel non disponibile: controlla la connessione','err'); return; }
+  // Dati Rubrica dell'ente: se la scheda non li ha ancora caricati, li legge ora
+  if(rubricaEnti.stato !== 'ok') await caricaRubricaEnti();
+  const C = calcolaCommittenti(M);
+  const chiaro = assenzeMese.gestore;
+  const meseTxt = M.titolo.charAt(0).toUpperCase() + M.titolo.slice(1);
+  const nG = M.giorni.length;
+  const colTot = 3 + nG; // A nome, B O/FE, poi i giorni, poi il totale
+  const lett = n => { let s = ''; while(n > 0){ const r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); } return s; };
+  const bordo = {style:'thin', color:{argb:'FF777777'}};
+  const bordi = {top:bordo, left:bordo, bottom:bordo, right:bordo};
+  const fondo = argb => ({type:'pattern', pattern:'solid', fgColor:{argb}});
+  const GIALLO = fondo('FFF2D13A'), ROSSO = fondo('FFF6C9B6'), GRIGIO = fondo('FFEEEEEE');
+  const centro = {horizontal:'center', vertical:'middle'};
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'CommessaPro';
+  const ws = wb.addWorksheet(meseTxt.slice(0, 31), {
+    pageSetup:{paperSize:9, orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0, margins:{left:0.4, right:0.4, top:0.4, bottom:0.4, header:0.2, footer:0.2}},
+    views:[{state:'frozen', xSplit:2, ySplit:3}]
+  });
+  ws.getColumn(1).width = 26;
+  ws.getColumn(2).width = 4;
+  for(let c = 3; c < colTot; c++) ws.getColumn(c).width = 4.3;
+  ws.getColumn(colTot).width = 9;
+
+  // Titolo
+  ws.getCell(1, 1).value = 'Ore per committente - ' + M.titolo;
+  ws.getCell(1, 1).font = {bold:true, size:14};
+  if(M.ultimo){
+    ws.mergeCells(1, colTot - 9, 1, colTot);
+    const c = ws.getCell(1, colTot - 9);
+    c.value = 'Rapportini fino al ' + dataItIso(M.ultimo);
+    c.alignment = {horizontal:'right'};
+    c.font = {size:9, color:{argb:'FF444444'}};
+  }
+  // Intestazione: mese, giorni (festivi in rosso), totale
+  ws.mergeCells(3, 1, 3, 2);
+  ws.getCell(3, 1).value = 'MESE: ' + meseTxt;
+  M.giorni.forEach((gi, i) => { ws.getCell(3, 3 + i).value = gi.d; if(!gi.lav) ws.getCell(3, 3 + i).font = {bold:true, color:{argb:'FFCC0000'}}; });
+  ws.getCell(3, colTot).value = 'Totali h. mese';
+  ws.getRow(3).height = 30;
+  for(let c = 1; c <= colTot; c++){
+    const x = ws.getCell(3, c);
+    x.border = bordi; x.fill = GRIGIO;
+    x.alignment = c === 1 ? {horizontal:'left', vertical:'middle'} : {...centro, wrapText:true};
+    if(!x.font) x.font = {bold:true};
+  }
+
+  // Due righe per persona e committente: O (ordinarie) e FE (straordinari)
+  let riga = 4;
+  C.righe.forEach(r => {
+    const rO = riga, rFE = riga + 1;
+    ws.mergeCells(rO, 1, rFE, 1);
+    const nome = ws.getCell(rO, 1);
+    nome.value = {richText:[{text:r.p.toUpperCase() + '\n', font:{bold:true, size:10}}, {text:r.nome, font:{size:9, color:{argb:'FF555555'}}}]};
+    nome.alignment = {horizontal:'center', vertical:'middle', wrapText:true};
+    ws.getCell(rO, 2).value = 'O';
+    ws.getCell(rFE, 2).value = 'FE';
+    M.giorni.forEach((gi, i) => {
+      const o = ws.getCell(rO, 3 + i), fe = ws.getCell(rFE, 3 + i);
+      const ore = r.o[gi.iso], s = r.segno[gi.iso];
+      if(s && s.a){
+        const t = s.a.tipo ? TIPI_ASSENZA[s.a.tipo] : null;
+        // Ore lavorate restano un numero (entrano nel totale), la sigla va nella nota
+        if(ore) o.value = ore; else if(t && chiaro) o.value = t.sigla;
+        o.fill = t && chiaro ? GIALLO : ROSSO;
+        if(t && chiaro) o.note = t.nome + (s.a.ore ? ' ' + fmtOre(Number(s.a.ore)) + ' ore' : '') + (s.a.note ? ' (' + s.a.note + ')' : '');
+        if(t && chiaro) o.font = {bold:true};
+      } else if(ore) o.value = ore;
+      else if(s && s.barra && !r.fe[gi.iso]){ o.value = '/'; o.font = {color:{argb:'FF777777'}}; }
+      if(r.fe[gi.iso]) fe.value = r.fe[gi.iso];
+    });
+    const tot = ws.getCell(rO, colTot);
+    ws.mergeCells(rO, colTot, rFE, colTot);
+    tot.value = {formula:`SUM(${lett(3)}${rO}:${lett(colTot - 1)}${rFE})`, result:Math.round(r.tot * 10) / 10};
+    tot.font = {bold:true};
+    [rO, rFE].forEach(n => {
+      for(let c = 1; c <= colTot; c++){
+        const x = ws.getCell(n, c);
+        x.border = {...bordi, ...(n === rFE ? {bottom:{style:'medium', color:{argb:'FF000000'}}} : {})};
+        if(c > 1 && c !== colTot) x.alignment = centro;
+        if(c === 2) x.font = {bold:true, color:{argb:'FF555555'}};
+      }
+      ws.getRow(n).height = 16;
+    });
+    tot.alignment = centro;
+    riga += 2;
+  });
+
+  // Legenda
+  riga++;
+  const leg = ['O: ore ordinarie (fino a 8 nei giorni lavorativi)', 'FE: straordinari (oltre le 8, sabato, domenica e festivi)', '/ sabato, domenica, festivi',
+    chiaro ? 'Giallo: assenza (F ferie, M malattia, P permesso), dettaglio nella nota della cella' : 'Rosso: assenza'];
+  leg.forEach(t => { ws.getCell(riga, 1).value = t; ws.getCell(riga, 1).font = {size:9, color:{argb:'FF333333'}}; riga++; });
+
+  // Annotazioni per committente: un riquadro per committente, tre per fila,
+  // con lo stesso testo del riquadro a schermo e del PDF
+  const lista = [...C.committenti.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+  if(lista.length){
+    riga++;
+    ws.getCell(riga, 1).value = 'Annotazioni';
+    ws.getCell(riga, 1).font = {bold:true, size:11};
+    riga++;
+    // Colonne dei tre riquadri: larghezze simili, una colonna vuota in mezzo
+    const larg = c => ws.getColumn(c).width || 9;
+    let totale = 0;
+    for(let c = 1; c <= colTot; c++) totale += larg(c);
+    const gruppi = [];
+    let da = 1, somma = 0;
+    for(let c = 1; c <= colTot; c++){
+      somma += larg(c);
+      if(gruppi.length < 2 && somma >= totale * (gruppi.length + 1) / 3){ gruppi.push([da, c - 1]); da = c + 1; }
+    }
+    gruppi.push([da, colTot]);
+    const bordoBox = {style:'medium', color:{argb:'FF000000'}};
+    const testoBox = k => {
+      const e = rubricaEnti.dati[k.chiave] || {};
+      const t = [{text:'Committente: ' + (e.ragioneSociale || k.nome) + '\n', font:{bold:true, size:9}}];
+      const righe = [];
+      if(e.piva) righe.push('P.IVA: ' + e.piva);
+      if(e.cf) righe.push('C.F.: ' + e.cf);
+      if(e.indirizzo) righe.push('Indirizzo: ' + e.indirizzo);
+      [...k.cantieri.values()].sort((a, b) => (a.dataInizio || '').localeCompare(b.dataInizio || '')).forEach(c => {
+        righe.push('', 'Cantiere: ' + (c.indirizzo || 'indirizzo non indicato'),
+          ((c.commessa || '').trim().split(/\s+/)[0] + ' ' + (c.titolo || '')).trim(),
+          'Inizio lavori ' + (c.dataInizio ? 'il ' + dataItIso(c.dataInizio) : 'non indicato'),
+          c.dataFine ? 'Fine lavori il ' + dataItIso(c.dataFine) : c.dataFinePrevista ? 'Fine lavori previsto il ' + dataItIso(c.dataFinePrevista) : 'Lavori in corso');
+      });
+      t.push({text:righe.join('\n'), font:{size:9}});
+      return {t, n:righe.length + 1};
+    };
+    for(let i = 0; i < lista.length; i += 3){
+      const fila = lista.slice(i, i + 3).map(testoBox);
+      fila.forEach((b, j) => {
+        const [c1, c2] = gruppi[j];
+        ws.mergeCells(riga, c1, riga, c2);
+        const x = ws.getCell(riga, c1);
+        x.value = {richText:b.t};
+        x.alignment = {vertical:'top', horizontal:'left', wrapText:true, indent:1};
+        x.border = {top:bordoBox, bottom:bordoBox, left:bordoBox, right:bordoBox};
+      });
+      // Altezza della fila sul riquadro piu' lungo (circa 13 punti per riga, max 409)
+      ws.getRow(riga).height = Math.min(409, 13 * Math.max(...fila.map(b => b.n)) + 6);
+      riga += 2;
+    }
+  }
+  riga++;
+  ws.getCell(riga, 1).value = 'Generato da CommessaPro il ' + new Date().toLocaleDateString('it-IT');
+  ws.getCell(riga, 1).font = {size:8, color:{argb:'FF666666'}};
+
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'Ore_committenti_' + meseRiepilogo + '.xlsx';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  toast('✓ Excel scaricato','ok');
 }
 function tornaLista(){
   renderToggle();

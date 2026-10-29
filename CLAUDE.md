@@ -139,6 +139,10 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
   anche nella scheda Cantiere). In testa al riquadro ragione sociale, P.IVA, CF e
   sede dell'ente dalla Rubrica, letta dal server senza copiarla nel telefono e
   agganciata per nome (maiuscole/minuscole ignorate). Entrambe le schede hanno "Esporta PDF" (stampa del browser, A4 orizzontale).
+  "Dove hanno lavorato" ha anche "Esporta Excel" (dal 28/10/2026): .xlsx modificabile creato
+  con ExcelJS (CDN, caricato al clic), ore come numeri, totale di ogni coppia O/FE come
+  formula SOMMA, assenze con la nota in cella solo per chi le gestisce, annotazioni
+  con gli stessi dati del riquadro (dati Rubrica dell'ente compresi).
 
 ## Regole NON negoziabili
 1. La sezione Contabilita e i dati economici (margini, preventivi, tariffe, costi)
