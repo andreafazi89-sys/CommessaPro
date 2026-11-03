@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="CommessaPro">
+<meta name="theme-color" content="#FFFFFF">
+<link rel="icon" href="logo-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Notifiche</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Epilogue:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<link rel="stylesheet" href="stile.css?v=2">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--white);min-height:100vh;}
+.topbar{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;}
+.topbar-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;}
+.btn-top{min-height:40px;background:var(--sand-dim);color:var(--sand);border:none;border-radius:8px;padding:7px 12px;font-size:14px;cursor:pointer;}
+.content{padding:16px 16px 80px;max-width:720px;margin:0 auto;}
+.sez-testa{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:18px 4px 10px;}
+.sez-label{font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
+.sez-hint{font-size:13px;color:var(--muted);margin:-4px 4px 12px;line-height:1.5;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px;}
+.card.nuova{border-color:var(--amber);background:var(--amber-dim);}
+.card-tit{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;}
+.card-info{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.5;}
+.card-elim{font-size:13px;color:var(--red);margin-top:4px;}
+.riga{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+.btn{min-height:44px;padding:0 14px;border-radius:var(--r-sm);font-family:'Epilogue',sans-serif;font-size:14px;font-weight:600;cursor:pointer;border:1.5px solid var(--brick);background:transparent;color:var(--brick);text-decoration:none;display:inline-flex;align-items:center;}
+.btn.pieno{background:var(--brick);color:#fff;}
+.btn.muto{border-color:var(--border);color:var(--muted);}
+.btn:disabled{opacity:.5;cursor:default;}
+.vuoto{font-size:13px;color:var(--muted);font-style:italic;padding:6px 4px 10px;}
+.toast.ok{background:var(--green);color:#fff;}
+.toast.err{background:var(--red);color:#fff;}
+.toast.inf{background:var(--surface2);color:var(--white);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:10px">
+    <a href="index.html" style="color:var(--muted);text-decoration:none;font-size:22px">←</a>
+    <div class="topbar-title">🔔 Notifiche</div>
+  </div>
+  <button class="btn-top" onclick="carica()" title="Aggiorna">🔄</button>
+</div>
+
+<div class="content">
+  <div class="sez-testa">
+    <div class="sez-label" id="lbl-nuove">Da vedere</div>
+    <button class="btn muto" id="btn-tutte" style="display:none" onclick="segnaTutte()">✓ Tutte viste</button>
+  </div>
+  <div class="sez-hint">Documenti caricati nei cantieri (DDT, bolle, fatture). Quando lo hai visto o archiviato premi Visto: sparisce da qui e resta sotto, negli ultimi 60 giorni.</div>
+  <div id="lista-nuove"><div class="vuoto">Caricamento...</div></div>
+
+  <div class="sez-testa"><div class="sez-label">Già viste</div></div>
+  <div id="lista-viste"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── GUARD AUTH + RUOLO: admin, direzione, ufficio (gli operai non caricano documenti) ──
+// Le notifiche le riceve solo chi e' abilitato sul DB (admin e utenti.notifiche_documenti):
+// per gli altri la pagina resta vuota, la RLS mostra a ognuno solo le proprie.
+(function(){
+  let u=null; try{u=JSON.parse(localStorage.getItem('cp_user'))||null;}catch{}
+  if(!u||!u.email){ window.location.replace('login.html'); return; }
+  if(!['admin','direzione','ufficio'].includes((u.ruolo||'').toLowerCase())) window.location.replace('index.html');
+})();
+
+// ── SUPABASE ──
+const SUPA_URL='https://iradzlocobsipjazracw.supabase.co';
+const SUPA_KEY='sb_publishable_zFgRrNrmYSORug8N06heow_6vjl0fhH';
+const DOC_BUCKET='Documenti';
+const GIORNI_VISTE=60;
+let db=null, notifiche=[];
+function initDB(){ if(window.supabase) db=window.supabase.createClient(SUPA_URL,SUPA_KEY); }
+
+const g=id=>document.getElementById(id);
+function esc(t){ return String(t ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+function toast(msg,tipo='ok'){ const t=g('toast'); t.textContent=msg; t.className='toast '+tipo+' show'; clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2500); }
+function quando(ts){
+  if(!ts) return '';
+  const d=new Date(ts), p=n=>String(n).padStart(2,'0');
+  return `${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()} alle ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+async function carica(){
+  if(!db){ g('lista-nuove').innerHTML='<div class="vuoto">Server non raggiungibile</div>'; return; }
+  const dal=new Date(Date.now()-GIORNI_VISTE*86400000).toISOString().slice(0,10);
+  // Le non viste tutte, le viste solo recenti
+  const {data,error}=await db.from('notifiche')
+    .select('id,tipo,cantiere_id,documento_id,titolo,testo,autore_nome,creato_il,letta_il,documenti_cantiere(path,eliminato)')
+    .or(`letta_il.is.null,creato_il.gte.${dal}`)
+    .order('creato_il',{ascending:false}).limit(300);
+  if(error){
+    console.error('notifiche',error);
+    g('lista-nuove').innerHTML=`<div class="vuoto">Notifiche non lette dal server: ${esc(error.message)}</div>`;
+    return;
+  }
+  notifiche=data||[];
+  render();
+}
+
+function scheda(n){
+  const i=notifiche.indexOf(n), doc=n.documenti_cantiere;
+  const eliminato=!doc||doc.eliminato;
+  return `<div class="card${n.letta_il?'':' nuova'}">
+    <div class="card-tit">🧾 ${esc(n.titolo)}</div>
+    <div class="card-info">${esc(n.testo||'')}<br>caricato da ${esc(n.autore_nome||'—')} il ${quando(n.creato_il)}${n.letta_il?'<br>visto il '+quando(n.letta_il):''}</div>
+    ${eliminato?'<div class="card-elim">Documento eliminato dal cantiere</div>':''}
+    <div class="riga">
+      ${eliminato?'':`<button class="btn" onclick="vediDoc(${i})">👁 Vedi</button>`}
+      ${n.cantiere_id?`<a class="btn" href="cantiere.html?id=${encodeURIComponent(n.cantiere_id)}">🏗️ Cantiere</a>`:''}
+      ${n.letta_il
+        ?`<button class="btn muto" onclick="segna(${i},false,this)">Rimetti da vedere</button>`
+        :`<button class="btn pieno" onclick="segna(${i},true,this)">✓ Visto</button>`}
+    </div>
+  </div>`;
+}
+
+function render(){
+  const nuove=notifiche.filter(n=>!n.letta_il), viste=notifiche.filter(n=>n.letta_il);
+  g('lbl-nuove').textContent=nuove.length?`Da vedere (${nuove.length})`:'Da vedere';
+  g('btn-tutte').style.display=nuove.length>1?'':'none';
+  g('lista-nuove').innerHTML=nuove.length?nuove.map(scheda).join(''):'<div class="vuoto">Nessun documento nuovo</div>';
+  g('lista-viste').innerHTML=viste.length?viste.map(scheda).join(''):'<div class="vuoto">Nessuna</div>';
+}
+
+async function segna(i,vista,btn){
+  const n=notifiche[i]; if(!n||!db) return;
+  if(btn) btn.disabled=true;
+  const letta=vista?new Date().toISOString():null;
+  const {error}=await db.from('notifiche').update({letta_il:letta}).eq('id',n.id);
+  if(error){ if(btn) btn.disabled=false; toast('⚠️ Non salvato: '+error.message,'err'); return; }
+  n.letta_il=letta;
+  render();
+}
+
+async function segnaTutte(){
+  const ids=notifiche.filter(n=>!n.letta_il).map(n=>n.id);
+  if(!ids.length||!db) return;
+  if(!confirm(`Segnare come visti ${ids.length} documenti?`)) return;
+  const letta=new Date().toISOString();
+  const {error}=await db.from('notifiche').update({letta_il:letta}).in('id',ids);
+  if(error){ toast('⚠️ Non salvato: '+error.message,'err'); return; }
+  notifiche.forEach(n=>{ if(ids.includes(n.id)) n.letta_il=letta; });
+  render();
+  toast('✓ Tutte viste','ok');
+}
+
+// Il bucket Documenti e' privato: la foto si apre con un link firmato che scade dopo 10 minuti
+async function vediDoc(i){
+  const n=notifiche[i], doc=n&&n.documenti_cantiere; if(!doc||!db) return;
+  const w=window.open('','_blank');
+  const {data,error}=await db.storage.from(DOC_BUCKET).createSignedUrl(doc.path,600);
+  if(error||!data){ if(w) w.close(); toast('⚠️ Foto non disponibile: '+(error?error.message:''),'err'); return; }
+  if(w) w.location.href=data.signedUrl; else window.location.href=data.signedUrl;
+}
+
+// ── INIT ──
+initDB();
+carica();
+</script>
+</body>
+</html>

@@ -31,6 +31,14 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
     direzione e ufficio (`vede_documenti()`), operai nulla. Nessun delete: si marca
     `eliminato`. Allo scarico si crea un PDF (jsPDF) con l'intestazione del cantiere
     sopra la foto; il nome file contiene commessa, tipo, numero, data e fornitore.
+  - Notifiche (dal 03/11/2026): tabella `notifiche` (destinatario, tipo DOCUMENTO,
+    cantiere_id, documento_id, titolo, testo, autore_nome, creato_il, letta_il).
+    Le crea solo il trigger `documenti_notifica` su `documenti_cantiere`: a ogni documento
+    caricato una riga per l'admin e per chi ha `utenti.notifiche_documenti = true`
+    (oggi solo Pamela, che archivia; la spunta la cambia solo l'admin), mai a chi l'ha
+    caricato. Ognuno vede e segna "Visto" (`letta_il`) solo le proprie; nessun insert
+    dall'app, nessun delete. Pagina `notifiche.html`, in Home la scheda Notifiche
+    (ambra con il conteggio) compare solo se `riceve_notifiche()` e' vero.
 - `archivio.html`: crea il pacchetto ZIP della commessa (scheda, foto scaricate,
   giornate in CSV, dati.json) e poi marca `archiviato:true` su sopralluogo e
   cantiere. Non cancella nulla dal bucket Foto.
