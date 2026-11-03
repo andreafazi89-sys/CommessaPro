@@ -50,6 +50,10 @@ html,body{font-family:var(--font-body);background:var(--bg);color:var(--white);m
 /* Avviso admin: subappaltatori scritti dagli operai da verificare */
 .avviso-sub{display:flex;align-items:center;gap:12px;margin:0 16px 16px;padding:14px 16px;min-height:44px;background:var(--amber-dim);border:1px solid var(--amber);border-radius:14px;color:var(--amber);font-size:14px;font-weight:600;text-decoration:none;}
 .avviso-sub span{flex:1;}
+/* Notifiche: la scheda diventa ambra quando ci sono documenti da vedere */
+#notifiche-tool{margin-bottom:16px;}
+.tool-card.nuove{border-color:var(--amber);background:var(--amber-dim);}
+.tool-card.nuove .tool-desc{color:var(--amber);font-weight:600;}
 .footer{text-align:center;font-size:11px;color:var(--border);padding:8px 16px 24px;}
 
 /* SETTINGS PANEL */
@@ -118,6 +122,17 @@ html,body{font-family:var(--font-body);background:var(--bg);color:var(--white);m
 
 <div class="divider"></div>
 <a href="subappaltatori.html" class="avviso-sub" id="avviso-sub" style="display:none"></a>
+<!-- Notifiche documenti: solo per chi le riceve (admin e utenti.notifiche_documenti) -->
+<div class="tools" id="notifiche-tool" style="display:none">
+  <a href="notifiche.html" class="tool-card" id="notifiche-card">
+    <div class="tool-icon" style="background:rgba(196,140,20,0.16)">🔔</div>
+    <div class="tool-info">
+      <div class="tool-name">Notifiche</div>
+      <div class="tool-desc" id="notifiche-desc">Documenti caricati nei cantieri</div>
+    </div>
+    <div class="tool-arrow">→</div>
+  </a>
+</div>
 <div class="section-label">Strumenti</div>
 
 <div class="tools" id="tools-list"></div>
@@ -583,6 +598,21 @@ async function controllaSubDaVerificare(){
   a.style.display='';
 }
 
+// ── NOTIFICHE DOCUMENTI ──
+// La scheda compare solo a chi riceve le notifiche (riceve_notifiche sul DB). Se la funzione
+// non esiste ancora o il server non risponde, la scheda resta nascosta: la Home non cambia.
+async function controllaNotifiche(){
+  if(!db)return;
+  const {data:riceve,error}=await db.rpc('riceve_notifiche');
+  const box=document.getElementById('notifiche-tool');
+  if(error||!riceve){box.style.display='none';return;}
+  const {count,error:e2}=await db.from('notifiche').select('id',{count:'exact',head:true}).is('letta_il',null);
+  const n=e2?0:(count||0);
+  document.getElementById('notifiche-desc').textContent=n?(n===1?'1 documento nuovo da vedere':n+' documenti nuovi da vedere'):'Nessun documento nuovo';
+  document.getElementById('notifiche-card').classList.toggle('nuove',n>0);
+  box.style.display='';
+}
+
 // ── INIT ──
 initDB();
 applicaSettings((getUser()?.ruolo||'').toLowerCase()==='admin'?getSettings():{});
@@ -593,6 +623,9 @@ if(isPrivilegedUser())document.getElementById('export-tool').style.display='';
 aggiornaProfilo();
 setTimeout(()=>syncData().catch(()=>aggiornaRiepilogo()).finally(()=>tentaExportAuto()),400);
 setTimeout(()=>controllaSubDaVerificare().catch(()=>{}),600);
+setTimeout(()=>controllaNotifiche().catch(()=>{}),300);
+// Tornando sulla Home (app riaperta dal telefono) il conteggio si aggiorna
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')controllaNotifiche().catch(()=>{});});
 </script>
 </body>
 </html>
