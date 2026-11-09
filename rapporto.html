@@ -619,11 +619,23 @@ function puoCompilare(){
   return r === 'operaio' || r === 'admin';
 }
 
-// Correggono i rapportini degli operai dopo il salvataggio: admin e ufficio
-// (Pamela e Antonella, controlli di fine mese). Chi corregge resta scritto sul record.
+// Correggono i rapportini degli operai dopo il salvataggio: l'admin e chi gestisce
+// le assenze (utenti.gestisce_assenze, oggi Pamela; scelta di Andrea del 09/11/2026).
+// Chi corregge resta scritto sul record.
+let correttoreRapportini = false; // dal server, funzione gestisce_assenze()
 function puoCorreggere(){
   const r = (getCpUser().ruolo || '').toLowerCase();
-  return r === 'admin' || r === 'ufficio';
+  return r === 'admin' || (r === 'ufficio' && correttoreRapportini);
+}
+async function caricaPermessoCorrezione(){
+  if((getCpUser().ruolo || '').toLowerCase() !== 'ufficio') return;
+  if(!db || !(await verificaSessione())) return;
+  const { data, error } = await db.rpc('gestisce_assenze');
+  if(error){ console.error('caricaPermessoCorrezione', error); return; }
+  if((data === true) !== correttoreRapportini){
+    correttoreRapportini = data === true;
+    if(modVista === 'tutti') renderLista();
+  }
 }
 // Riga "Corretto da ... il gg/mm/aaaa" per i rapportini toccati dall'ufficio
 function etichettaCorretto(r){
@@ -1493,6 +1505,7 @@ function modificaRapporto(id){
   // tutte le righe del giorno: una riga = un rapporto da modificare)
   const r = getRapporti().find(x => x.id === id);
   if(!r){ toast('Rapporto non trovato','err'); return; }
+  if(correzioneAltrui(r) && !puoCorreggere()){ toast('Non puoi correggere questo rapportino','err'); return; }
   currentEditId = id;
   g('form-title').textContent = correzioneAltrui(r) ? 'Correggi rapportino' : 'Modifica rapporto';
   g('f-data').value = r.data;
@@ -1526,6 +1539,7 @@ function eliminaRapporto(id){
   if(!confirm('Confermi eliminazione del rapporto?')) return;
   const r = getRapporti().find(x => x.id === id);
   if(!r){ toast('Rapporto non trovato','err'); return; }
+  if(correzioneAltrui(r) && !puoCorreggere()){ toast('Non puoi eliminare questo rapportino','err'); return; }
   const el = marcaEliminato(r);
   salvaRecord(RPT_KEY, [correzioneAltrui(r) ? {...el, ...datiCorrezione(r, el.timestamp)} : el]);
   renderLista();
@@ -2086,6 +2100,7 @@ initDB();
 renderToggle();
 renderLista();
 verificaSessione();
+caricaPermessoCorrezione();
 // Sync in background
 setTimeout(() => forcSync().catch(()=>{}), 500);
 </script>
