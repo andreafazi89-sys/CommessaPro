@@ -136,6 +136,14 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
 - Fine Cantiere: stato `Completato` e `dataFine`. Nei rapportini il cantiere
   resta selezionabile per 30 giorni da `dataFine`, poi sparisce dalla scelta.
   `archiviato` non influisce sulla scelta del rapportino.
+- Correzione rapportini (dal 09/11/2026): l'admin e chi gestisce le assenze
+  (`gestisce_assenze()`, oggi Pamela; scelta di Andrea) correggono o eliminano i
+  rapportini degli operai da "Tutti i rapporti" (Correggi, Elimina). Antonella e
+  direzione no. Il limite e' nell'app: sul DB l'ufficio puo' gia' scrivere `dati`.
+  Il record resta dell'operaio (`autore`, `operaio` invariati) e prende `correttoDa`,
+  `correttoDaEmail`, `correttoIl` e `originale` (la versione dell'operaio, salvata solo
+  alla prima correzione). Nelle liste compare "Corretto da ... il gg/mm/aaaa", anche
+  all'operaio. Nessuna modifica al DB.
 - Riepilogo mese (in `rapporto.html`, scheda "Riepilogo mese"): SOLO admin e ufficio.
   Griglia operai x giorni, sola lettura: ore proprie, citato come collega,
   giorni lavorativi vuoti. Nessun avviso agli operai: le discordanze si

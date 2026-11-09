@@ -174,7 +174,10 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
 .agg-cant{font-size:13px;color:var(--sand);margin-top:2px;font-weight:500;}
 .agg-tot{font-size:13px;font-weight:700;color:var(--brick);background:var(--brick-dim);padding:4px 10px;border-radius:20px;white-space:nowrap;}
 .agg-operai{border-top:1px solid var(--border);padding-top:10px;}
-.agg-riga{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:6px 0;font-size:13px;}
+.agg-riga{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:10px;padding:6px 0;font-size:13px;}
+.agg-riga-piena{flex-basis:100%;}
+.agg-riga-azioni{display:flex;gap:8px;justify-content:flex-end;}
+.agg-riga-piena .pill-corretto{margin-top:0;}
 .agg-riga:not(:last-child){border-bottom:1px dashed var(--border);}
 .agg-op-nome{font-weight:600;min-width:110px;}
 .agg-op-desc{flex:1;color:var(--muted);font-size:13px;line-height:1.4;}
@@ -185,6 +188,9 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
 .data-head-pdf{background:var(--green-dim);color:var(--green);border:1px solid var(--green);border-radius:20px;padding:8px 14px;min-height:36px;font-family:Epilogue,sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;}
 .data-head-pdf:active{transform:scale(0.97);}
 /* Rapportino salvato solo sul telefono, in attesa di arrivare al server */
+.pill-corretto{display:inline-block;margin-top:6px;font-size:12px;font-weight:700;padding:4px 10px;border-radius:99px;background:var(--sand-dim);color:var(--sand);}
+.agg-riga-edit{background:var(--sand-dim);color:var(--sand);border:1px solid var(--sand);border-radius:8px;padding:8px 14px;min-height:40px;font-size:12px;font-weight:700;cursor:pointer;font-family:Epilogue,sans-serif;white-space:nowrap;}
+.agg-riga-del{background:var(--red-dim);color:var(--red);border:1px solid var(--red);border-radius:8px;padding:8px 14px;min-height:40px;font-size:12px;font-weight:700;cursor:pointer;font-family:Epilogue,sans-serif;white-space:nowrap;}
 .pill-attesa{display:inline-block;margin-top:8px;font-size:12px;font-weight:700;padding:4px 10px;border-radius:99px;background:var(--amber-dim);color:var(--amber);}
 </style>
 </head>
@@ -587,6 +593,8 @@ function renderCampoOperaio(valoreCorrente){
     // Preseleziono il valore richiesto o il nome dell'utente loggato
     const sel = g('f-operaio');
     const valDesiderato = valoreCorrente || mioNome || '';
+    // In correzione il nome del rapportino resta scelto anche se non e' nell'elenco
+    if(valoreCorrente && ![...sel.options].some(o => o.value === valoreCorrente)) sel.add(new Option(valoreCorrente, valoreCorrente));
     for(const opt of sel.options){
       if(opt.value === valDesiderato){ sel.value = valDesiderato; break; }
     }
@@ -609,6 +617,31 @@ function vediRiepilogo(){
 function puoCompilare(){
   const r = (getCpUser().ruolo || '').toLowerCase();
   return r === 'operaio' || r === 'admin';
+}
+
+// Correggono i rapportini degli operai dopo il salvataggio: l'admin e chi gestisce
+// le assenze (utenti.gestisce_assenze, oggi Pamela; scelta di Andrea del 09/11/2026).
+// Chi corregge resta scritto sul record.
+let correttoreRapportini = false; // dal server, funzione gestisce_assenze()
+function puoCorreggere(){
+  const r = (getCpUser().ruolo || '').toLowerCase();
+  return r === 'admin' || (r === 'ufficio' && correttoreRapportini);
+}
+async function caricaPermessoCorrezione(){
+  if((getCpUser().ruolo || '').toLowerCase() !== 'ufficio') return;
+  if(!db || !(await verificaSessione())) return;
+  const { data, error } = await db.rpc('gestisce_assenze');
+  if(error){ console.error('caricaPermessoCorrezione', error); return; }
+  if((data === true) !== correttoreRapportini){
+    correttoreRapportini = data === true;
+    if(modVista === 'tutti') renderLista();
+  }
+}
+// Riga "Corretto da ... il gg/mm/aaaa" per i rapportini toccati dall'ufficio
+function etichettaCorretto(r){
+  if(!r || !r.correttoDa) return '';
+  const d = r.correttoIl ? new Date(r.correttoIl).toLocaleDateString('it-IT', {day:'2-digit', month:'2-digit', year:'numeric'}) : '';
+  return `<div class="pill-corretto">Corretto da ${esc(r.correttoDa)}${d ? ' il ' + d : ''}</div>`;
 }
 
 // Modalità vista corrente: 'miei' | 'tutti' (solo admin, direzione e ufficio possono usare 'tutti')
@@ -716,6 +749,11 @@ function renderLista(){
                 <div class="agg-op-ore">${r.ore}h</div>
                 <button class="agg-riga-pdf" onclick="generaRapportoContributo('${r.id}')" title="Scarica rapportino di questa lavorazione">📥 PDF</button>
               </div>
+              ${etichettaCorretto(r) ? `<div class="agg-riga-piena">${etichettaCorretto(r)}</div>` : ''}
+              ${puoCorreggere() ? `<div class="agg-riga-piena agg-riga-azioni">
+                <button class="agg-riga-edit" onclick="modificaRapporto('${r.id}')" title="Correggi questo rapportino">✏️ Correggi</button>
+                <button class="agg-riga-del" onclick="eliminaRapporto('${r.id}')" title="Elimina questo rapportino">🗑 Elimina</button>
+              </div>` : ''}
             </div>
           `).join('');
           return `
@@ -770,6 +808,7 @@ function renderLista(){
             ${r.descrizione ? `<div class="rpt-desc">${r.descrizione}</div>` : ''}
             ${r.subappaltatori ? `<div class="rpt-sub">Sub: ${esc(subDaMostrare(r.subappaltatori).join(', '))}</div>` : ''}
             ${(Array.isArray(r.colleghi) && r.colleghi.length) ? `<div class="rpt-colleghi">👥 Con: ${r.colleghi.map(c => c.split(' ')[0]).join(', ')}</div>` : ''}
+            ${etichettaCorretto(r)}
             ${inAttesa.has(r.id) ? '<div class="pill-attesa">Solo sul telefono, non ancora sul server</div>' : ''}
             <div class="rpt-actions">
               <button class="rpt-btn edit" onclick="modificaRapporto('${r.id}')">✏️ Modifica</button>
@@ -1466,8 +1505,9 @@ function modificaRapporto(id){
   // tutte le righe del giorno: una riga = un rapporto da modificare)
   const r = getRapporti().find(x => x.id === id);
   if(!r){ toast('Rapporto non trovato','err'); return; }
+  if(correzioneAltrui(r) && !puoCorreggere()){ toast('Non puoi correggere questo rapportino','err'); return; }
   currentEditId = id;
-  g('form-title').textContent = 'Modifica rapporto';
+  g('form-title').textContent = correzioneAltrui(r) ? 'Correggi rapportino' : 'Modifica rapporto';
   g('f-data').value = r.data;
   renderCampoOperaio(nomeOperaio(r.operaio));
   g('righe-container').innerHTML = '';
@@ -1479,11 +1519,29 @@ function modificaRapporto(id){
   showView('form');
 }
 
+// Vero quando chi salva non e' l'autore del rapportino (correzione dell'ufficio o dell'admin)
+function correzioneAltrui(r){
+  const email = (getCpUser().email || '').toLowerCase();
+  return !!r && (r.autore || '').toLowerCase() !== email;
+}
+// Dati di chi corregge + versione originale dell'operaio, salvata solo la prima volta
+function datiCorrezione(r, now){
+  const u = getCpUser();
+  const originale = r.originale || {
+    data: r.data, operaio: r.operaio, cantiereId: r.cantiereId, ore: r.ore,
+    descrizione: r.descrizione || '', subappaltatori: r.subappaltatori || '',
+    colleghi: Array.isArray(r.colleghi) ? r.colleghi : [], timestamp: r.timestamp || ''
+  };
+  return {correttoDa: u.nome || u.email || '', correttoDaEmail: (u.email || '').toLowerCase(), correttoIl: now, originale};
+}
+
 function eliminaRapporto(id){
   if(!confirm('Confermi eliminazione del rapporto?')) return;
   const r = getRapporti().find(x => x.id === id);
   if(!r){ toast('Rapporto non trovato','err'); return; }
-  salvaRecord(RPT_KEY, [marcaEliminato(r)]);
+  if(correzioneAltrui(r) && !puoCorreggere()){ toast('Non puoi eliminare questo rapportino','err'); return; }
+  const el = marcaEliminato(r);
+  salvaRecord(RPT_KEY, [correzioneAltrui(r) ? {...el, ...datiCorrezione(r, el.timestamp)} : el]);
   renderLista();
   toast('Eliminato','inf');
 }
@@ -1727,8 +1785,12 @@ function salvaRapporto(){
     const esistente = getRapporti().find(r => r.id === currentEditId);
     if(!esistente){ toast('Record non trovato','err'); return; }
     const r0 = righe[0];
+    // Correzione da ufficio/admin: autore e operaio restano quelli del rapportino,
+    // si aggiunge chi ha corretto e quando, con la versione originale
+    const corr = correzioneAltrui(esistente) ? datiCorrezione(esistente, now) : {};
     records.push({
       ...esistente,
+      ...corr,
       data, operaio,
       cantiereId: r0.cantiereId,
       ore: r0.ore,
@@ -1757,7 +1819,7 @@ function salvaRapporto(){
   }
 
   salvaRecord(RPT_KEY, records);
-  toast(currentEditId ? '✓ Rapporto aggiornato' : `✓ Salvate ${righe.length} righe`, 'ok');
+  toast(currentEditId ? '✓ Rapportino aggiornato' : `✓ Salvate ${righe.length} righe`, 'ok');
   setTimeout(() => tornaLista(), 600);
 }
 
@@ -2038,6 +2100,7 @@ initDB();
 renderToggle();
 renderLista();
 verificaSessione();
+caricaPermessoCorrezione();
 // Sync in background
 setTimeout(() => forcSync().catch(()=>{}), 500);
 </script>
