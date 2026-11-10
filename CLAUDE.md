@@ -74,6 +74,22 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
     Misure delle lavorazioni in cm (dal 21/10/2026, superficie in mq e volume
     in mc ricalcolati); il ponteggio resta in m. Le schede senza
     `sviluppo.udm:'cm'` hanno le misure in m e si convertono al caricamento.
+- Stato del preventivo (dal 10/11/2026): campo `preventivoStato` sul record di
+  `sopralluoghi_v3` = {stato inviato|accettato|non_accettato|annullato|da_fare,
+  invii[{data, rev}], esitoIl, aggiornatoIl, aggiornatoDa}. Nessun importo. Senza stato
+  salvato si ricava: cantiere avviato = Accettato, fase 2 fatta = Preventivo da fare,
+  altrimenti Da sviluppare. Un `cantiereId` vale come Accettato anche sopra uno stato
+  salvato (tranne Non accettato e Annullato). Lo cambia solo l'admin, dal riquadro
+  "Preventivo" della scheda sopralluogo o da `oggi.html`; l'etichetta in elenco la vedono
+  tutti quelli che aprono Sopralluogo. Regola `statoPreventivo()` copiata uguale in
+  `sopralluogo.html`, `oggi.html` e `index.html`: se cambia, cambiarla in tutte e tre.
+- `oggi.html` (dal 10/11/2026, SOLO admin, nessun importo): preventivi da fare con i giorni
+  dalla data del sopralluogo (arancione oltre 3, rosso oltre 7), inviati senza esito da
+  oltre 10 giorni, cantieri attivi con i rapportini di oggi, SAL (dall'id `sal_<ms>`) e foto
+  (`sal_foto.data_caricamento`) da ieri. Soglie in costanti in cima alla pagina.
+  I sopralluoghi di oltre 30 giorni senza stato salvato finiscono in "Da sistemare" e si
+  classificano una volta sola. In Home la scheda Oggi e' la prima, in evidenza, solo admin,
+  con il numero dei preventivi in ritardo.
 - Attivita' fisse: record di `cantieri_v1` con `fisso:true` (oggi Magazzino
   Giardinetti e Ricerca materiali). Sempre selezionabili nei rapportini, in
   fondo alla scelta, a prescindere da stato e `dataFine`. Non compaiono in
@@ -100,7 +116,7 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
 - Nessun build step, nessun framework, nessun npm. Librerie solo via CDN (gia presente supabase-js).
 
 ## Ruoli (dal 19/10/2026; il ruolo `segretaria` non esiste piu)
-- admin (solo Andrea): vede e puo' tutto. Solo lui: Archivio e Archivia,
+- admin (solo Andrea): vede e puo' tutto. Solo lui: Oggi, stato del preventivo, Archivio e Archivia,
   eliminazione di un cantiere,
   Manutenzione in Home, Esporta dati, scheda di sviluppo (fase 2), gestione
   utenti, eliminazione foto SAL, Contabilita e Note (spente in Home).

@@ -51,7 +51,7 @@ html,body{font-family:var(--font-body);background:var(--bg);color:var(--white);m
 .avviso-sub{display:flex;align-items:center;gap:12px;margin:0 16px 16px;padding:14px 16px;min-height:44px;background:var(--amber-dim);border:1px solid var(--amber);border-radius:14px;color:var(--amber);font-size:14px;font-weight:600;text-decoration:none;}
 .avviso-sub span{flex:1;}
 /* Notifiche: la scheda diventa ambra quando ci sono documenti da vedere */
-#notifiche-tool{margin-bottom:16px;}
+#notifiche-tool,#oggi-tool{margin-bottom:16px;}
 .tool-card.nuove{border-color:var(--amber);background:var(--amber-dim);}
 .tool-card.nuove .tool-desc{color:var(--amber);font-weight:600;}
 .footer{text-align:center;font-size:11px;color:var(--border);padding:8px 16px 24px;}
@@ -122,6 +122,17 @@ html,body{font-family:var(--font-body);background:var(--bg);color:var(--white);m
 
 <div class="divider"></div>
 <a href="subappaltatori.html" class="avviso-sub" id="avviso-sub" style="display:none"></a>
+<!-- Oggi: solo admin, in evidenza con i preventivi in ritardo -->
+<div class="tools" id="oggi-tool" style="display:none">
+  <a href="oggi.html" class="tool-card main">
+    <div class="tool-icon">☀️</div>
+    <div class="tool-info">
+      <div class="tool-name">Oggi</div>
+      <div class="tool-desc" id="oggi-desc">Preventivi, cantieri e SAL del giorno</div>
+    </div>
+    <div class="tool-arrow">→</div>
+  </a>
+</div>
 <!-- Notifiche documenti: solo per chi le riceve (admin e utenti.notifiche_documenti) -->
 <div class="tools" id="notifiche-tool" style="display:none">
   <a href="notifiche.html" class="tool-card" id="notifiche-card">
@@ -469,6 +480,41 @@ function aggiornaRiepilogo(){
   document.getElementById('st-ore').textContent=ore+'h';
 }
 
+// ── OGGI: preventivi in ritardo (stesse regole e soglie di oggi.html) ──
+const SOGLIA_ROSSO_PREV=7, SOGLIA_ATTESA_PREV=10, GIORNI_DA_SISTEMARE_PREV=30;
+function statoPreventivo(s){
+  const p=s.preventivoStato||{};
+  if(s.cantiereId&&!['non_accettato','annullato'].includes(p.stato))return 'accettato';
+  if(p.stato)return p.stato;
+  return (s.sviluppo&&s.sviluppo.aggiornato)?'da_fare':'da_sviluppare';
+}
+function giorniDa(d){
+  const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(d||'');if(!m)return null;
+  const a=new Date(+m[1],+m[2]-1,+m[3]),o=new Date();o.setHours(0,0,0,0);
+  return Math.round((o-a)/86400000);
+}
+function aggiornaOggi(){
+  const box=document.getElementById('oggi-tool');
+  if(!isPrivilegedUser()){box.style.display='none';return;}
+  box.style.display='';
+  let ritardo=0,sistemare=0;
+  getSopralluoghi().filter(s=>!s.eliminato&&!s.archiviato).forEach(s=>{
+    const st=statoPreventivo(s),p=s.preventivoStato||{};
+    if(st==='da_fare'||st==='da_sviluppare'){
+      const gg=giorniDa(s.data);
+      if(!p.stato&&gg!=null&&gg>GIORNI_DA_SISTEMARE_PREV)sistemare++;
+      else if(gg!=null&&gg>SOGLIA_ROSSO_PREV)ritardo++;
+    }else if(st==='inviato'){
+      const inv=p.invii||[],gg=inv.length?giorniDa(inv[inv.length-1].data):null;
+      if(gg==null||gg>SOGLIA_ATTESA_PREV)ritardo++;
+    }
+  });
+  const parti=[];
+  if(ritardo)parti.push(ritardo===1?'1 preventivo in ritardo':ritardo+' preventivi in ritardo');
+  if(sistemare)parti.push(sistemare+' da sistemare');
+  document.getElementById('oggi-desc').textContent=parti.length?parti.join(' · '):'Preventivi, cantieri e SAL del giorno';
+}
+
 async function syncData(){
   if(!db)return;
   try{
@@ -481,6 +527,7 @@ async function syncData(){
   }catch(e){}
   pulisciDatiEconomiciLocali();
   aggiornaRiepilogo();
+  aggiornaOggi();
 }
 
 // ── EXPORT DATI (smistamento foto) ──
@@ -619,6 +666,7 @@ applicaSettings((getUser()?.ruolo||'').toLowerCase()==='admin'?getSettings():{})
 renderTools();
 pulisciDatiEconomiciLocali();
 aggiornaRiepilogo();
+aggiornaOggi();
 if(isPrivilegedUser())document.getElementById('export-tool').style.display='';
 aggiornaProfilo();
 setTimeout(()=>syncData().catch(()=>aggiornaRiepilogo()).finally(()=>tentaExportAuto()),400);

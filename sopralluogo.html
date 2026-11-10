@@ -97,6 +97,13 @@ input[type="file"]{display:none;}
 .pill.ok{background:var(--green-dim);color:var(--green);}
 .pill.acc{background:var(--brick-dim);color:var(--brick);}
 .pill.grigio{background:var(--surface2);color:var(--muted);}
+.pill.inv{background:var(--amber-dim);color:var(--amber);}
+.pill.ko{background:var(--red-dim);color:var(--red);}
+/* Riquadro Preventivo (solo admin) */
+.prev-stato{font-size:14px;font-weight:600;margin-bottom:8px;}
+.prev-invii{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:10px;}
+#sez-prev .btn-row{margin-top:8px;flex-wrap:wrap;}
+#sez-prev .btn-sec{min-height:44px;}
 .btn-top.pri{background:var(--brick);color:#fff;font-weight:700;}
 .btn-top{min-height:40px;min-width:40px;}
 .menu-wrap{position:relative;}
@@ -221,6 +228,26 @@ input[type="file"]{display:none;}
       <input type="file" id="fi-cam" accept="image/*" capture="environment" multiple onchange="caricaFoto(this)">
       <input type="file" id="fi-lib" accept="image/*" multiple onchange="caricaFoto(this)">
       <div class="foto-grid" id="foto-grid"></div>
+    </div>
+
+    <!-- Stato del preventivo: solo admin (nessun importo) -->
+    <div class="section" id="sez-prev" style="display:none">
+      <div class="sec-title"><div class="sec-icon">📤</div>Preventivo</div>
+      <div class="prev-stato" id="prev-stato"></div>
+      <div class="prev-invii" id="prev-invii"></div>
+      <div class="row2">
+        <div class="fg"><label>Data invio</label><input type="date" id="prev-data"></div>
+        <div class="fg"><label>Revisione</label><input type="number" id="prev-rev" min="0" step="1" inputmode="numeric"></div>
+      </div>
+      <button class="btn-sec" style="width:100%" onclick="segnaInviato()">📤 Segna inviato</button>
+      <div class="btn-row">
+        <button class="btn-sec" onclick="segnaEsito('accettato')">✓ Accettato</button>
+        <button class="btn-sec" onclick="segnaEsito('non_accettato')">✗ Non accettato</button>
+        <button class="btn-sec" onclick="segnaEsito('annullato')">Annullato</button>
+      </div>
+      <div class="btn-row" id="prev-riapri" style="display:none">
+        <button class="btn-sec" onclick="riapriPreventivo()">↩ Riporta a da fare</button>
+      </div>
     </div>
 
     <button class="btn-elimina" onclick="eliminaDaScheda()">🗑 Elimina sopralluogo</button>
@@ -402,7 +429,10 @@ async function forcSync(){
       // Se il locale ha foto e il remoto no, tieni il locale (protezione perdita foto)
       const locFoto = (l.foto || []).length;
       const remFoto = (r.foto || []).length;
-      if(locFoto > 0 && remFoto === 0) return l;
+      if(locFoto > 0 && remFoto === 0){
+        const tl=(l.preventivoStato&&l.preventivoStato.aggiornatoIl)||'', tr=(r.preventivoStato&&r.preventivoStato.aggiornatoIl)||'';
+        return tr>tl ? {...l, preventivoStato:r.preventivoStato} : l;
+      }
       // Altrimenti preferiamo i metadati più recenti del remoto
       // ma FONDENDO foto e noteVocali (unione senza duplicati per url)
       const foto = mergeArrayByKey(l.foto || [], r.foto || [], 'url');
@@ -520,8 +550,68 @@ function renderLista(){
 function pillSopralluogo(s){
   if(s.archiviato) return `<span class="pill grigio">Archiviato ${dataIt(s.archiviatoIl)}</span>`;
   if(s.cantiereId) return '<span class="pill ok">Cantiere avviato</span>';
+  const st=statoPreventivo(s), u=ultimoInvio(s);
+  if(st==='inviato') return `<span class="pill inv">Inviato${u?' Rev. '+u.rev:''}</span>`;
+  if(st==='accettato') return '<span class="pill ok">Accettato</span>';
+  if(st==='non_accettato') return '<span class="pill ko">Non accettato</span>';
+  if(st==='annullato') return '<span class="pill grigio">Annullato</span>';
   if(s.sviluppo&&s.sviluppo.aggiornato) return '<span class="pill acc">Fase 2</span>';
   return '';
+}
+
+// ── STATO PREVENTIVO (stessa regola di oggi.html e della Home) ──
+// Salvato in preventivoStato = {stato, invii:[{data,rev}], esitoIl, aggiornatoIl, aggiornatoDa}.
+// Senza stato salvato si ricava: cantiere avviato = accettato, fase 2 fatta = da fare, altrimenti da sviluppare.
+const NOMI_STATO_PREV={da_sviluppare:'Da sviluppare (fase 1 fatta)',da_fare:'Preventivo da fare',inviato:'Preventivo inviato',accettato:'Accettato',non_accettato:'Non accettato',annullato:'Annullato'};
+function statoPreventivo(s){
+  const p=s.preventivoStato||{};
+  // Un cantiere avviato vale come accettato anche se lo stato salvato era ancora da fare o inviato
+  if(s.cantiereId && !['non_accettato','annullato'].includes(p.stato)) return 'accettato';
+  if(p.stato) return p.stato;
+  return (s.sviluppo&&s.sviluppo.aggiornato)?'da_fare':'da_sviluppare';
+}
+function ultimoInvio(s){ const inv=(s.preventivoStato||{}).invii||[]; return inv.length?inv[inv.length-1]:null; }
+function renderPreventivo(){
+  const box=g('sez-prev'); if(!box) return;
+  const s=getLista().find(x=>x.id===currentId);
+  box.style.display=(isAdmin()&&s)?'':'none';
+  if(!s||!isAdmin()) return;
+  const p=s.preventivoStato||{}, st=statoPreventivo(s), invii=p.invii||[];
+  g('prev-stato').textContent=NOMI_STATO_PREV[st]+(p.esitoIl&&['accettato','non_accettato','annullato'].includes(st)?' il '+dataIt(p.esitoIl):'');
+  g('prev-invii').innerHTML=invii.length?invii.map(i=>`Inviato il ${dataIt(i.data)} · Rev. ${i.rev}`).join('<br>'):'Non ancora inviato';
+  g('prev-data').value=new Date().toISOString().split('T')[0];
+  g('prev-rev').value=invii.length?(+invii[invii.length-1].rev||0)+1:0;
+  g('prev-riapri').style.display=p.stato&&p.stato!=='da_fare'?'':'none';
+}
+async function aggiornaPreventivo(modifica){
+  if(!isAdmin()||!currentId) return;
+  // Prima salva le modifiche in sospeso della scheda, poi parte dal record aggiornato
+  if(saveTimer) await salvaOra();
+  const s=getLista().find(x=>x.id===currentId); if(!s){ toast('Salva prima il sopralluogo','err'); return; }
+  let u=null; try{u=JSON.parse(localStorage.getItem('cp_user'))||null;}catch{}
+  const p={...(s.preventivoStato||{})};
+  modifica(p);
+  p.aggiornatoIl=new Date().toISOString(); p.aggiornatoDa=(u&&(u.nome||u.email))||'';
+  const ok=await salvaSopralluogo({...s, preventivoStato:p});
+  toast(ok?'✓ Preventivo aggiornato':'⚠️ Salvato solo su questo dispositivo', ok?'ok':'err');
+  renderPreventivo();
+}
+function segnaInviato(){
+  const data=gv('prev-data'), rev=parseInt(gv('prev-rev'),10);
+  if(!data){ toast('Inserisci la data di invio','err'); return; }
+  aggiornaPreventivo(p=>{
+    p.stato='inviato';
+    p.invii=[...(p.invii||[]), {data, rev:isNaN(rev)?(p.invii||[]).length:rev}];
+    delete p.esitoIl;
+  });
+}
+function segnaEsito(stato){
+  if(!confirm('Segnare il preventivo come "'+NOMI_STATO_PREV[stato]+'"?')) return;
+  aggiornaPreventivo(p=>{ p.stato=stato; p.esitoIl=new Date().toISOString().split('T')[0]; });
+}
+function riapriPreventivo(){
+  if(!confirm('Riportare il preventivo a "da fare"? Gli invii gia segnati restano in elenco.')) return;
+  aggiornaPreventivo(p=>{ p.stato='da_fare'; delete p.esitoIl; });
 }
 // Data ISO (aaaa-mm-gg) in formato gg/mm/aaaa; altri formati restano come sono
 function dataIt(d){const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(d||'');return m?`${m[3]}/${m[2]}/${m[1]}`:(d||'');}
@@ -547,7 +637,7 @@ function nuovoSopralluogo(){
   g('si').textContent='● nuovo'; g('si').className='save-ind';
   impostaCliente(null);
   renderFoto(); renderNoteVocali();
-  aggiornaBottoneAvvia(null); aggiornaBottoneSviluppa(); aggiornaProg(); showView('form');
+  aggiornaBottoneAvvia(null); aggiornaBottoneSviluppa(); renderPreventivo(); aggiornaProg(); showView('form');
 }
 
 function apriSopralluogo(id){
@@ -562,7 +652,7 @@ function apriSopralluogo(id){
   g('form-title').textContent=s.titolo||s.cliente||'Sopralluogo';
   g('si').textContent='✓ salvato'; g('si').className='save-ind ok';
   renderFoto(); renderNoteVocali();
-  aggiornaBottoneAvvia(s.cantiereId); aggiornaBottoneSviluppa(); aggiornaProg(); showView('form');
+  aggiornaBottoneAvvia(s.cantiereId); aggiornaBottoneSviluppa(); renderPreventivo(); aggiornaProg(); showView('form');
 }
 
 function resetForm(){
@@ -602,6 +692,7 @@ async function salvaOra(){
       // Aggiorna il cantiere collegato se esiste
       if(dati.cantiereId) aggiornaCantiere(dati);
       aggiornaBottoneSviluppa();
+      if(g('sez-prev').style.display==='none') renderPreventivo();
       return await esito;
     }
     catch(e){ g('si').textContent='● bozza'; toast('Spazio pieno','err'); return false; }
