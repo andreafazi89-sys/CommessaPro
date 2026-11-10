@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="CommessaPro">
+<meta name="theme-color" content="#FFFFFF">
+<link rel="icon" href="logo-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Oggi</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Epilogue:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<link rel="stylesheet" href="stile.css?v=2">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--white);min-height:100vh;}
+.topbar{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;}
+.topbar-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;}
+.btn-top{min-height:40px;background:var(--sand-dim);color:var(--sand);border:none;border-radius:8px;padding:7px 12px;font-size:14px;cursor:pointer;}
+.content{padding:16px 16px 80px;max-width:720px;margin:0 auto;}
+.data-oggi{font-size:13px;color:var(--muted);margin:0 4px 6px;}
+.sez-testa{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:22px 4px 10px;}
+.sez-label{font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
+.sez-hint{font-size:13px;color:var(--muted);margin:-4px 4px 12px;line-height:1.5;}
+.card{display:block;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px;color:var(--white);text-decoration:none;}
+a.card:active{border-color:var(--brick);}
+.card.arancio{border-color:var(--amber);background:var(--amber-dim);}
+.card.rosso{border-color:var(--red);background:var(--red-dim);}
+.card-riga{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+.card-tit{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;line-height:1.3;}
+.card-info{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.5;}
+.giorni{font-size:13px;font-weight:700;white-space:nowrap;flex:none;}
+.arancio .giorni{color:var(--amber);}
+.rosso .giorni{color:var(--red);}
+.pill{display:inline-block;font-size:12px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--surface2);color:var(--muted);margin-top:6px;}
+.pill.f2{background:var(--brick-dim);color:var(--brick);}
+.riga{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+.btn{min-height:40px;padding:0 12px;border-radius:var(--r-sm);font-family:'Epilogue',sans-serif;font-size:13px;font-weight:600;cursor:pointer;border:1.5px solid var(--brick);background:transparent;color:var(--brick);}
+.btn.muto{border-color:var(--border);color:var(--muted);}
+.btn:disabled{opacity:.5;cursor:default;}
+.vuoto{font-size:13px;color:var(--muted);font-style:italic;padding:6px 4px 10px;}
+.nota{font-size:13px;color:var(--muted);padding:2px 4px 10px;}
+.box-sistemare{border:1px dashed var(--amber);border-radius:var(--r);padding:12px;margin-bottom:10px;}
+.box-sistemare summary{cursor:pointer;font-size:14px;font-weight:600;color:var(--amber);min-height:32px;display:flex;align-items:center;}
+.box-sistemare .card{margin-top:10px;margin-bottom:0;}
+.toast.ok{background:var(--green);color:#fff;}
+.toast.err{background:var(--red);color:#fff;}
+.toast.inf{background:var(--surface2);color:var(--white);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:10px">
+    <a href="index.html" style="color:var(--muted);text-decoration:none;font-size:22px">←</a>
+    <div class="topbar-title">☀️ Oggi</div>
+  </div>
+  <button class="btn-top" onclick="carica()" title="Aggiorna">🔄</button>
+</div>
+
+<div class="content">
+  <div class="data-oggi" id="data-oggi"></div>
+
+  <div id="sez-sistemare"></div>
+
+  <div class="sez-testa"><div class="sez-label" id="lbl-dafare">Preventivi da fare</div></div>
+  <div class="sez-hint">Giorni dalla data del sopralluogo. Arancione oltre <span class="s-ar"></span> giorni, rosso oltre <span class="s-ro"></span>.</div>
+  <div id="lista-dafare"><div class="vuoto">Caricamento...</div></div>
+
+  <div class="sez-testa"><div class="sez-label" id="lbl-attesa">In attesa di risposta</div></div>
+  <div class="sez-hint">Preventivi inviati da piu di <span class="s-at"></span> giorni senza esito.</div>
+  <div id="lista-attesa"></div>
+
+  <div class="sez-testa"><div class="sez-label" id="lbl-cantieri">Cantieri attivi</div></div>
+  <div class="sez-hint">Con i rapportini arrivati oggi.</div>
+  <div id="lista-cantieri"></div>
+
+  <div class="sez-testa"><div class="sez-label" id="lbl-sal">SAL e foto da ieri</div></div>
+  <div id="lista-sal"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── GUARD AUTH + RUOLO: solo admin ──
+(function(){
+  let u=null; try{u=JSON.parse(localStorage.getItem('cp_user'))||null;}catch{}
+  if(!u||!u.email){ window.location.replace('login.html'); return; }
+  if((u.ruolo||'').toLowerCase()!=='admin') window.location.replace('index.html');
+})();
+
+// ── SOGLIE (giorni) ──
+const SOGLIA_ARANCIO=3;      // preventivo da fare: arancione oltre 3 giorni
+const SOGLIA_ROSSO=7;        // preventivo da fare: rosso oltre 7 giorni
+const SOGLIA_ATTESA=10;      // inviato senza risposta da oltre 10 giorni
+const GIORNI_DA_SISTEMARE=30;// sopralluoghi vecchi mai classificati: vanno in "Da sistemare"
+
+// ── SUPABASE ──
+const SUPA_URL='https://iradzlocobsipjazracw.supabase.co';
+const SUPA_KEY='sb_publishable_zFgRrNrmYSORug8N06heow_6vjl0fhH';
+const LIST_KEY='sopralluoghi_v3';
+let db=null, sops=[], cantieri=[], rapporti=[], salFoto=[];
+function initDB(){ if(window.supabase) db=window.supabase.createClient(SUPA_URL,SUPA_KEY); }
+
+const g=id=>document.getElementById(id);
+function esc(t){ return String(t ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+function toast(msg,tipo='ok'){ const t=g('toast'); t.textContent=msg; t.className='toast '+tipo+' show'; clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),3000); }
+function getUser(){ try{ return JSON.parse(localStorage.getItem('cp_user'))||{}; }catch{ return {}; } }
+const p2=n=>String(n).padStart(2,'0');
+function isoLocale(d){ return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`; }
+function dataIt(d){ const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(d||''); return m?`${m[3]}/${m[2]}/${m[1]}`:(d||''); }
+function oraIt(ts){ const d=new Date(ts); return isNaN(d)?'':`${p2(d.getDate())}/${p2(d.getMonth()+1)} ${p2(d.getHours())}:${p2(d.getMinutes())}`; }
+// Giorni interi tra una data aaaa-mm-gg e oggi (null se manca)
+function giorniDa(d){
+  const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(d||''); if(!m) return null;
+  const a=new Date(+m[1],+m[2]-1,+m[3]), o=new Date(); o.setHours(0,0,0,0);
+  return Math.round((o-a)/86400000);
+}
+
+// ── STATO PREVENTIVO (stessa regola di sopralluogo.html e della Home) ──
+// Salvato in sopralluogo.preventivoStato = {stato, invii:[{data,rev}], esitoIl, aggiornatoIl, aggiornatoDa}.
+// Senza stato salvato si ricava: cantiere avviato = accettato, fase 2 fatta = da fare, altrimenti da sviluppare.
+function statoPreventivo(s){
+  const p=s.preventivoStato||{};
+  // Un cantiere avviato vale come accettato anche se lo stato salvato era ancora da fare o inviato
+  if(s.cantiereId && !['non_accettato','annullato'].includes(p.stato)) return 'accettato';
+  if(p.stato) return p.stato;
+  return (s.sviluppo&&s.sviluppo.aggiornato)?'da_fare':'da_sviluppare';
+}
+function aperto(s){ const st=statoPreventivo(s); return st==='da_fare'||st==='da_sviluppare'; }
+function ultimoInvio(s){ const inv=(s.preventivoStato||{}).invii||[]; return inv.length?inv[inv.length-1]:null; }
+// Sopralluoghi vecchi che non sono mai stati classificati: si sistemano una volta sola
+function daSistemare(s){
+  const gg=giorniDa(s.data);
+  return !(s.preventivoStato||{}).stato && !s.cantiereId && aperto(s) && gg!=null && gg>GIORNI_DA_SISTEMARE;
+}
+function nomeSop(s){ return s.titolo||s.cliente||'Sopralluogo senza titolo'; }
+
+// ── SINCRONIZZAZIONE (stesse regole delle altre pagine: si scrive solo il record toccato) ──
+async function dbSalva(chiave, valore){
+  if(!db){ toast('⚠️ Non sincronizzato: server non raggiungibile','err'); return false; }
+  const { data:s } = await db.auth.getSession();
+  if(!s || !s.session){ toast('⚠️ Sessione scaduta: salvato solo su questo dispositivo','err'); return false; }
+  const { error } = await db.from('dati').upsert({chiave, valore, ts:new Date().toISOString()},{onConflict:'chiave'});
+  if(error){ console.error('dbSalva', chiave, error); toast('⚠️ Non sincronizzato: ' + error.message,'err'); return false; }
+  return true;
+}
+function chiavePending(k){ return 'cp_pending_' + k; }
+function getPending(k){ try{ return JSON.parse(localStorage.getItem(chiavePending(k))) || []; }catch{ return []; } }
+function aggiungiPending(k, records){
+  const m = new Map(getPending(k).map(x => [x.id, x]));
+  records.forEach(r => m.set(r.id, r));
+  localStorage.setItem(chiavePending(k), JSON.stringify([...m.values()]));
+}
+function svuotaPending(k){ localStorage.removeItem(chiavePending(k)); }
+function scriviLocale(k, records){
+  let attuali = [];
+  try{ attuali = JSON.parse(localStorage.getItem(k)) || []; }catch(e){}
+  const m = new Map(attuali.map(x => [x.id, x]));
+  records.forEach(r => m.set(r.id, r));
+  localStorage.setItem(k, JSON.stringify([...m.values()]));
+}
+async function salvaRecord(k, records){
+  if(!Array.isArray(records) || !records.length) return true;
+  scriviLocale(k, records);
+  if(!db){ aggiungiPending(k, records); toast('⚠️ Salvato sul dispositivo, non ancora sincronizzato','err'); return false; }
+  const { data, error } = await db.from('dati').select('valore').eq('chiave', k).maybeSingle();
+  if(error){ console.error('salvaRecord lettura', k, error); aggiungiPending(k, records); toast('⚠️ Salvato sul dispositivo, non ancora sincronizzato','err'); return false; }
+  const base = (data && Array.isArray(data.valore)) ? data.valore : [];
+  const m = new Map(base.map(x => [x.id, x]));
+  getPending(k).forEach(r => m.set(r.id, r));
+  records.forEach(r => m.set(r.id, r));
+  const finale = [...m.values()];
+  const ok = await dbSalva(k, finale);
+  if(!ok){ aggiungiPending(k, records); return false; }
+  svuotaPending(k);
+  localStorage.setItem(k, JSON.stringify(finale));
+  return true;
+}
+
+// Stato del preventivo piu recente tra due versioni dello stesso sopralluogo
+function prevPiuRecente(a,b){
+  const ta=(a&&a.aggiornatoIl)||'', tb=(b&&b.aggiornatoIl)||'';
+  return tb>ta?b:a;
+}
+// Copia locale dei sopralluoghi: i link a sopralluogo.html?id=... la usano per aprire la scheda.
+// Non la sostituisco (puo' avere foto non ancora caricate): aggiungo i record mancanti
+// e porto solo lo stato del preventivo piu recente.
+function allineaLocale(server){
+  let locale=[]; try{ locale=JSON.parse(localStorage.getItem(LIST_KEY))||[]; }catch{}
+  const m=new Map(locale.map(x=>[x.id,x]));
+  server.forEach(r=>{
+    const l=m.get(r.id);
+    if(!l){ m.set(r.id,r); return; }
+    const p=prevPiuRecente(l.preventivoStato,r.preventivoStato);
+    if(p) m.set(r.id,{...l,preventivoStato:p});
+  });
+  localStorage.setItem(LIST_KEY,JSON.stringify([...m.values()]));
+}
+
+// ── CARICAMENTO: tutto dal server ──
+async function leggiChiave(k){
+  const {data,error}=await db.from('dati').select('valore').eq('chiave',k).maybeSingle();
+  if(error) throw new Error(k+': '+error.message);
+  return (data&&Array.isArray(data.valore))?data.valore:[];
+}
+async function carica(){
+  g('data-oggi').textContent=new Date().toLocaleDateString('it-IT',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'});
+  document.querySelectorAll('.s-ar').forEach(e=>e.textContent=SOGLIA_ARANCIO);
+  document.querySelectorAll('.s-ro').forEach(e=>e.textContent=SOGLIA_ROSSO);
+  document.querySelectorAll('.s-at').forEach(e=>e.textContent=SOGLIA_ATTESA);
+  if(!db){ g('lista-dafare').innerHTML='<div class="vuoto">Server non raggiungibile</div>'; return; }
+  const ieri=new Date(); ieri.setDate(ieri.getDate()-1); ieri.setHours(0,0,0,0);
+  try{
+    const [s,c,r,f]=await Promise.all([
+      leggiChiave(LIST_KEY), leggiChiave('cantieri_v1'), leggiChiave('rapporti_v1'),
+      db.from('sal_foto').select('cantiere_id,sal_id,uploaded_by_nome,data_caricamento,eliminato')
+        .gte('data_caricamento',ieri.toISOString()).order('data_caricamento',{ascending:false})
+    ]);
+    if(f.error) throw new Error('sal_foto: '+f.error.message);
+    // Le modifiche rimaste in coda su questo telefono valgono sulla versione del server
+    const m=new Map(s.map(x=>[x.id,x])); getPending(LIST_KEY).forEach(x=>m.set(x.id,x));
+    const tutti=[...m.values()];
+    allineaLocale(tutti);
+    sops=tutti.filter(x=>!x.eliminato&&!x.archiviato);
+    cantieri=c.filter(x=>!x.eliminato); rapporti=r.filter(x=>!x.eliminato);
+    salFoto=(f.data||[]).filter(x=>!x.eliminato);
+  }catch(e){
+    console.error('oggi',e);
+    g('lista-dafare').innerHTML=`<div class="vuoto">Dati non letti dal server: ${esc(e.message)}</div>`;
+    return;
+  }
+  render(ieri);
+}
+
+// ── RENDER ──
+function render(ieri){
+  renderSistemare(); renderDaFare(); renderAttesa(); renderCantieri(); renderSal(ieri);
+}
+
+function cardSop(s, gg, extra){
+  const cls=gg>SOGLIA_ROSSO?' rosso':gg>SOGLIA_ARANCIO?' arancio':'';
+  return `<a class="card${cls}" href="sopralluogo.html?id=${encodeURIComponent(s.id)}">
+    <div class="card-riga"><div class="card-tit">${esc(nomeSop(s))}</div><div class="giorni">${gg==null?'—':gg+(gg===1?' giorno':' giorni')}</div></div>
+    <div class="card-info">${esc([s.commessa,s.cliente].filter(Boolean).join(' · ')||'—')}</div>
+    ${extra||''}
+  </a>`;
+}
+
+function renderSistemare(){
+  const lista=sops.filter(daSistemare).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  const box=g('sez-sistemare');
+  if(!lista.length){ box.innerHTML=''; return; }
+  box.innerHTML=`<div class="sez-testa"><div class="sez-label">Da sistemare (${lista.length})</div></div>
+  <details class="box-sistemare">
+    <summary>Sopralluoghi di oltre ${GIORNI_DA_SISTEMARE} giorni fa senza stato del preventivo: scegli lo stato una volta sola</summary>
+    ${lista.map(s=>`<div class="card">
+      <div class="card-riga"><div class="card-tit">${esc(nomeSop(s))}</div><div class="giorni">${dataIt(s.data)}</div></div>
+      <div class="card-info">${esc([s.commessa,s.cliente].filter(Boolean).join(' · ')||'—')}</div>
+      <div class="riga">
+        <button class="btn" onclick="classifica('${s.id}','da_fare',this)">Da fare</button>
+        <button class="btn" onclick="classifica('${s.id}','inviato',this)">Inviato</button>
+        <button class="btn" onclick="classifica('${s.id}','accettato',this)">Accettato</button>
+        <button class="btn muto" onclick="classifica('${s.id}','non_accettato',this)">Non accettato</button>
+        <button class="btn muto" onclick="classifica('${s.id}','annullato',this)">Annullato</button>
+      </div>
+    </div>`).join('')}
+  </details>`;
+}
+
+function renderDaFare(){
+  const lista=sops.filter(s=>aperto(s)&&!daSistemare(s))
+    .map(s=>({s,gg:giorniDa(s.data)})).sort((a,b)=>(b.gg??-1)-(a.gg??-1));
+  const rossi=lista.filter(x=>x.gg>SOGLIA_ROSSO).length;
+  g('lbl-dafare').textContent=`Preventivi da fare (${lista.length})`+(rossi?` · ${rossi} in ritardo`:'');
+  g('lista-dafare').innerHTML=lista.length?lista.map(({s,gg})=>{
+    const f2=s.sviluppo&&s.sviluppo.aggiornato;
+    return cardSop(s,gg,`<span class="pill${f2?' f2':''}">${f2?'Fase 2 fatta':'Da sviluppare'}</span>`);
+  }).join(''):'<div class="vuoto">Nessun preventivo da fare</div>';
+}
+
+function renderAttesa(){
+  const inviati=sops.filter(s=>statoPreventivo(s)==='inviato');
+  const lista=inviati.map(s=>{ const u=ultimoInvio(s); return {s,u,gg:giorniDa(u&&u.data)}; })
+    .filter(x=>x.gg==null||x.gg>SOGLIA_ATTESA).sort((a,b)=>(b.gg??999)-(a.gg??999));
+  g('lbl-attesa').textContent=`In attesa di risposta (${lista.length})`;
+  const altri=inviati.length-lista.length;
+  g('lista-attesa').innerHTML=(lista.length?lista.map(({s,u,gg})=>`<a class="card rosso" href="sopralluogo.html?id=${encodeURIComponent(s.id)}">
+      <div class="card-riga"><div class="card-tit">${esc(nomeSop(s))}</div><div class="giorni">${gg==null?'—':gg+' giorni'}</div></div>
+      <div class="card-info">${esc([s.commessa,s.cliente].filter(Boolean).join(' · ')||'—')}<br>Inviato ${u?dataIt(u.data)+' · Rev. '+esc(u.rev):'(data mancante)'}</div>
+    </a>`).join(''):'<div class="vuoto">Nessun preventivo in attesa da troppo</div>')
+    +(altri>0?`<div class="nota">${altri===1?'Un altro inviato':'Altri '+altri+' inviati'} da meno di ${SOGLIA_ATTESA} giorni.</div>`:'');
+}
+
+function nomiRapporto(r){ return [r.operaio,...(r.colleghi||[])].filter(Boolean); }
+function renderCantieri(){
+  const oggi=isoLocale(new Date());
+  const diOggi=rapporti.filter(r=>r.data===oggi);
+  const perCant=new Map();
+  diOggi.forEach(r=>{ if(!perCant.has(r.cantiereId)) perCant.set(r.cantiereId,[]); perCant.get(r.cantiereId).push(r); });
+  const attivi=cantieri.filter(c=>!c.archiviato&&!c.fisso&&c.stato!=='Completato')
+    .map(c=>({c,rr:perCant.get(c.id)||[]}))
+    .sort((a,b)=>b.rr.length-a.rr.length||(b.c.commessa||'').localeCompare(a.c.commessa||'','it',{numeric:true}));
+  const conRap=attivi.filter(x=>x.rr.length).length;
+  g('lbl-cantieri').textContent=`Cantieri attivi (${attivi.length}) · rapportini oggi: ${diOggi.length}`;
+  const fissi=cantieri.filter(c=>c.fisso&&perCant.has(c.id));
+  g('lista-cantieri').innerHTML=(attivi.length?attivi.map(({c,rr})=>{
+    const nomi=[...new Set(rr.flatMap(nomiRapporto))];
+    return `<a class="card" href="cantiere.html?id=${encodeURIComponent(c.id)}">
+      <div class="card-riga"><div class="card-tit">${esc(c.titolo||c.cliente||'Cantiere')}</div><div class="giorni" style="color:${rr.length?'var(--green)':'var(--muted)'}">${rr.length?rr.length+(rr.length===1?' rapportino':' rapportini'):'nessuno oggi'}</div></div>
+      <div class="card-info">${esc([c.commessa,c.cliente].filter(Boolean).join(' · ')||'—')}${nomi.length?'<br>'+esc(nomi.join(', ')):''}</div>
+    </a>`;
+  }).join(''):'<div class="vuoto">Nessun cantiere attivo</div>')
+    +(fissi.length?`<div class="nota">Attività fisse oggi: ${fissi.map(c=>esc(c.titolo||c.cliente)+' ('+perCant.get(c.id).length+')').join(', ')}.</div>`:'')
+    +(attivi.length&&!conRap&&!diOggi.length?'<div class="nota">Nessun rapportino arrivato oggi.</div>':'');
+}
+
+// Data di creazione di un SAL dal suo id (sal_<millisecondi>), altrimenti la data scritta
+function creatoSal(s){ const m=/^sal_(\d{12,})/.exec(s.id||''); return m?new Date(+m[1]):new Date((s.data||'')+'T12:00:00'); }
+function renderSal(ieri){
+  const nomeCant=id=>{ const c=cantieri.find(x=>x.id===id); return c?(c.titolo||c.cliente||c.commessa||'Cantiere'):'Cantiere'; };
+  const righe=new Map();
+  const voce=id=>{ if(!righe.has(id)) righe.set(id,{sal:[],foto:[]}); return righe.get(id); };
+  cantieri.forEach(c=>(c.sal||[]).forEach(s=>{ if(creatoSal(s)>=ieri) voce(c.id).sal.push(s); }));
+  salFoto.forEach(f=>voce(f.cantiere_id).foto.push(f));
+  const lista=[...righe.entries()];
+  const nSal=lista.reduce((t,[,v])=>t+v.sal.length,0), nFoto=salFoto.length;
+  g('lbl-sal').textContent=`SAL e foto da ieri (${nSal} SAL, ${nFoto} foto)`;
+  g('lista-sal').innerHTML=lista.length?lista.map(([id,v])=>{
+    const chi=[...new Set(v.foto.map(f=>f.uploaded_by_nome).filter(Boolean))];
+    const info=[
+      ...v.sal.map(s=>`SAL ${dataIt(s.data)}${s.perc?' · '+esc(s.perc)+'%':''}: ${esc((s.desc||'').slice(0,80))}`),
+      v.foto.length?`${v.foto.length} foto${chi.length?' da '+esc(chi.join(', ')):''}, ultima ${oraIt(v.foto[0].data_caricamento)}`:''
+    ].filter(Boolean).join('<br>');
+    return `<a class="card" href="sal.html?id=${encodeURIComponent(id)}">
+      <div class="card-tit">${esc(nomeCant(id))}</div><div class="card-info">${info}</div></a>`;
+  }).join(''):'<div class="vuoto">Niente di nuovo da ieri</div>';
+}
+
+// ── CLASSIFICA un sopralluogo vecchio (riquadro Da sistemare) ──
+async function classifica(id,stato,btn){
+  const s=sops.find(x=>x.id===id); if(!s) return;
+  const oggi=isoLocale(new Date());
+  const p={...(s.preventivoStato||{}), stato, aggiornatoIl:new Date().toISOString(), aggiornatoDa:getUser().nome||getUser().email||''};
+  if(stato==='inviato'){
+    const t=prompt('Data di invio del preventivo (gg/mm/aaaa)', dataIt(oggi));
+    if(t===null) return;
+    const m=/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(t.trim());
+    if(!m){ toast('Data non valida, usa gg/mm/aaaa','err'); return; }
+    p.invii=[...(p.invii||[]), {data:`${m[3]}-${p2(m[2])}-${p2(m[1])}`, rev:(p.invii||[]).length}];
+  }
+  if(['accettato','non_accettato','annullato'].includes(stato)) p.esitoIl=oggi;
+  if(btn) btn.disabled=true;
+  const rec={...s, preventivoStato:p};
+  const ok=await salvaRecord(LIST_KEY,[rec]);
+  Object.assign(s,rec);
+  toast(ok?'✓ Salvato':'Salvato solo sul telefono', ok?'ok':'err');
+  render(ieriInizio());
+}
+function ieriInizio(){ const d=new Date(); d.setDate(d.getDate()-1); d.setHours(0,0,0,0); return d; }
+
+// ── INIT ──
+initDB();
+carica();
+</script>
+</body>
+</html>
