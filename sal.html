@@ -63,6 +63,29 @@ input[type="file"]{display:none;}
 .rep-btn.close{background:rgba(255,255,255,.1);color:#fff;}
 .rep-btn.print{background:var(--brick);color:#fff;}
 .report-frame{flex:1;border:none;width:100%;}
+.rep-opzioni{display:flex;flex-wrap:wrap;align-items:center;gap:0 18px;padding:8px 16px;background:#2A241E;color:#fff;font-size:13px;flex-shrink:0;}
+.rep-opzioni label{display:flex;align-items:center;gap:8px;min-height:40px;cursor:pointer;font-size:13px;text-transform:none;letter-spacing:0;color:#fff;margin:0;}
+.rep-opzioni input{width:20px;height:20px;accent-color:var(--brick);}
+.rep-btn:disabled{opacity:.6;}
+.rep-scegli{min-height:40px;padding:8px 14px;background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:8px;font-family:'Epilogue',sans-serif;font-size:13px;font-weight:500;cursor:pointer;}
+.rep-corpo{flex:1;position:relative;display:flex;min-height:0;}
+.rep-scelta{position:absolute;inset:0;overflow:auto;background:var(--bg);color:var(--white);padding:14px 16px 40px;display:none;}
+.rep-scelta.show{display:block;}
+.sc-sal{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px;margin-bottom:12px;}
+.sc-sal.spento .sc-grid{opacity:.35;pointer-events:none;}
+.sc-head{display:flex;align-items:center;gap:10px;min-height:40px;cursor:pointer;font-size:14px;font-weight:600;text-transform:none;letter-spacing:0;color:var(--white);margin:0;}
+.sc-head input{width:22px;height:22px;flex-shrink:0;accent-color:var(--brick);}
+.sc-desc{font-size:12px;color:var(--muted);margin:2px 0 8px 32px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sc-azioni{display:flex;gap:8px;margin:0 0 8px 32px;}
+.sc-azioni button{min-height:40px;padding:6px 12px;background:var(--surface2);color:var(--sand);border:1px solid var(--border);border-radius:8px;font-family:'Epilogue',sans-serif;font-size:12px;cursor:pointer;}
+.sc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px;}
+.sc-foto{position:relative;border-radius:8px;overflow:hidden;aspect-ratio:1;cursor:pointer;border:3px solid transparent;}
+.sc-foto img{width:100%;height:100%;object-fit:cover;display:block;}
+.sc-foto.off img{opacity:.3;}
+.sc-foto.on{border-color:var(--brick);}
+.sc-check{position:absolute;top:4px;right:4px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff;}
+.sc-foto.on .sc-check{background:var(--brick);}
+.sc-vuoto{font-size:12px;color:var(--muted);margin-left:32px;}
 .empty-state{text-align:center;padding:48px 20px;color:var(--muted);}
 .empty-icon{font-size:48px;margin-bottom:12px;}
 .empty-txt{font-size:15px;font-weight:500;color:var(--sand);margin-bottom:6px;}
@@ -163,10 +186,21 @@ input[type="file"]{display:none;}
     <div class="rep-title">📄 Report S.A.L.</div>
     <div class="rep-actions">
       <button class="rep-btn close" onclick="chiudiReport()">✕ Chiudi</button>
-      <button class="rep-btn print" onclick="document.getElementById('report-frame').contentWindow.print()">🖨️ PDF</button>
+      <button class="rep-btn print" id="rep-pdf" onclick="esportaPdf()">⬇️ PDF</button>
     </div>
   </div>
-  <iframe id="report-frame" class="report-frame"></iframe>
+  <div class="rep-opzioni" id="rep-opzioni">
+    <label><input type="checkbox" id="rep-cliente" checked onchange="aggiornaAnteprima()"> Cliente</label>
+    <label><input type="checkbox" id="rep-cantiere" checked onchange="aggiornaAnteprima()"> Cantiere</label>
+    <label><input type="checkbox" id="rep-desc" checked onchange="aggiornaAnteprima()"> Descrizione lavori</label>
+    <label><input type="checkbox" id="rep-perc" checked onchange="aggiornaAnteprima()"> Avanzamento %</label>
+    <label><input type="checkbox" id="rep-foto" checked onchange="aggiornaAnteprima()"> Foto</label>
+    <button class="rep-scegli" id="rep-scegli" onclick="mostraScelta()">Scegli SAL e foto</button>
+  </div>
+  <div class="rep-corpo">
+    <iframe id="report-frame" class="report-frame"></iframe>
+    <div class="rep-scelta" id="rep-scelta"></div>
+  </div>
 </div>
 
 <div class="cam-overlay" id="cam-overlay">
@@ -631,46 +665,328 @@ function fotoMerged(c, s){
   const legacy=(s.foto||[]).filter(x=>typeof x==='string' && x.startsWith('data:'));
   return [...remote,...legacy];
 }
+// Report PDF dei SAL, come quello del sopralluogo: nell'anteprima una spunta per
+// sezione (cliente, cantiere, descrizione, avanzamento, foto) e la scelta dei
+// singoli SAL e delle singole foto. Senza "Cliente" spariscono anche le firme e
+// la commessa (nel documento e nel nome del file).
+// Il PDF si crea nel browser con jsPDF, non con la stampa: cosi' non compaiono
+// l'indirizzo della pagina e la data del browser.
+const SEZIONI_REPORT = ['cliente','cantiere','desc','perc','foto'];
+// Logo dell'azienda in alto a destra (stesso file del report sopralluogo).
+const LOGO_REPORT = 'logo-report.png';
+const LOGO_MAX_W = 70, LOGO_MAX_H = 18; // mm
+// Colori del report: stessi valori del report sopralluogo, separati da quelli dell'app.
+const COLORI_REPORT = {accento:'#1E87C1', titoli:'#372476', riga:'#DDDDE6', fondino:'#F2F2F6', label:'#5A5A6E', grigio:'#8A8A99', testo:'#1A1612'};
+const rgbReport = k => COLORI_REPORT[k].match(/\w\w/g).map(h=>parseInt(h,16));
+
+function esc(t){ return String(t??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+function dataIt(iso){ const m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m?`${m[3]}/${m[2]}/${m[1]}`:''; }
+
+// Voci del report: i SAL dal piu' vecchio al piu' recente, ognuno con le sue foto.
+// repEsclusi tiene i SAL e le foto tolti con la spunta (di base c'e' tutto).
+let repVoci = [], repEsclusi = new Set();
 function esportaSAL(){
-  const lista = getCantieri();
-  const c = lista.find(x=>x.id===currentCantId);
+  const c = getCantieri().find(x=>x.id===currentCantId);
   if(!c) return;
   const sal = c.sal||[];
   if(!sal.length){ toast('Nessun aggiornamento da esportare','err'); return; }
+  repVoci = [...sal].reverse().sort((a,b)=>(a.data||'').localeCompare(b.data||''))
+    .map((s,vi)=>({s, chiave:'s'+vi, foto:fotoMerged(c,s).map((url,fi)=>({url, chiave:'s'+vi+'_'+fi}))}));
+  repEsclusi = new Set();
+  SEZIONI_REPORT.forEach(k=>{ g('rep-'+k).checked = true; });
+  g('rep-scelta').classList.remove('show');
+  g('report-overlay').classList.add('show');
+  aggiornaAnteprima();
+}
+function sezioneScelta(k){ return g('rep-'+k).checked; }
+function scelto(chiave){ return !repEsclusi.has(chiave); }
 
-  const COLS=2;
-  const entriesHtml = sal.map(s=>{
-    const d = new Date(s.data).toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'});
-    const fotoArr = fotoMerged(c,s);
-    let fotoRows='';
-    if(fotoArr.length){
-      fotoRows='<table style="width:100%;border-collapse:separate;border-spacing:4mm 3mm">';
-      for(let i=0;i<fotoArr.length;i+=COLS){
-        fotoRows+='<tr style="break-inside:avoid;page-break-inside:avoid">';
-        for(let j=0;j<COLS;j++){
-          const url=fotoArr[i+j];
-          fotoRows+=url?`<td style="vertical-align:top;padding:0;text-align:center;width:50%;break-inside:avoid;page-break-inside:avoid"><div style="font-size:7px;color:#9C9088;margin-bottom:2px;font-weight:700;letter-spacing:1px;text-align:center">FOTO ${i+j+1}</div><img src="${url}" style="width:100%;max-height:62mm;object-fit:cover;border-radius:4px;border:1px solid #E8E2D9;display:block"></td>`:'<td style="width:50%"></td>';
-        }
-        fotoRows+='</tr>';
+// Scelta dei SAL e delle foto, sopra l'anteprima
+function mostraScelta(){
+  const el = g('rep-scelta');
+  if(el.classList.contains('show')){ el.classList.remove('show'); aggiornaAnteprima(); return; }
+  renderScelta(); el.classList.add('show'); el.scrollTop = 0;
+  aggiornaBottoneScelta();
+}
+function renderScelta(){
+  g('rep-scelta').innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:12px">Tocca una foto per toglierla o rimetterla. Togli la spunta a un SAL per lasciarlo fuori dal report.</div>` +
+    repVoci.map((v,vi)=>{
+      const on = scelto(v.chiave);
+      const fotoHtml = v.foto.length
+        ? `<div class="sc-azioni"><button onclick="tutteFoto(${vi},true)">Tutte</button><button onclick="tutteFoto(${vi},false)">Nessuna</button></div><div class="sc-grid">${v.foto.map(f=>{ const fon = scelto(f.chiave); return `<div class="sc-foto ${fon?'on':'off'}" onclick="cambiaFoto('${f.chiave}')"><img src="${esc(f.url)}" loading="lazy" alt=""><span class="sc-check">${fon?'✓':''}</span></div>`; }).join('')}</div>`
+        : `<div class="sc-vuoto">Nessuna foto</div>`;
+      return `<div class="sc-sal ${on?'':'spento'}">
+        <label class="sc-head"><input type="checkbox" ${on?'checked':''} onchange="cambiaSal(${vi},this.checked)"> SAL del ${esc(dataIt(v.s.data)||'-')}${v.s.perc?` · ${esc(v.s.perc)}%`:''}${v.foto.length?` · ${v.foto.filter(f=>scelto(f.chiave)).length} di ${v.foto.length} foto`:''}</label>
+        ${v.s.desc?`<div class="sc-desc">${esc(v.s.desc)}</div>`:''}
+        ${fotoHtml}
+      </div>`;
+    }).join('') +
+    `<button class="rep-btn print" style="width:100%;min-height:44px;margin-top:4px" onclick="mostraScelta()">✓ Fatto, vedi anteprima</button>`;
+}
+function cambiaSal(vi, on){ const k = repVoci[vi].chiave; if(on) repEsclusi.delete(k); else repEsclusi.add(k); renderScelta(); aggiornaBottoneScelta(); }
+function cambiaFoto(chiave){ if(repEsclusi.has(chiave)) repEsclusi.delete(chiave); else repEsclusi.add(chiave); renderScelta(); aggiornaBottoneScelta(); }
+function tutteFoto(vi, on){ repVoci[vi].foto.forEach(f=>{ if(on) repEsclusi.delete(f.chiave); else repEsclusi.add(f.chiave); }); renderScelta(); aggiornaBottoneScelta(); }
+function aggiornaBottoneScelta(){
+  const voci = repVoci.filter(v=>scelto(v.chiave));
+  const tot = repVoci.reduce((a,v)=>a+v.foto.length,0);
+  const sel = voci.reduce((a,v)=>a+v.foto.filter(f=>scelto(f.chiave)).length,0);
+  const aperta = g('rep-scelta').classList.contains('show');
+  g('rep-scegli').textContent = aperta ? '👁 Anteprima'
+    : `Scegli SAL e foto (${voci.length}/${repVoci.length} SAL` + (tot&&sezioneScelta('foto')?`, ${sel}/${tot} foto)`:')');
+}
+
+// Contenuto del report, uguale per anteprima e PDF.
+function datiReport(){
+  const c = getCantieri().find(x=>x.id===currentCantId) || {};
+  const oggi = new Date().toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'});
+  const conCliente = sezioneScelta('cliente');
+  const sezioni = [];
+  if(conCliente)
+    sezioni.push({titolo:'Cliente', righe:[['Cliente',c.cliente||'-'],['Commessa',c.commessa||'']].filter(r=>r[1])});
+  if(sezioneScelta('cantiere')){
+    const fine = c.dataFine ? ['Fine lavori',dataIt(c.dataFine)] : ['Fine lavori prevista',dataIt(c.dataFinePrevista)];
+    sezioni.push({titolo:'Cantiere', righe:[['Indirizzo',c.indirizzo||'-'],['Responsabile',c.resp||''],['Inizio lavori',dataIt(c.dataInizio)],fine].filter(r=>r[1])});
+  }
+  const conDesc = sezioneScelta('desc'), conPerc = sezioneScelta('perc'), conFoto = sezioneScelta('foto');
+  let num = 0;
+  repVoci.filter(v=>scelto(v.chiave)).forEach(v=>{
+    const foto = conFoto ? v.foto.filter(f=>scelto(f.chiave)).map(f=>({url:f.url, num:++num})) : [];
+    const testo = conDesc ? (v.s.desc||'') : '';
+    const perc = conPerc && v.s.perc ? ` - Avanzamento ${v.s.perc}%` : '';
+    if(!testo && !foto.length && !perc) return;
+    sezioni.push({titolo:`SAL del ${dataIt(v.s.data)||'-'}${perc}`, testo: testo||null, foto});
+  });
+  const nomeCommessa = (c.commessa||'senza_commessa').replace(/[^\w\-]+/g,'_');
+  return {
+    intestazione: 'STATO AVANZAMENTO LAVORI',
+    sottotitolo: c.titolo||'',
+    info: `Data: ${oggi}`,
+    sezioni,
+    firme: conCliente ? [[c.resp,'Responsabile cantiere'],[c.cliente,'Cliente - presa visione']] : null,
+    nomeFile: conCliente ? `SAL_${nomeCommessa}_${oggi.replace(/\//g,'-')}.pdf` : `SAL_${oggi.replace(/\//g,'-')}.pdf`,
+    titoloDoc: 'Stato avanzamento lavori'
+  };
+}
+
+function aggiornaAnteprima(){
+  aggiornaBottoneScelta();
+  const d = datiReport();
+  const fotoHtml = lista => {
+    let h = '<table style="width:100%;border-collapse:separate;border-spacing:4mm 3mm">';
+    for(let i=0;i<lista.length;i+=2){
+      h += '<tr>';
+      for(let j=0;j<2;j++){
+        const f = lista[i+j];
+        h += f?`<td style="vertical-align:top;padding:0;text-align:center;width:50%"><div style="font-size:7px;color:${COLORI_REPORT.grigio};margin-bottom:2px;font-weight:700;letter-spacing:1px">FOTO ${f.num}</div><img src="${esc(f.url)}" style="width:100%;max-height:62mm;object-fit:contain;border-radius:4px;border:1px solid ${COLORI_REPORT.riga};display:block"></td>`:'<td style="width:50%"></td>';
       }
-      fotoRows+='</table>';
+      h += '</tr>';
     }
-    return `<div class="sec"><div class="stitle">📅 ${d}${s.perc?` — Avanzamento ${s.perc}%`:''}</div><div class="btext">${s.desc||''}</div>${fotoRows}</div>`;
-  }).join('');
-
-  const oggi = new Date().toLocaleDateString('it-IT');
-  const html=`<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SAL — ${c.titolo||c.cliente||'—'}</title>
-<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:#fff;color:#1A1612;padding:12px 16px;max-width:720px;margin:0 auto;font-size:13px;}.hdr{border-bottom:3px solid #D4511E;padding-bottom:10px;margin-bottom:14px;}.ttl{font-size:19px;font-weight:700;}.sub{font-size:11px;color:#9C9088;margin-top:2px;}.sec{margin-bottom:10px;}.stitle{font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#D4511E;border-bottom:1px solid #E8E2D9;padding-bottom:3px;margin-bottom:6px;break-after:avoid;page-break-after:avoid;}.btext{font-size:12px;line-height:1.7;white-space:pre-wrap;}@page{margin:12mm;}@media print{body{padding:0;max-width:none;}}</style></head><body>
-<div class="hdr"><div class="ttl">S.A.L. — ${c.titolo||c.cliente||'—'}</div><div class="sub">${c.cliente||''} · ${c.indirizzo||''}</div><div class="sub">Esportato il ${oggi}</div></div>
-${entriesHtml}
+    return h + '</table>';
+  };
+  const corpo = s => {
+    if(s.righe) return `<table class="info">${s.righe.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join('')}</table>`;
+    return (s.testo?`<div class="btext">${esc(s.testo)}</div>`:'') + (s.foto&&s.foto.length?fotoHtml(s.foto):'');
+  };
+  const vuoto = !d.sezioni.length ? `<div style="padding:30px 0;text-align:center;color:${COLORI_REPORT.grigio}">Niente da esportare: scegli almeno una sezione o un SAL.</div>` : '';
+  const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(d.titoloDoc)}</title>
+<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;background:#fff;color:${COLORI_REPORT.testo};padding:12px 16px;max-width:720px;margin:0 auto;font-size:13px;}.hdr{border-bottom:3px solid ${COLORI_REPORT.accento};padding-bottom:10px;margin-bottom:14px;display:flex;align-items:flex-start;gap:12px;}.hdr-txt{flex:1;min-width:0;}.hdr-logo{max-width:min(${LOGO_MAX_W*3.78}px,45%);max-height:${LOGO_MAX_H*3.78}px;object-fit:contain;}.ttl{font-size:16px;font-weight:700;color:${COLORI_REPORT.titoli};}.sub{font-size:12px;color:${COLORI_REPORT.grigio};margin-top:2px;}.sec{margin-bottom:10px;}.stitle{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${COLORI_REPORT.titoli};border-bottom:1px solid ${COLORI_REPORT.riga};padding-bottom:3px;margin-bottom:6px;}table.info{width:100%;border-collapse:collapse;}table.info td{padding:6px 8px;border:1px solid ${COLORI_REPORT.riga};font-size:12px;vertical-align:top;}table.info td:first-child{background:${COLORI_REPORT.fondino};font-weight:600;color:${COLORI_REPORT.label};width:28%;}.btext{font-size:12px;line-height:1.7;white-space:pre-wrap;}.firma-box{margin-top:8mm;padding-top:10px;border-top:1px solid ${COLORI_REPORT.riga};display:grid;grid-template-columns:1fr 1fr;gap:16px;}.fl{font-size:12px;color:${COLORI_REPORT.grigio};}.fl strong{display:block;font-size:12px;color:${COLORI_REPORT.testo};margin-bottom:12px;}.fline{border-bottom:1px solid #ccc;height:16px;margin-top:3px;}</style></head><body>
+<div class="hdr"><div class="hdr-txt"><div class="ttl">${d.intestazione}</div>${d.sottotitolo?`<div class="sub">${esc(d.sottotitolo)}</div>`:''}<div class="sub">${esc(d.info)}</div></div><img class="hdr-logo" src="${esc(new URL(LOGO_REPORT, location.href).href)}" alt="" onerror="this.remove()"></div>
+${d.sezioni.map(s=>`<div class="sec"><div class="stitle">${esc(s.titolo)}</div>${corpo(s)}</div>`).join('')}${vuoto}
+${d.firme?`<div class="firma-box">${d.firme.map(f=>`<div class="fl"><strong>${esc(f[0])||'&nbsp;'}</strong><div>${esc(f[1])}</div><div class="fline"></div><div style="margin-top:3px">Firma</div></div>`).join('')}</div>`:''}
 </body></html>`;
-
-  const frame=g('report-frame'); const overlay=g('report-overlay'); overlay.classList.add('show');
-  const doc=frame.contentDocument||frame.contentWindow.document;
+  const doc = g('report-frame').contentDocument || g('report-frame').contentWindow.document;
   doc.open(); doc.write(html); doc.close();
 }
 
-function chiudiReport(){ g('report-overlay').classList.remove('show'); }
+function chiudiReport(){ g('report-overlay').classList.remove('show'); g('rep-scelta').classList.remove('show'); }
+
+// jsPDF si carica solo quando serve (non pesa sull'apertura della pagina).
+let jspdfPromise = null;
+function caricaJsPDF(){
+  if(window.jspdf) return Promise.resolve();
+  if(!jspdfPromise) jspdfPromise = new Promise((ok,ko)=>{
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/jspdf@4.2.1/dist/jspdf.umd.min.js';
+    s.integrity = 'sha384-qovJwSBbRDPP5cEjCp8S0UP66wrvnjaa60XMOGzTNanrThcrGfXfnZkvgY8N1KT3';
+    s.crossOrigin = 'anonymous';
+    s.onload = ()=>ok();
+    s.onerror = ()=>{ jspdfPromise = null; ko(new Error('jsPDF non caricato')); };
+    document.head.appendChild(s);
+  });
+  return jspdfPromise;
+}
+
+// Scarica la foto e la riduce (max 1600 px, JPEG): il PDF resta leggero da inviare.
+async function fotoPerPdf(url){
+  const blob = await (await fetch(url)).blob();
+  const src = URL.createObjectURL(blob);
+  try{
+    const img = await new Promise((ok,ko)=>{ const i=new Image(); i.onload=()=>ok(i); i.onerror=ko; i.src=src; });
+    const k = Math.min(1, 1600/Math.max(img.naturalWidth,img.naturalHeight));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.naturalWidth*k); c.height = Math.round(img.naturalHeight*k);
+    const ctx = c.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,c.width,c.height);
+    ctx.drawImage(img,0,0,c.width,c.height);
+    return {data:c.toDataURL('image/jpeg',0.82), w:c.width, h:c.height};
+  } finally { URL.revokeObjectURL(src); }
+}
+
+// Logo per il PDF in PNG (tiene la trasparenza). null se il file non c'e'.
+async function logoPerPdf(){
+  const r = await fetch(LOGO_REPORT, {cache:'no-cache'});
+  if(!r.ok) return null;
+  const src = URL.createObjectURL(await r.blob());
+  try{
+    const img = await new Promise((ok,ko)=>{ const i=new Image(); i.onload=()=>ok(i); i.onerror=ko; i.src=src; });
+    const k = Math.min(1, 800/Math.max(img.naturalWidth,img.naturalHeight));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.naturalWidth*k); c.height = Math.round(img.naturalHeight*k);
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    return {data:c.toDataURL('image/png'), w:c.width, h:c.height};
+  } finally { URL.revokeObjectURL(src); }
+}
+
+// I font standard del PDF non hanno emoji e alcuni simboli: li sostituisco.
+function testoPdf(t){
+  return String(t??'')
+    .replace(/[‘’‛]/g,"'").replace(/[“”]/g,'"')
+    .replace(/[–—]/g,'-').replace(/…/g,'...').replace(/ /g,' ')
+    .replace(/[^\n\x20-\x7E¡-ÿ€]/g,'');
+}
+
+async function esportaPdf(){
+  const btn = g('rep-pdf');
+  if(btn.disabled) return;
+  btn.disabled = true; const etichetta = btn.textContent; btn.textContent = '⏳ Creo PDF...';
+  try{
+    const d = datiReport();
+    if(!d.sezioni.length){ toast('Scegli almeno una sezione o un SAL da esportare','err'); return; }
+    await caricaJsPDF();
+    const pdf = new window.jspdf.jsPDF({unit:'mm', format:'a4'});
+    pdf.setProperties({title:d.titoloDoc, creator:'CommessaPro'});
+    const M = 12, W = 210-2*M, H = 297, FONDO = H-M-6;
+    const ACCENTO=rgbReport('accento'), TITOLI=rgbReport('titoli'), GRIGIO=rgbReport('grigio'), RIGA=rgbReport('riga'), FONDINO=rgbReport('fondino'), LABEL=rgbReport('label'), TESTO=rgbReport('testo');
+    let y = M;
+    const pagina = h => { if(y+h>FONDO){ pdf.addPage(); y=M; return true; } return false; };
+    const font = (stile,pt,col) => { pdf.setFont('helvetica',stile); pdf.setFontSize(pt); pdf.setTextColor(...col); };
+    const LH = pt => pt*0.3528*1.45;
+
+    // Intestazione: titolo e dati a sinistra, logo a destra (il testo non ci passa sotto).
+    const logo = await logoPerPdf().catch(()=>null);
+    let wTesto = W, fineLogo = y;
+    if(logo){
+      const k = Math.min(LOGO_MAX_W/logo.w, LOGO_MAX_H/logo.h), lw = logo.w*k, lh = logo.h*k;
+      pdf.addImage(logo.data,'PNG',M+W-lw,y,lw,lh,undefined,'FAST');
+      wTesto = W-lw-6; fineLogo = y+lh;
+    }
+    font('bold',14,TITOLI); pdf.text(d.intestazione, M, y+5); y += 7.5;
+    font('normal',9.5,GRIGIO);
+    [d.sottotitolo, d.info].filter(Boolean).forEach(r=>{
+      pdf.splitTextToSize(testoPdf(r), wTesto).forEach(l=>{ pdf.text(l, M, y+3.5); y += LH(9.5); });
+    });
+    y = Math.max(y, fineLogo) + 2; pdf.setDrawColor(...ACCENTO); pdf.setLineWidth(0.8); pdf.line(M,y,M+W,y); y += 6;
+
+    // Il titolo non resta mai da solo in fondo alla pagina: serve spazio anche per il contenuto.
+    const titoloSez = (t, spazio) => {
+      pagina(10+spazio);
+      font('bold',7.5,TITOLI); pdf.text(testoPdf(t).toUpperCase(), M, y+2.5, {charSpace:0.5});
+      y += 4; pdf.setDrawColor(...RIGA); pdf.setLineWidth(0.25); pdf.line(M,y,M+W,y); y += 2.5;
+    };
+    const tabella = (righe, colL) => {
+      righe.forEach(r=>{
+        font('normal',9.5,TESTO);
+        const lv = pdf.splitTextToSize(testoPdf(r[1]), W-colL-4);
+        const ll = pdf.splitTextToSize(testoPdf(r[0]), colL-4);
+        const h = Math.max(lv.length, ll.length)*LH(9.5) + 3.4;
+        pagina(h);
+        pdf.setDrawColor(...RIGA); pdf.setLineWidth(0.25);
+        pdf.setFillColor(...FONDINO); pdf.rect(M,y,colL,h,'FD'); pdf.rect(M+colL,y,W-colL,h);
+        font('bold',9.5,LABEL); pdf.text(ll, M+2, y+4.2, {lineHeightFactor:1.45});
+        font('normal',9.5,TESTO); pdf.text(lv, M+colL+2, y+4.2, {lineHeightFactor:1.45});
+        y += h;
+      });
+      y += 4;
+    };
+    const testo = t => {
+      font('normal',9.5,TESTO);
+      pdf.splitTextToSize(testoPdf(t), W).forEach(l=>{ pagina(LH(9.5)); pdf.text(l, M, y+3.4); y += LH(9.5); });
+      y += 4;
+    };
+    const griglia = async lista => {
+      const GAP = 4, CW = (W-GAP)/2, MAXH = 62;
+      let mancanti = 0;
+      const immagini = await Promise.all(lista.map(f=>fotoPerPdf(f.url).catch(()=>{ mancanti++; return null; })));
+      for(let i=0;i<immagini.length;i+=2){
+        const coppia = [immagini[i], immagini[i+1]];
+        const dim = coppia.map(im=>{ if(!im) return {w:CW,h:12}; const k=Math.min(CW/im.w, MAXH/im.h); return {w:im.w*k, h:im.h*k}; });
+        const h = 4 + Math.max(...dim.map(x=>x.h));
+        pagina(h+3);
+        coppia.forEach((im,j)=>{
+          if(i+j>=immagini.length) return;
+          const x = M + j*(CW+GAP);
+          font('bold',6,GRIGIO); pdf.text(`FOTO ${lista[i+j].num}`, x+CW/2, y+2.5, {align:'center', charSpace:0.3});
+          if(im){
+            const ix = x + (CW-dim[j].w)/2;
+            pdf.addImage(im.data,'JPEG',ix,y+4,dim[j].w,dim[j].h,undefined,'FAST');
+            pdf.setDrawColor(...RIGA); pdf.setLineWidth(0.25); pdf.rect(ix,y+4,dim[j].w,dim[j].h);
+          } else {
+            pdf.setDrawColor(...RIGA); pdf.rect(x,y+4,CW,12);
+            font('normal',8,GRIGIO); pdf.text('Foto non disponibile', x+CW/2, y+11, {align:'center'});
+          }
+        });
+        y += h + 3;
+      }
+      y += 2;
+      return mancanti;
+    };
+
+    let mancanti = 0;
+    for(const s of d.sezioni){
+      // Titolo, descrizione e prima riga di foto restano sulla stessa pagina
+      // (se la descrizione e' molto lunga si spezza comunque).
+      let spazio = 12;
+      if(!s.righe){
+        font('normal',9.5,TESTO);
+        const hTesto = s.testo ? pdf.splitTextToSize(testoPdf(s.testo), W).length*LH(9.5)+4 : 0;
+        spazio = Math.min(200, Math.max(12, hTesto + (s.foto&&s.foto.length?70:0)));
+      }
+      titoloSez(s.titolo, spazio);
+      if(s.righe) tabella(s.righe, W*0.28);
+      else {
+        if(s.testo) testo(s.testo);
+        if(s.foto && s.foto.length) mancanti += await griglia(s.foto);
+      }
+    }
+
+    if(d.firme){
+      pagina(30); y += 4;
+      pdf.setDrawColor(...RIGA); pdf.setLineWidth(0.25); pdf.line(M,y,M+W,y); y += 5;
+      const CW = (W-6)/2;
+      d.firme.forEach((f,j)=>{
+        const x = M + j*(CW+6);
+        font('bold',9.5,TESTO); pdf.text(testoPdf(f[0]), x, y+3.5);
+        font('normal',8,GRIGIO); pdf.text(testoPdf(f[1]), x, y+9);
+        pdf.setDrawColor(204,204,204); pdf.line(x, y+17, x+CW, y+17);
+        pdf.text('Firma', x, y+21);
+      });
+      y += 24;
+    }
+
+    // Numero di pagina in fondo, nient'altro.
+    const n = pdf.getNumberOfPages();
+    for(let p=1;p<=n;p++){
+      pdf.setPage(p); font('normal',7.5,GRIGIO);
+      pdf.text(`Pagina ${p} di ${n}`, M+W, H-M+2, {align:'right'});
+    }
+    pdf.save(d.nomeFile);
+    toast(mancanti ? `PDF creato, ${mancanti} foto non scaricate` : '✓ PDF creato', mancanti?'err':'ok');
+  } catch(e){
+    console.error(e);
+    toast('PDF non creato: controlla la connessione e riprova','err');
+  } finally {
+    btn.disabled = false; btn.textContent = etichetta;
+  }
+}
 
 // ── ESPORTA WORD: solo foto, griglia 2×2 da template ──
 function fotoCoverJpeg(url){

@@ -39,6 +39,14 @@ Futuro prodotto SaaS: il codice deve restare pulito e riutilizzabile.
     caricato. Ognuno vede e segna "Visto" (`letta_il`) solo le proprie; nessun insert
     dall'app, nessun delete. Pagina `notifiche.html`, in Home la scheda Notifiche
     (ambra con il conteggio) compare solo se `riceve_notifiche()` e' vero.
+- `sal.html`, "Esporta" (dal 16/11/2026): Report PDF dei SAL fatto come quello del
+  sopralluogo (jsPDF, `LOGO_REPORT`, `COLORI_REPORT`, nessun URL nel PDF). Spunte per
+  sezione: Cliente (cliente e commessa, con le firme), Cantiere, Descrizione lavori,
+  Avanzamento %, Foto. "Scegli SAL e foto" permette di togliere singoli SAL e singole
+  foto (anteprima, di base c'e' tutto). SAL dal piu' vecchio al piu' recente, foto
+  numerate di seguito. Le foto sono quelle di `sal_foto` agganciate alla voce SAL.
+  Senza Cliente niente firme e niente commessa nel nome del file. Il Word (solo foto)
+  resta com'era.
 - `archivio.html`: crea il pacchetto ZIP della commessa (scheda, foto scaricate,
   giornate in CSV, dati.json) e poi marca `archiviato:true` su sopralluogo e
   cantiere. Non cancella nulla dal bucket Foto.
