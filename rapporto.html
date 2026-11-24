@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CommessaPro">
 <meta name="theme-color" content="#0F0D0A">
@@ -20,7 +20,7 @@ html,body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--whi
 .topbar-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;}
 .btn-back{color:var(--muted);background:none;border:none;cursor:pointer;font-size:22px;padding:0;}
 .btn-top{background:var(--sand-dim);color:var(--sand);border:none;border-radius:10px;padding:7px 12px;min-height:40px;min-width:40px;font-family:Epilogue,sans-serif;font-size:13px;font-weight:500;cursor:pointer;}
-.content{padding:16px 16px 120px;}
+.content{padding:16px 16px calc(120px + env(safe-area-inset-bottom,0px));}
 .section{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px;margin-bottom:14px;}
 .sec-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--sand);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
 .sec-icon{width:28px;height:28px;background:var(--brick-dim);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
@@ -36,7 +36,9 @@ textarea{resize:none;min-height:70px;line-height:1.5;}
 .btn-main:active{transform:scale(.98);}
 .btn-main.green{background:var(--green);}
 .btn-main.sec{background:var(--surface2);color:var(--white);border:1px solid var(--border);}
-.bottom-bar{position:fixed;bottom:0;left:0;right:0;padding:12px 16px;padding-bottom:max(12px,env(safe-area-inset-bottom));background:linear-gradient(to top,var(--bg) 70%,transparent);z-index:100;display:flex;gap:10px;}
+/* Chrome Android (dalla 135) disegna la pagina sotto la barra di navigazione quando la barra degli indirizzi
+   scorre via: la barra in basso si alza dello spazio occupato dalla navigazione (viewport-fit=cover nel meta). */
+.bottom-bar{position:fixed;bottom:env(safe-area-inset-bottom,0px);left:0;right:0;padding:12px 16px;background:linear-gradient(to top,var(--bg) 70%,transparent);z-index:100;display:flex;gap:10px;}
 .bottom-bar .btn-main{flex:1;}
 .toast.ok{background:var(--green);color:#fff;}
 .toast.err{background:#C8441A;color:#fff;}
